@@ -1,0 +1,1 @@
+export function ConfiguracoesPage(){return <div className="p-4 md:p-8"><div className="card p-6"><h1 className="text-2xl font-bold">Configuracoes</h1><p className="text-slate-500 mt-2">Módulo preparado para a próxima etapa.</p></div></div>}
