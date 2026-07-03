@@ -158,6 +158,25 @@ export function FinanceiroPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  async function marcarComoPago(item: Lancamento) {
+    const forma = prompt('Forma de pagamento:', item.forma_pagamento || 'Pix')
+    if (!forma) return
+
+    const hoje = new Date().toISOString().slice(0, 10)
+
+    const { error } = await supabase
+      .from('lancamentos_financeiros')
+      .update({
+        status: 'Pago',
+        data_pagamento: hoje,
+        forma_pagamento: forma
+      })
+      .eq('id', item.id)
+
+    if (error) return setErro(error.message)
+    carregar()
+  }
+
   async function excluir(id: string) {
     if (!confirm('Deseja excluir este lançamento financeiro?')) return
     const { error } = await supabase.from('lancamentos_financeiros').delete().eq('id', id)
@@ -292,6 +311,9 @@ export function FinanceiroPage() {
                 </span>
 
                 <div className="flex gap-2">
+                  {item.status === 'Pendente' && (
+                    <Button onClick={() => marcarComoPago(item)}>Receber</Button>
+                  )}
                   <Button variant="secondary" onClick={() => editar(item)}>Editar</Button>
                   <Button variant="danger" onClick={() => excluir(item.id)}>Excluir</Button>
                 </div>
