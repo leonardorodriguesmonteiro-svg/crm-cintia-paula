@@ -5,11 +5,16 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { Select } from '@/components/ui/Select'
 
 export function ReservaDetalhePage({ id }: { id: string }) {
   const [reserva, setReserva] = useState<any>(null)
   const [recebimentos, setRecebimentos] = useState<any[]>([])
   const [erro, setErro] = useState('')
+  const [valorRecebido, setValorRecebido] = useState(0)
+  const [formaPagamento, setFormaPagamento] = useState('Pix')
+  const [salvando, setSalvando] = useState(false)
 
   async function carregar() {
     const reservaRes = await supabase
@@ -35,17 +40,50 @@ export function ReservaDetalhePage({ id }: { id: string }) {
     carregar()
   }, [id])
 
-  if (erro) {
-    return <div className="p-8 text-red-700">{erro}</div>
-  }
-
-  if (!reserva) {
-    return <div className="p-8 text-slate-500">Carregando reserva...</div>
-  }
-
-  const valorTotal = Number(reserva.valor_total || 0)
+  const valorTotal = Number(reserva?.valor_total || 0)
   const recebido = recebimentos.reduce((t, r) => t + Number(r.valor || 0), 0)
   const saldo = Math.max(valorTotal - recebido, 0)
+
+  async function registrarRecebimento(e: React.FormEvent) {
+    e.preventDefault()
+    setErro('')
+    setSalvando(true)
+
+    if (valorRecebido <= 0) {
+      setErro('Informe um valor recebido maior que zero.')
+      setSalvando(false)
+      return
+    }
+
+    if (valorRecebido > saldo) {
+      setErro('O valor recebido não pode ser maior que o saldo da reserva.')
+      setSalvando(false)
+      return
+    }
+
+    const { error } = await supabase.from('recebimentos').insert({
+      reserva_id: id,
+      valor: valorRecebido,
+      data_recebimento: new Date().toISOString().slice(0, 10),
+      forma_pagamento: formaPagamento,
+      status: 'Pago',
+      observacoes: 'Recebimento registrado pelo Centro da Reserva.'
+    })
+
+    if (error) {
+      setErro(error.message)
+      setSalvando(false)
+      return
+    }
+
+    setValorRecebido(0)
+    setFormaPagamento('Pix')
+    setSalvando(false)
+    carregar()
+  }
+
+  if (erro) return <div className="p-8 text-red-700">{erro}</div>
+  if (!reserva) return <div className="p-8 text-slate-500">Carregando reserva...</div>
 
   return (
     <div className="space-y-6 p-4 md:p-8 pb-28">
@@ -115,6 +153,34 @@ export function ReservaDetalhePage({ id }: { id: string }) {
 
         <Card>
           <h2 className="text-lg font-semibold text-slate-900">Financeiro</h2>
+
+          <form onSubmit={registrarRecebimento} className="mt-4 space-y-4 rounded-2xl border bg-slate-50 p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <Input
+                label="Valor recebido"
+                type="number"
+                value={valorRecebido}
+                onChange={e => setValorRecebido(Number(e.target.value))}
+              />
+
+              <Select
+                label="Forma de pagamento"
+                value={formaPagamento}
+                onChange={e => setFormaPagamento(e.target.value)}
+              >
+                <option>Pix</option>
+                <option>Cartão</option>
+                <option>Dinheiro</option>
+                <option>Transferência</option>
+                <option>Boleto</option>
+              </Select>
+            </div>
+
+            <Button type="submit" disabled={salvando || saldo <= 0}>
+              {salvando ? 'Registrando...' : saldo <= 0 ? 'Reserva quitada' : 'Registrar recebimento'}
+            </Button>
+          </form>
+
           <div className="mt-4 space-y-3">
             {recebimentos.map((item) => (
               <div key={item.id} className="rounded-xl border p-3 text-sm">
