@@ -13,36 +13,37 @@ import {
   Wallet,
   Settings,
   LogOut,
-  Layers3
+  Layers3,
+  ClipboardList
 } from 'lucide-react'
 
 const grupos = [
   {
-    titulo: 'Principal',
+    titulo: 'Dashboard',
     items: [
-      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard }
+      { label: 'Início', href: '/dashboard', icon: LayoutDashboard }
     ]
   },
   {
-    titulo: 'Cadastros',
+    titulo: 'Comercial',
     items: [
       { label: 'Clientes', href: '/clientes', icon: Users },
-      { label: 'Kits', href: '/kits', icon: Package },
-      { label: 'Estoque', href: '/estoque', icon: Boxes },
-      { label: 'Composição', href: '/kits/composicao', icon: Layers3 }
+      { label: 'Reservas', href: '/reservas', icon: ClipboardList },
+      { label: 'Agenda', href: '/agenda', icon: CalendarDays },
+      { label: 'Contratos', href: '/contratos', icon: FileText }
     ]
   },
   {
     titulo: 'Operação',
     items: [
-      { label: 'Reservas', href: '/reservas', icon: CalendarDays }
+      { label: 'Kits', href: '/kits', icon: Package },
+      { label: 'Composição', href: '/kits/composicao', icon: Layers3 },
+      { label: 'Estoque', href: '/estoque', icon: Boxes }
     ]
   },
   {
-{ label: 'Agenda', href: '/agenda', icon: CalendarDays },
     titulo: 'Gestão',
     items: [
-      { label: 'Contratos', href: '/contratos', icon: FileText },
       { label: 'Financeiro', href: '/financeiro', icon: Wallet },
       { label: 'Configurações', href: '/configuracoes', icon: Settings }
     ]
@@ -52,11 +53,11 @@ const grupos = [
 const mobileItems = [
   { label: 'Início', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Clientes', href: '/clientes', icon: Users },
+  { label: 'Reservas', href: '/reservas', icon: ClipboardList },
+  { label: 'Agenda', href: '/agenda', icon: CalendarDays },
   { label: 'Kits', href: '/kits', icon: Package },
   { label: 'Estoque', href: '/estoque', icon: Boxes },
-  { label: 'Comp.', href: '/kits/composicao', icon: Layers3 },
-  { label: 'Reservas', href: '/reservas', icon: CalendarDays },
-  { label: 'Financ.', href: '/financeiro', icon: Wallet },
+  { label: 'Financeiro', href: '/financeiro', icon: Wallet },
   { label: 'Config.', href: '/configuracoes', icon: Settings }
 ]
 
@@ -75,7 +76,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-slate-50 md:flex">
-      <aside className="hidden md:flex w-76 min-w-72 flex-col border-r bg-white p-6">
+      <aside className="hidden md:flex w-72 flex-col border-r bg-white p-6">
         <div className="mb-8">
           <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-pink-100 text-pink-700 font-bold">
             CP
@@ -93,8 +94,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
               <div className="space-y-1">
                 {grupo.items.map((item) => {
-                  const active = isActive(item.href)
                   const Icon = item.icon
+                  const active = isActive(item.href)
 
                   return (
                     <Link
