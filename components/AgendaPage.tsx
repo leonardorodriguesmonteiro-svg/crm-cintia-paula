@@ -1,10 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
+import { Button } from '@/components/ui/Button'
 
 type Reserva = {
   id: string
@@ -17,11 +19,20 @@ type Reserva = {
   kits: { nome: string; codigo: string | null } | null
 }
 
+const statusClass: Record<string, string> = {
+  Pendente: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+  Confirmada: 'bg-green-50 text-green-700 border-green-200',
+  'Em andamento': 'bg-blue-50 text-blue-700 border-blue-200',
+  Concluída: 'bg-slate-100 text-slate-700 border-slate-200',
+  Cancelada: 'bg-red-50 text-red-700 border-red-200'
+}
+
 export function AgendaPage() {
   const [reservas, setReservas] = useState<Reserva[]>([])
   const [erro, setErro] = useState('')
   const [busca, setBusca] = useState('')
   const [status, setStatus] = useState('Todos')
+  const [mesAtual, setMesAtual] = useState(new Date())
 
   async function carregar() {
     const { data, error } = await supabase
@@ -29,11 +40,7 @@ export function AgendaPage() {
       .select('id,data_evento,horario_evento,endereco_evento,status,valor_total,clientes(nome),kits(nome,codigo)')
       .order('data_evento', { ascending: true })
 
-    if (error) {
-      setErro(error.message)
-      return
-    }
-
+    if (error) return setErro(error.message)
     setReservas((data as any) || [])
   }
 
@@ -42,40 +49,86 @@ export function AgendaPage() {
   }, [])
 
   const filtradas = useMemo(() => {
-    const termo = busca.toLowerCase()
+    const termo = busca.trim().toLowerCase()
 
-    return reservas.filter((reserva) => {
+    return reservas.filter((reserva: any) => {
+      const kit = Array.isArray(reserva.kits) ? reserva.kits[0] : reserva.kits
+      const cliente = Array.isArray(reserva.clientes) ? reserva.clientes[0] : reserva.clientes
+
       const texto = [
         reserva.data_evento,
         reserva.horario_evento,
         reserva.status,
-        reserva.clientes?.nome,
-        reserva.kits?.nome,
-        reserva.kits?.codigo,
+        cliente?.nome,
+        kit?.nome,
+        kit?.codigo,
         reserva.endereco_evento
-      ].join(' ').toLowerCase()
+      ].filter(Boolean).join(' ').toLowerCase()
 
-      const passaBusca = texto.includes(termo)
+      const passaBusca = !termo || texto.includes(termo)
       const passaStatus = status === 'Todos' || reserva.status === status
 
       return passaBusca && passaStatus
     })
   }, [reservas, busca, status])
 
-  const agrupadas = useMemo(() => {
+  const ano = mesAtual.getFullYear()
+  const mes = mesAtual.getMonth()
+
+  const diasDoMes = useMemo(() => {
+    const primeiroDia = new Date(ano, mes, 1)
+    const ultimoDia = new Date(ano, mes + 1, 0)
+    const inicioSemana = primeiroDia.getDay()
+    const totalDias = ultimoDia.getDate()
+
+    const dias: Array<{ data: Date | null; chave: string | null }> = []
+
+    for (let i = 0; i < inicioSemana; i++) {
+      dias.push({ data: null, chave: null })
+    }
+
+    for (let dia = 1; dia <= totalDias; dia++) {
+      const data = new Date(ano, mes, dia)
+      const chave = data.toISOString().slice(0, 10)
+      dias.push({ data, chave })
+    }
+
+    return dias
+  }, [ano, mes])
+
+  const reservasPorDia = useMemo(() => {
     return filtradas.reduce<Record<string, Reserva[]>>((acc, reserva) => {
-      const data = reserva.data_evento || 'Sem data'
+      const data = reserva.data_evento
       if (!acc[data]) acc[data] = []
       acc[data].push(reserva)
       return acc
     }, {})
   }, [filtradas])
 
+  function mesAnterior() {
+    setMesAtual(new Date(ano, mes - 1, 1))
+  }
+
+  function proximoMes() {
+    setMesAtual(new Date(ano, mes + 1, 1))
+  }
+
+  const nomeMes = mesAtual.toLocaleDateString('pt-BR', {
+    month: 'long',
+    year: 'numeric'
+  })
+
   return (
     <div className="space-y-6 p-4 md:p-8 pb-28">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">Agenda</h1>
-        <p className="text-slate-500">Visualize as reservas organizadas por data.</p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Agenda</h1>
+          <p className="text-slate-500">Visualize reservas no calendário mensal.</p>
+        </div>
+
+        <Link href="/reservas">
+          <Button>Nova reserva</Button>
+        </Link>
       </div>
 
       {erro && (
@@ -88,7 +141,7 @@ export function AgendaPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
             label="Buscar"
-            placeholder="Cliente, kit, endereço..."
+            placeholder="Cliente, kit, código, endereço..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />
@@ -104,62 +157,71 @@ export function AgendaPage() {
         </div>
       </Card>
 
-      <div className="space-y-5">
-        {Object.entries(agrupadas).map(([data, lista]) => (
-          <Card key={data}>
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">
-                {new Date(data + 'T00:00:00').toLocaleDateString('pt-BR', {
-                  weekday: 'long',
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric'
-                })}
-              </h2>
-              <p className="text-sm text-slate-500">{lista.length} reserva(s)</p>
-            </div>
+      <Card>
+        <div className="flex items-center justify-between mb-5">
+          <Button variant="secondary" onClick={mesAnterior}>Mês anterior</Button>
+          <h2 className="text-lg md:text-xl font-bold text-slate-900 capitalize">{nomeMes}</h2>
+          <Button variant="secondary" onClick={proximoMes}>Próximo mês</Button>
+        </div>
 
-            <div className="space-y-3">
-              {lista.map((reserva) => (
-                <div key={reserva.id} className="rounded-2xl border p-4 bg-white">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-slate-900">
-                        {reserva.horario_evento || 'Horário não informado'} • {reserva.clientes?.nome || 'Cliente não informado'}
-                      </p>
-                      <p className="text-sm text-slate-500">
-                        {reserva.kits?.codigo ? `${reserva.kits.codigo} - ` : ''}{reserva.kits?.nome || 'Kit não informado'}
-                      </p>
-                      {reserva.endereco_evento && (
-                        <p className="text-sm text-slate-600 mt-1">
-                          Local: {reserva.endereco_evento}
-                        </p>
-                      )}
-                    </div>
+        <div className="hidden md:grid grid-cols-7 gap-2 mb-2 text-center text-xs font-semibold uppercase text-slate-400">
+          <div>Dom</div>
+          <div>Seg</div>
+          <div>Ter</div>
+          <div>Qua</div>
+          <div>Qui</div>
+          <div>Sex</div>
+          <div>Sáb</div>
+        </div>
 
-                    <div className="flex flex-col md:items-end gap-2">
-                      <span className="text-xs bg-pink-50 text-pink-700 rounded-full px-3 py-1 w-fit">
-                        {reserva.status}
-                      </span>
-                      <span className="text-sm text-slate-600">
-                        R$ {Number(reserva.valor_total || 0).toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
+        <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
+          {diasDoMes.map((dia, index) => {
+            if (!dia.data || !dia.chave) {
+              return <div key={index} className="hidden md:block min-h-28 rounded-2xl border bg-slate-50" />
+            }
+
+            const lista = reservasPorDia[dia.chave] || []
+
+            return (
+              <div key={dia.chave} className="min-h-28 rounded-2xl border bg-white p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="font-bold text-slate-900">
+                    {dia.data.getDate()}
+                  </span>
+                  <span className="md:hidden text-xs text-slate-500 capitalize">
+                    {dia.data.toLocaleDateString('pt-BR', { weekday: 'long' })}
+                  </span>
                 </div>
-              ))}
-            </div>
-          </Card>
-        ))}
 
-        {filtradas.length === 0 && (
-          <Card>
-            <div className="rounded-2xl border border-dashed p-8 text-center text-slate-500">
-              Nenhuma reserva encontrada na agenda.
-            </div>
-          </Card>
-        )}
-      </div>
+                <div className="space-y-2">
+                  {lista.slice(0, 3).map((reserva: any) => {
+                    const kit = Array.isArray(reserva.kits) ? reserva.kits[0] : reserva.kits
+                    const cliente = Array.isArray(reserva.clientes) ? reserva.clientes[0] : reserva.clientes
+                    const classe = statusClass[reserva.status || ''] || 'bg-slate-50 text-slate-700 border-slate-200'
+
+                    return (
+                      <Link key={reserva.id} href="/reservas">
+                        <div className={`rounded-xl border px-2 py-1.5 text-xs ${classe}`}>
+                          <p className="font-semibold truncate">
+                            {reserva.horario_evento || '--:--'} • {cliente?.nome || 'Cliente'}
+                          </p>
+                          <p className="truncate">
+                            {kit?.nome || 'Kit'}
+                          </p>
+                        </div>
+                      </Link>
+                    )
+                  })}
+
+                  {lista.length > 3 && (
+                    <p className="text-xs text-slate-500">+ {lista.length - 3} reserva(s)</p>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </Card>
     </div>
   )
 }
