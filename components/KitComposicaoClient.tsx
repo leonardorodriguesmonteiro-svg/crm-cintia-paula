@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Card } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
+import { Select } from '@/components/ui/Select'
+import { Input } from '@/components/ui/Input'
+import { Textarea } from '@/components/ui/Textarea'
 
 type Kit = { id: string; nome: string; codigo: string | null }
 type Item = { id: string; nome: string; codigo: string | null; quantidade_disponivel: number | null }
@@ -77,11 +82,7 @@ export function KitComposicaoClient() {
     })
 
     if (error) {
-      if (error.message.includes('duplicate')) {
-        setErro('Este item já faz parte da composição deste kit.')
-      } else {
-        setErro(error.message)
-      }
+      setErro(error.message.includes('duplicate') ? 'Este item já faz parte da composição deste kit.' : error.message)
       return
     }
 
@@ -93,96 +94,100 @@ export function KitComposicaoClient() {
 
   async function remover(id: string) {
     if (!confirm('Remover este item da composição do kit?')) return
-
     const { error } = await supabase.from('kit_composicao').delete().eq('id', id)
 
-    if (error) {
-      setErro(error.message)
-      return
-    }
-
+    if (error) return setErro(error.message)
     carregarComposicao(kitId)
   }
 
+  const kitSelecionado = kits.find(k => k.id === kitId)
+
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6 p-4 md:p-8 pb-28">
       <div>
         <h1 className="text-3xl font-bold text-slate-900">Composição dos Kits</h1>
-        <p className="text-slate-500">Monte cada kit usando itens cadastrados no estoque.</p>
+        <p className="text-slate-500">Monte cada kit com os itens cadastrados no estoque.</p>
       </div>
 
       {erro && (
-        <div className="rounded-lg bg-red-50 text-red-700 px-4 py-2 text-sm">
+        <div className="rounded-xl bg-red-50 text-red-700 px-4 py-3 text-sm">
           {erro}
         </div>
       )}
 
-      <div className="bg-white rounded-2xl border p-5 space-y-4">
-        <label className="block text-sm font-medium">Selecione o kit</label>
-        <select
-          className="border rounded-lg px-3 py-2 w-full"
-          value={kitId}
-          onChange={(e) => setKitId(e.target.value)}
-        >
-          <option value="">Escolha um kit...</option>
-          {kits.map((kit) => (
-            <option key={kit.id} value={kit.id}>
-              {kit.codigo ? `${kit.codigo} - ` : ''}{kit.nome}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {kitId && (
-        <form onSubmit={adicionar} className="bg-white rounded-2xl border p-5 space-y-4">
-          <h2 className="text-lg font-semibold">Adicionar item ao kit</h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <select
-              className="border rounded-lg px-3 py-2"
-              value={itemId}
-              onChange={(e) => setItemId(e.target.value)}
-            >
-              <option value="">Item do estoque...</option>
-              {itens.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.codigo ? `${item.codigo} - ` : ''}{item.nome} | Disp: {item.quantidade_disponivel || 0}
-                </option>
-              ))}
-            </select>
-
-            <input
-              type="number"
-              min="1"
-              className="border rounded-lg px-3 py-2"
-              value={quantidade}
-              onChange={(e) => setQuantidade(Number(e.target.value))}
-              placeholder="Quantidade"
-            />
-
-            <input
-              className="border rounded-lg px-3 py-2"
-              value={observacoes}
-              onChange={(e) => setObservacoes(e.target.value)}
-              placeholder="Observações"
-            />
+      <Card>
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Selecionar kit</h2>
+            <p className="text-sm text-slate-500">Escolha qual kit deseja montar ou revisar.</p>
           </div>
 
-          <button className="bg-pink-600 text-white rounded-lg px-4 py-2">
-            Adicionar à composição
-          </button>
-        </form>
+          <Select value={kitId} onChange={(e) => setKitId(e.target.value)}>
+            <option value="">Escolha um kit...</option>
+            {kits.map((kit) => (
+              <option key={kit.id} value={kit.id}>
+                {kit.codigo ? `${kit.codigo} - ` : ''}{kit.nome}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </Card>
+
+      {kitId && (
+        <Card>
+          <form onSubmit={adicionar} className="space-y-5">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Adicionar item ao kit</h2>
+              <p className="text-sm text-slate-500">
+                Kit selecionado: <strong>{kitSelecionado?.nome}</strong>
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Select label="Item do estoque" value={itemId} onChange={(e) => setItemId(e.target.value)}>
+                <option value="">Selecione um item...</option>
+                {itens.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.codigo ? `${item.codigo} - ` : ''}{item.nome} | Disp: {item.quantidade_disponivel || 0}
+                  </option>
+                ))}
+              </Select>
+
+              <Input
+                label="Quantidade usada no kit"
+                type="number"
+                min="1"
+                value={quantidade}
+                onChange={(e) => setQuantidade(Number(e.target.value))}
+              />
+
+              <Textarea
+                label="Observações"
+                value={observacoes}
+                onChange={(e) => setObservacoes(e.target.value)}
+                placeholder="Ex.: usar somente em festas internas"
+              />
+            </div>
+
+            <Button type="submit">Adicionar item</Button>
+          </form>
+        </Card>
       )}
 
       {kitId && (
-        <div className="bg-white rounded-2xl border p-5">
-          <h2 className="text-lg font-semibold mb-4">Itens deste kit</h2>
+        <Card>
+          <div className="mb-5">
+            <h2 className="text-lg font-semibold text-slate-900">Itens deste kit</h2>
+            <p className="text-sm text-slate-500">
+              {composicao.length} item(ns) vinculados à composição.
+            </p>
+          </div>
 
           <div className="space-y-3">
             {composicao.map((linha) => (
-              <div key={linha.id} className="border rounded-xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div key={linha.id} className="rounded-2xl border p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div>
-                  <p className="font-semibold">{linha.estoque_itens?.nome}</p>
+                  <p className="font-semibold text-slate-900">{linha.estoque_itens?.nome}</p>
                   <p className="text-sm text-slate-500">
                     {linha.estoque_itens?.codigo || 'Sem código'} • Quantidade no kit: {linha.quantidade}
                   </p>
@@ -191,20 +196,19 @@ export function KitComposicaoClient() {
                   )}
                 </div>
 
-                <button
-                  onClick={() => remover(linha.id)}
-                  className="border rounded-lg px-3 py-2 text-sm text-red-600"
-                >
+                <Button variant="danger" onClick={() => remover(linha.id)}>
                   Remover
-                </button>
+                </Button>
               </div>
             ))}
 
             {composicao.length === 0 && (
-              <p className="text-sm text-slate-500">Nenhum item adicionado a este kit ainda.</p>
+              <div className="rounded-2xl border border-dashed p-8 text-center text-slate-500">
+                Nenhum item adicionado a este kit ainda.
+              </div>
             )}
           </div>
-        </div>
+        </Card>
       )}
     </div>
   )
