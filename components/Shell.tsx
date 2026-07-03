@@ -39,6 +39,7 @@ const grupos = [
     ]
   },
   {
+{ label: 'Agenda', href: '/agenda', icon: CalendarDays },
     titulo: 'Gestão',
     items: [
       { label: 'Contratos', href: '/contratos', icon: FileText },
