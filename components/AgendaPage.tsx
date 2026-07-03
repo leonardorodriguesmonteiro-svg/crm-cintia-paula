@@ -51,6 +51,7 @@ export function AgendaPage() {
         reserva.status,
         reserva.clientes?.nome,
         reserva.kits?.nome,
+        reserva.kits?.codigo,
         reserva.endereco_evento
       ].join(' ').toLowerCase()
 
