@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
@@ -85,61 +86,6 @@ export function ReservasPage() {
     )
   }, [reservas, busca])
 
-  async function gerarLancamentosFinanceiros(reservaId: string) {
-    const cliente = clientes.find(c => c.id === form.cliente_id)
-    const kit = kits.find(k => k.id === form.kit_id)
-
-    const valorTotal = Number(form.valor_total) || 0
-    const valorSinal = Number(form.valor_sinal) || 0
-    const saldo = Math.max(valorTotal - valorSinal, 0)
-
-    await supabase
-      .from('lancamentos_financeiros')
-      .delete()
-      .eq('reserva_id', reservaId)
-      .in('categoria', ['Sinal da reserva', 'Saldo da reserva'])
-
-    const lancamentos = []
-
-    if (valorSinal > 0) {
-      lancamentos.push({
-        reserva_id: reservaId,
-        tipo: 'Receita',
-        descricao: `Sinal - ${cliente?.nome || 'Cliente'} - ${kit?.nome || 'Kit'}`,
-        categoria: 'Sinal da reserva',
-        valor: valorSinal,
-        data_vencimento: form.data_evento,
-        data_pagamento: new Date().toISOString().slice(0, 10),
-        forma_pagamento: null,
-        status: 'Pago',
-        observacoes: 'Gerado automaticamente pela reserva.'
-      })
-    }
-
-    if (saldo > 0) {
-      lancamentos.push({
-        reserva_id: reservaId,
-        tipo: 'Receita',
-        descricao: `Saldo - ${cliente?.nome || 'Cliente'} - ${kit?.nome || 'Kit'}`,
-        categoria: 'Saldo da reserva',
-        valor: saldo,
-        data_vencimento: form.data_evento,
-        data_pagamento: null,
-        forma_pagamento: null,
-        status: 'Pendente',
-        observacoes: 'Gerado automaticamente pela reserva.'
-      })
-    }
-
-    if (lancamentos.length > 0) {
-      const { error } = await supabase
-        .from('lancamentos_financeiros')
-        .insert(lancamentos)
-
-      if (error) throw error
-    }
-  }
-
   async function salvar(e: React.FormEvent) {
     e.preventDefault()
     setErro('')
@@ -170,19 +116,11 @@ export function ReservasPage() {
     }
 
     const resposta = editando
-      ? await supabase.from('reservas').update(payload).eq('id', editando).select('id').single()
-      : await supabase.from('reservas').insert(payload).select('id').single()
+      ? await supabase.from('reservas').update(payload).eq('id', editando)
+      : await supabase.from('reservas').insert(payload)
 
     if (resposta.error) {
       setErro(resposta.error.message)
-      setSalvando(false)
-      return
-    }
-
-    try {
-      await gerarLancamentosFinanceiros(resposta.data.id)
-    } catch (error: any) {
-      setErro(error.message || 'Reserva salva, mas houve erro ao gerar lançamentos financeiros.')
       setSalvando(false)
       return
     }
@@ -346,8 +284,17 @@ export function ReservasPage() {
                 </span>
 
                 <div className="flex gap-2">
-                  <Button variant="secondary" onClick={() => editar(reserva)}>Editar</Button>
-                  <Button variant="danger" onClick={() => excluir(reserva.id)}>Excluir</Button>
+                  <Link href={`/reservas/${reserva.id}`}>
+                    <Button>Abrir</Button>
+                  </Link>
+
+                  <Button variant="secondary" onClick={() => editar(reserva)}>
+                    Editar
+                  </Button>
+
+                  <Button variant="danger" onClick={() => excluir(reserva.id)}>
+                    Excluir
+                  </Button>
                 </div>
               </div>
             </div>
