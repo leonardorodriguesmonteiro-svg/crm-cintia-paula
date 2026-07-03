@@ -1,3 +1,4 @@
+cat > components/ReservaDetalhePage.tsx <<'EOF'
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -9,14 +10,17 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 
+const abas = ['Resumo', 'Timeline', 'Financeiro', 'Kit', 'Checklist', 'Contrato']
+
 export function ReservaDetalhePage({ id }: { id: string }) {
+  const [aba, setAba] = useState('Resumo')
   const [reserva, setReserva] = useState<any>(null)
   const [recebimentos, setRecebimentos] = useState<any[]>([])
+  const [timeline, setTimeline] = useState<any[]>([])
   const [composicao, setComposicao] = useState<any[]>([])
   const [erro, setErro] = useState('')
   const [editando, setEditando] = useState(false)
   const [salvando, setSalvando] = useState(false)
-
   const [valorRecebido, setValorRecebido] = useState(0)
   const [formaPagamento, setFormaPagamento] = useState('Pix')
 
@@ -28,23 +32,21 @@ export function ReservaDetalhePage({ id }: { id: string }) {
     observacoes: ''
   })
 
+  async function registrarTimeline(titulo: string, descricao = '', tipo = 'Sistema') {
+    await supabase.from('reserva_timeline').insert({
+      reserva_id: id,
+      titulo,
+      descricao,
+      tipo
+    })
+  }
+
   async function carregar() {
-    const reservaRes = await supabase
-      .from('reservas')
-      .select('*,clientes(*),kits(*)')
-      .eq('id', id)
-      .single()
+    const reservaRes = await supabase.from('reservas').select('*,clientes(*),kits(*)').eq('id', id).single()
+    const recebimentosRes = await supabase.from('recebimentos').select('*').eq('reserva_id', id).order('created_at', { ascending: false })
+    const timelineRes = await supabase.from('reserva_timeline').select('*').eq('reserva_id', id).order('created_at', { ascending: false })
 
-    const recebimentosRes = await supabase
-      .from('recebimentos')
-      .select('*')
-      .eq('reserva_id', id)
-      .order('created_at', { ascending: false })
-
-    if (reservaRes.error) {
-      setErro(reservaRes.error.message)
-      return
-    }
+    if (reservaRes.error) return setErro(reservaRes.error.message)
 
     setReserva(reservaRes.data)
     setForm({
@@ -55,8 +57,8 @@ export function ReservaDetalhePage({ id }: { id: string }) {
       observacoes: reservaRes.data.observacoes || ''
     })
 
-    if (recebimentosRes.error) setErro(recebimentosRes.error.message)
-    else setRecebimentos(recebimentosRes.data || [])
+    if (!recebimentosRes.error) setRecebimentos(recebimentosRes.data || [])
+    if (!timelineRes.error) setTimeline(timelineRes.data || [])
 
     if (reservaRes.data.kit_id) {
       const compRes = await supabase
@@ -84,16 +86,21 @@ export function ReservaDetalhePage({ id }: { id: string }) {
     setErro('')
     setSalvando(true)
 
-    const { error } = await supabase
-      .from('reservas')
-      .update(form)
-      .eq('id', id)
+    const statusAnterior = reserva.status
+
+    const { error } = await supabase.from('reservas').update(form).eq('id', id)
 
     if (error) {
       setErro(error.message)
       setSalvando(false)
       return
     }
+
+    await registrarTimeline(
+      'Reserva editada',
+      statusAnterior !== form.status ? `Status alterado de ${statusAnterior} para ${form.status}.` : 'Dados da reserva atualizados.',
+      'Edição'
+    )
 
     setEditando(false)
     setSalvando(false)
@@ -132,6 +139,12 @@ export function ReservaDetalhePage({ id }: { id: string }) {
       return
     }
 
+    await registrarTimeline(
+      'Recebimento registrado',
+      `Recebimento de R$ ${valorRecebido.toFixed(2)} via ${formaPagamento}.`,
+      'Financeiro'
+    )
+
     setValorRecebido(0)
     setFormaPagamento('Pix')
     setSalvando(false)
@@ -146,162 +159,121 @@ export function ReservaDetalhePage({ id }: { id: string }) {
     <div className="space-y-6 p-4 md:p-8 pb-28">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
-          <Link href="/reservas" className="text-sm font-semibold text-pink-700">
-            ← Voltar para Reservas
-          </Link>
+          <Link href="/reservas" className="text-sm font-semibold text-pink-700">← Voltar para Reservas</Link>
           <h1 className="mt-2 text-3xl font-bold text-slate-900">Centro da Reserva</h1>
-          <p className="text-slate-500">
-            {reserva.clientes?.nome || 'Cliente'} • {reserva.kits?.nome || 'Kit'}
-          </p>
+          <p className="text-slate-500">{reserva.clientes?.nome || 'Cliente'} • {reserva.kits?.nome || 'Kit'}</p>
         </div>
 
         <div className="flex gap-2">
-          {whatsapp && (
-            <a href={whatsapp} target="_blank">
-              <Button variant="secondary">WhatsApp</Button>
-            </a>
-          )}
-          <Button onClick={() => setEditando(!editando)}>
-            {editando ? 'Cancelar edição' : 'Editar reserva'}
-          </Button>
+          {whatsapp && <a href={whatsapp} target="_blank"><Button variant="secondary">WhatsApp</Button></a>}
+          <Button onClick={() => setEditando(!editando)}>{editando ? 'Cancelar edição' : 'Editar reserva'}</Button>
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <p className="text-sm text-slate-500">Valor contratado</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">R$ {valorTotal.toFixed(2)}</p>
-        </Card>
-
-        <Card>
-          <p className="text-sm text-slate-500">Recebido</p>
-          <p className="mt-2 text-3xl font-bold text-green-700">R$ {recebido.toFixed(2)}</p>
-        </Card>
-
-        <Card>
-          <p className="text-sm text-slate-500">Saldo</p>
-          <p className="mt-2 text-3xl font-bold text-yellow-700">R$ {saldo.toFixed(2)}</p>
-        </Card>
+        <Card><p className="text-sm text-slate-500">Valor contratado</p><p className="mt-2 text-3xl font-bold">R$ {valorTotal.toFixed(2)}</p></Card>
+        <Card><p className="text-sm text-slate-500">Recebido</p><p className="mt-2 text-3xl font-bold text-green-700">R$ {recebido.toFixed(2)}</p></Card>
+        <Card><p className="text-sm text-slate-500">Saldo</p><p className="mt-2 text-3xl font-bold text-yellow-700">R$ {saldo.toFixed(2)}</p></Card>
       </div>
+
+      <Card>
+        <div className="flex flex-wrap gap-2">
+          {abas.map(item => (
+            <button
+              key={item}
+              onClick={() => setAba(item)}
+              className={`rounded-xl px-4 py-2 text-sm font-semibold ${aba === item ? 'bg-pink-600 text-white' : 'bg-slate-100 text-slate-600'}`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      </Card>
 
       {editando && (
         <Card>
           <form onSubmit={salvarEdicao} className="space-y-4">
-            <h2 className="text-lg font-semibold text-slate-900">Editar dados da reserva</h2>
-
+            <h2 className="text-lg font-semibold">Editar dados da reserva</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Input label="Data do evento" type="date" value={form.data_evento} onChange={e => setForm({ ...form, data_evento: e.target.value })} />
               <Input label="Horário" value={form.horario_evento} onChange={e => setForm({ ...form, horario_evento: e.target.value })} />
               <Select label="Status" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
-                <option>Pendente</option>
-                <option>Confirmada</option>
-                <option>Em andamento</option>
-                <option>Concluída</option>
-                <option>Cancelada</option>
+                <option>Pendente</option><option>Confirmada</option><option>Em andamento</option><option>Concluída</option><option>Cancelada</option>
               </Select>
             </div>
-
             <Input label="Endereço do evento" value={form.endereco_evento} onChange={e => setForm({ ...form, endereco_evento: e.target.value })} />
             <Textarea label="Observações" value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} />
-
-            <Button type="submit" disabled={salvando}>
-              {salvando ? 'Salvando...' : 'Salvar alterações'}
-            </Button>
+            <Button type="submit" disabled={salvando}>{salvando ? 'Salvando...' : 'Salvar alterações'}</Button>
           </form>
         </Card>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Card>
-          <h2 className="text-lg font-semibold text-slate-900">Cliente</h2>
-          <div className="mt-4 space-y-2 text-sm text-slate-600">
-            <p><strong>Nome:</strong> {reserva.clientes?.nome || '-'}</p>
-            <p><strong>WhatsApp:</strong> {reserva.clientes?.whatsapp || '-'}</p>
-            <p><strong>Instagram:</strong> {reserva.clientes?.instagram || '-'}</p>
-            <p><strong>Email:</strong> {reserva.clientes?.email || '-'}</p>
-          </div>
-        </Card>
+      {aba === 'Resumo' && (
+        <div className="grid gap-4 xl:grid-cols-2">
+          <Card><h2 className="text-lg font-semibold">Cliente</h2><div className="mt-4 space-y-2 text-sm text-slate-600"><p><strong>Nome:</strong> {reserva.clientes?.nome || '-'}</p><p><strong>WhatsApp:</strong> {reserva.clientes?.whatsapp || '-'}</p><p><strong>Instagram:</strong> {reserva.clientes?.instagram || '-'}</p><p><strong>Email:</strong> {reserva.clientes?.email || '-'}</p></div></Card>
+          <Card><h2 className="text-lg font-semibold">Evento</h2><div className="mt-4 space-y-2 text-sm text-slate-600"><p><strong>Data:</strong> {reserva.data_evento || '-'}</p><p><strong>Horário:</strong> {reserva.horario_evento || '-'}</p><p><strong>Status:</strong> {reserva.status || '-'}</p><p><strong>Endereço:</strong> {reserva.endereco_evento || '-'}</p><p><strong>Observações:</strong> {reserva.observacoes || '-'}</p></div></Card>
+        </div>
+      )}
 
+      {aba === 'Timeline' && (
         <Card>
-          <h2 className="text-lg font-semibold text-slate-900">Evento</h2>
-          <div className="mt-4 space-y-2 text-sm text-slate-600">
-            <p><strong>Data:</strong> {reserva.data_evento || '-'}</p>
-            <p><strong>Horário:</strong> {reserva.horario_evento || '-'}</p>
-            <p><strong>Status:</strong> {reserva.status || '-'}</p>
-            <p><strong>Endereço:</strong> {reserva.endereco_evento || '-'}</p>
-            <p><strong>Observações:</strong> {reserva.observacoes || '-'}</p>
-          </div>
-        </Card>
-
-        <Card>
-          <h2 className="text-lg font-semibold text-slate-900">Kit e composição</h2>
-          <div className="mt-4 space-y-2 text-sm text-slate-600">
-            <p><strong>Kit:</strong> {reserva.kits?.nome || '-'}</p>
-            <p><strong>Código:</strong> {reserva.kits?.codigo || '-'}</p>
-          </div>
-
-          <div className="mt-4 space-y-2">
-            {composicao.map((item, index) => (
-              <div key={index} className="rounded-xl border p-3 text-sm">
-                <p className="font-semibold text-slate-900">
-                  {item.estoque_itens?.nome || 'Item'}
-                </p>
-                <p className="text-slate-500">
-                  Quantidade no kit: {item.quantidade} • Disponível: {item.estoque_itens?.quantidade_disponivel ?? 0}
-                </p>
+          <h2 className="text-lg font-semibold">Timeline da Reserva</h2>
+          <div className="mt-4 space-y-3">
+            {timeline.map(item => (
+              <div key={item.id} className="rounded-2xl border p-4">
+                <p className="font-semibold">{item.titulo}</p>
+                <p className="text-sm text-slate-500">{new Date(item.created_at).toLocaleString('pt-BR')} • {item.tipo}</p>
+                {item.descricao && <p className="mt-1 text-sm text-slate-600">{item.descricao}</p>}
               </div>
             ))}
-
-            {composicao.length === 0 && (
-              <p className="text-sm text-slate-500">Este kit ainda não possui composição cadastrada.</p>
-            )}
+            {timeline.length === 0 && <p className="text-sm text-slate-500">Nenhum evento registrado ainda.</p>}
           </div>
         </Card>
+      )}
 
+      {aba === 'Financeiro' && (
         <Card>
-          <h2 className="text-lg font-semibold text-slate-900">Financeiro</h2>
-
+          <h2 className="text-lg font-semibold">Financeiro</h2>
           <form onSubmit={registrarRecebimento} className="mt-4 space-y-4 rounded-2xl border bg-slate-50 p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Input label="Valor recebido" type="number" value={valorRecebido} onChange={e => setValorRecebido(Number(e.target.value))} />
               <Select label="Forma de pagamento" value={formaPagamento} onChange={e => setFormaPagamento(e.target.value)}>
-                <option>Pix</option>
-                <option>Cartão</option>
-                <option>Dinheiro</option>
-                <option>Transferência</option>
-                <option>Boleto</option>
+                <option>Pix</option><option>Cartão</option><option>Dinheiro</option><option>Transferência</option><option>Boleto</option>
               </Select>
             </div>
-
-            <Button type="submit" disabled={salvando || saldo <= 0}>
-              {salvando ? 'Registrando...' : saldo <= 0 ? 'Reserva quitada' : 'Registrar recebimento'}
-            </Button>
+            <Button type="submit" disabled={salvando || saldo <= 0}>{salvando ? 'Registrando...' : saldo <= 0 ? 'Reserva quitada' : 'Registrar recebimento'}</Button>
           </form>
 
           <div className="mt-4 space-y-3">
-            {recebimentos.map((item) => (
+            {recebimentos.map(item => (
               <div key={item.id} className="rounded-xl border p-3 text-sm">
-                <p className="font-semibold text-slate-900">R$ {Number(item.valor || 0).toFixed(2)}</p>
+                <p className="font-semibold">R$ {Number(item.valor || 0).toFixed(2)}</p>
                 <p className="text-slate-500">{item.forma_pagamento || '-'} • {item.data_recebimento || '-'}</p>
               </div>
             ))}
-
-            {recebimentos.length === 0 && (
-              <p className="text-sm text-slate-500">Nenhum recebimento registrado.</p>
-            )}
           </div>
         </Card>
-      </div>
+      )}
 
-      <Card>
-        <h2 className="text-lg font-semibold text-slate-900">Próximas etapas</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-4">
-          <Button variant="secondary">Contrato</Button>
-          <Button variant="secondary">Checklist</Button>
-          <Button variant="secondary">Entrega</Button>
-          <Button variant="secondary">Devolução</Button>
-        </div>
-      </Card>
+      {aba === 'Kit' && (
+        <Card>
+          <h2 className="text-lg font-semibold">Kit e composição</h2>
+          <p className="mt-2 text-sm text-slate-600"><strong>Kit:</strong> {reserva.kits?.nome || '-'}</p>
+          <div className="mt-4 space-y-2">
+            {composicao.map((item, index) => (
+              <div key={index} className="rounded-xl border p-3 text-sm">
+                <p className="font-semibold">{item.estoque_itens?.nome || 'Item'}</p>
+                <p className="text-slate-500">Quantidade no kit: {item.quantidade} • Disponível: {item.estoque_itens?.quantidade_disponivel ?? 0}</p>
+              </div>
+            ))}
+            {composicao.length === 0 && <p className="text-sm text-slate-500">Este kit ainda não possui composição cadastrada.</p>}
+          </div>
+        </Card>
+      )}
+
+      {aba === 'Checklist' && <Card><h2 className="text-lg font-semibold">Checklist</h2><p className="mt-2 text-sm text-slate-500">Checklist de separação, entrega e devolução será implementado na próxima etapa.</p></Card>}
+
+      {aba === 'Contrato' && <Card><h2 className="text-lg font-semibold">Contrato</h2><p className="mt-2 text-sm text-slate-500">Geração de contrato em PDF será implementada na próxima etapa.</p></Card>}
     </div>
   )
 }
