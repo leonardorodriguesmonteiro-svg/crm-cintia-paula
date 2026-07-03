@@ -7,14 +7,26 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
+import { Textarea } from '@/components/ui/Textarea'
 
 export function ReservaDetalhePage({ id }: { id: string }) {
   const [reserva, setReserva] = useState<any>(null)
   const [recebimentos, setRecebimentos] = useState<any[]>([])
+  const [composicao, setComposicao] = useState<any[]>([])
   const [erro, setErro] = useState('')
+  const [editando, setEditando] = useState(false)
+  const [salvando, setSalvando] = useState(false)
+
   const [valorRecebido, setValorRecebido] = useState(0)
   const [formaPagamento, setFormaPagamento] = useState('Pix')
-  const [salvando, setSalvando] = useState(false)
+
+  const [form, setForm] = useState({
+    data_evento: '',
+    horario_evento: '',
+    endereco_evento: '',
+    status: 'Pendente',
+    observacoes: ''
+  })
 
   async function carregar() {
     const reservaRes = await supabase
@@ -29,20 +41,64 @@ export function ReservaDetalhePage({ id }: { id: string }) {
       .eq('reserva_id', id)
       .order('created_at', { ascending: false })
 
-    if (reservaRes.error) setErro(reservaRes.error.message)
-    else setReserva(reservaRes.data)
+    if (reservaRes.error) {
+      setErro(reservaRes.error.message)
+      return
+    }
+
+    setReserva(reservaRes.data)
+    setForm({
+      data_evento: reservaRes.data.data_evento || '',
+      horario_evento: reservaRes.data.horario_evento || '',
+      endereco_evento: reservaRes.data.endereco_evento || '',
+      status: reservaRes.data.status || 'Pendente',
+      observacoes: reservaRes.data.observacoes || ''
+    })
 
     if (recebimentosRes.error) setErro(recebimentosRes.error.message)
     else setRecebimentos(recebimentosRes.data || [])
+
+    if (reservaRes.data.kit_id) {
+      const compRes = await supabase
+        .from('kit_composicao')
+        .select('quantidade,observacoes,estoque_itens(nome,codigo,categoria,quantidade_disponivel)')
+        .eq('kit_id', reservaRes.data.kit_id)
+
+      if (!compRes.error) setComposicao(compRes.data || [])
+    }
   }
 
   useEffect(() => {
     carregar()
   }, [id])
 
-  const valorTotal = Number(reserva?.valor_total || 0)
+  if (erro) return <div className="p-8 text-red-700">{erro}</div>
+  if (!reserva) return <div className="p-8 text-slate-500">Carregando reserva...</div>
+
+  const valorTotal = Number(reserva.valor_total || 0)
   const recebido = recebimentos.reduce((t, r) => t + Number(r.valor || 0), 0)
   const saldo = Math.max(valorTotal - recebido, 0)
+
+  async function salvarEdicao(e: React.FormEvent) {
+    e.preventDefault()
+    setErro('')
+    setSalvando(true)
+
+    const { error } = await supabase
+      .from('reservas')
+      .update(form)
+      .eq('id', id)
+
+    if (error) {
+      setErro(error.message)
+      setSalvando(false)
+      return
+    }
+
+    setEditando(false)
+    setSalvando(false)
+    carregar()
+  }
 
   async function registrarRecebimento(e: React.FormEvent) {
     e.preventDefault()
@@ -82,8 +138,9 @@ export function ReservaDetalhePage({ id }: { id: string }) {
     carregar()
   }
 
-  if (erro) return <div className="p-8 text-red-700">{erro}</div>
-  if (!reserva) return <div className="p-8 text-slate-500">Carregando reserva...</div>
+  const whatsapp = reserva.clientes?.whatsapp
+    ? `https://wa.me/55${String(reserva.clientes.whatsapp).replace(/\D/g, '')}`
+    : null
 
   return (
     <div className="space-y-6 p-4 md:p-8 pb-28">
@@ -98,9 +155,16 @@ export function ReservaDetalhePage({ id }: { id: string }) {
           </p>
         </div>
 
-        <span className="rounded-full bg-pink-50 px-4 py-2 text-sm font-semibold text-pink-700">
-          {reserva.status}
-        </span>
+        <div className="flex gap-2">
+          {whatsapp && (
+            <a href={whatsapp} target="_blank">
+              <Button variant="secondary">WhatsApp</Button>
+            </a>
+          )}
+          <Button onClick={() => setEditando(!editando)}>
+            {editando ? 'Cancelar edição' : 'Editar reserva'}
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -120,6 +184,33 @@ export function ReservaDetalhePage({ id }: { id: string }) {
         </Card>
       </div>
 
+      {editando && (
+        <Card>
+          <form onSubmit={salvarEdicao} className="space-y-4">
+            <h2 className="text-lg font-semibold text-slate-900">Editar dados da reserva</h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Input label="Data do evento" type="date" value={form.data_evento} onChange={e => setForm({ ...form, data_evento: e.target.value })} />
+              <Input label="Horário" value={form.horario_evento} onChange={e => setForm({ ...form, horario_evento: e.target.value })} />
+              <Select label="Status" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+                <option>Pendente</option>
+                <option>Confirmada</option>
+                <option>Em andamento</option>
+                <option>Concluída</option>
+                <option>Cancelada</option>
+              </Select>
+            </div>
+
+            <Input label="Endereço do evento" value={form.endereco_evento} onChange={e => setForm({ ...form, endereco_evento: e.target.value })} />
+            <Textarea label="Observações" value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} />
+
+            <Button type="submit" disabled={salvando}>
+              {salvando ? 'Salvando...' : 'Salvar alterações'}
+            </Button>
+          </form>
+        </Card>
+      )}
+
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
           <h2 className="text-lg font-semibold text-slate-900">Cliente</h2>
@@ -136,18 +227,34 @@ export function ReservaDetalhePage({ id }: { id: string }) {
           <div className="mt-4 space-y-2 text-sm text-slate-600">
             <p><strong>Data:</strong> {reserva.data_evento || '-'}</p>
             <p><strong>Horário:</strong> {reserva.horario_evento || '-'}</p>
+            <p><strong>Status:</strong> {reserva.status || '-'}</p>
             <p><strong>Endereço:</strong> {reserva.endereco_evento || '-'}</p>
             <p><strong>Observações:</strong> {reserva.observacoes || '-'}</p>
           </div>
         </Card>
 
         <Card>
-          <h2 className="text-lg font-semibold text-slate-900">Kit</h2>
+          <h2 className="text-lg font-semibold text-slate-900">Kit e composição</h2>
           <div className="mt-4 space-y-2 text-sm text-slate-600">
+            <p><strong>Kit:</strong> {reserva.kits?.nome || '-'}</p>
             <p><strong>Código:</strong> {reserva.kits?.codigo || '-'}</p>
-            <p><strong>Nome:</strong> {reserva.kits?.nome || '-'}</p>
-            <p><strong>Categoria:</strong> {reserva.kits?.categoria || '-'}</p>
-            <p><strong>Valor:</strong> R$ {Number(reserva.kits?.valor || 0).toFixed(2)}</p>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            {composicao.map((item, index) => (
+              <div key={index} className="rounded-xl border p-3 text-sm">
+                <p className="font-semibold text-slate-900">
+                  {item.estoque_itens?.nome || 'Item'}
+                </p>
+                <p className="text-slate-500">
+                  Quantidade no kit: {item.quantidade} • Disponível: {item.estoque_itens?.quantidade_disponivel ?? 0}
+                </p>
+              </div>
+            ))}
+
+            {composicao.length === 0 && (
+              <p className="text-sm text-slate-500">Este kit ainda não possui composição cadastrada.</p>
+            )}
           </div>
         </Card>
 
@@ -156,18 +263,8 @@ export function ReservaDetalhePage({ id }: { id: string }) {
 
           <form onSubmit={registrarRecebimento} className="mt-4 space-y-4 rounded-2xl border bg-slate-50 p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Input
-                label="Valor recebido"
-                type="number"
-                value={valorRecebido}
-                onChange={e => setValorRecebido(Number(e.target.value))}
-              />
-
-              <Select
-                label="Forma de pagamento"
-                value={formaPagamento}
-                onChange={e => setFormaPagamento(e.target.value)}
-              >
+              <Input label="Valor recebido" type="number" value={valorRecebido} onChange={e => setValorRecebido(Number(e.target.value))} />
+              <Select label="Forma de pagamento" value={formaPagamento} onChange={e => setFormaPagamento(e.target.value)}>
                 <option>Pix</option>
                 <option>Cartão</option>
                 <option>Dinheiro</option>
@@ -185,9 +282,7 @@ export function ReservaDetalhePage({ id }: { id: string }) {
             {recebimentos.map((item) => (
               <div key={item.id} className="rounded-xl border p-3 text-sm">
                 <p className="font-semibold text-slate-900">R$ {Number(item.valor || 0).toFixed(2)}</p>
-                <p className="text-slate-500">
-                  {item.forma_pagamento || '-'} • {item.data_recebimento || '-'}
-                </p>
+                <p className="text-slate-500">{item.forma_pagamento || '-'} • {item.data_recebimento || '-'}</p>
               </div>
             ))}
 
