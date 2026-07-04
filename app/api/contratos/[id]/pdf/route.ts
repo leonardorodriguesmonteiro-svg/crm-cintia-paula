@@ -12,12 +12,24 @@ export async function GET(
   try {
     const { id } = await params
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('contratos')
       .select('id,numero_contrato,status,created_at,reservas(*,clientes(*),kits(*))')
       .eq('id', id)
       .limit(1)
       .maybeSingle()
+
+    if (!data) {
+      const fallback = await supabase
+        .from('contratos')
+        .select('id,numero_contrato,status,created_at,reservas(*,clientes(*),kits(*))')
+        .eq('reserva_id', id)
+        .limit(1)
+        .maybeSingle()
+
+      data = fallback.data
+      error = fallback.error
+    }
 
     if (error || !data) {
       return NextResponse.json(
