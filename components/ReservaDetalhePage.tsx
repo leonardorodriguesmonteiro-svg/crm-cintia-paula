@@ -1,4 +1,3 @@
-cat > components/ReservaDetalhePage.tsx <<'EOF'
 'use client'
 
 import { useEffect, useState } from 'react'
