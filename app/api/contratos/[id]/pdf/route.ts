@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseServer } from '@/lib/supabaseServer'
+import { gerarContratoPDF } from '@/lib/pdf/contrato'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -8,21 +9,60 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params
+  try {
+    const { id } = await params
 
-  const porId = await supabase
-    .from('contratos')
-    .select('id,numero_contrato,status,created_at,reserva_id')
-    .eq('id', id)
+    let { data: contrato } = await supabaseServer
+      .from('contratos')
+      .select('id,numero_contrato,status,created_at,reserva_id')
+      .eq('id', id)
+      .maybeSingle()
 
-  const porReserva = await supabase
-    .from('contratos')
-    .select('id,numero_contrato,status,created_at,reserva_id')
-    .eq('reserva_id', id)
+    if (!contrato) {
+      const fallback = await supabaseServer
+        .from('contratos')
+        .select('id,numero_contrato,status,created_at,reserva_id')
+        .eq('reserva_id', id)
+        .maybeSingle()
 
-  return NextResponse.json({
-    id_recebido: id,
-    busca_por_id: porId,
-    busca_por_reserva_id: porReserva
-  })
+      contrato = fallback.data
+    }
+
+    if (!contrato) {
+      return NextResponse.json({ error: 'Contrato não encontrado' }, { status: 404 })
+    }
+
+    const { data: reserva } = await supabaseServer
+      .from('reservas')
+      .select('*')
+      .eq('id', contrato.reserva_id)
+      .maybeSingle()
+
+    const { data: cliente } = await supabaseServer
+      .from('clientes')
+      .select('*')
+      .eq('id', reserva?.cliente_id)
+      .maybeSingle()
+
+    const { data: kit } = await supabaseServer
+      .from('kits')
+      .select('*')
+      .eq('id', reserva?.kit_id)
+      .maybeSingle()
+
+    const pdfBuffer = await gerarContratoPDF({
+      ...contrato,
+      reservas: { ...reserva, clientes: cliente, kits: kit }
+    })
+
+    return new NextResponse(new Uint8Array(pdfBuffer), {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="${contrato.numero_contrato}.pdf"`,
+        'Cache-Control': 'no-store'
+      }
+    })
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message || 'Erro ao gerar PDF' }, { status: 500 })
+  }
 }
