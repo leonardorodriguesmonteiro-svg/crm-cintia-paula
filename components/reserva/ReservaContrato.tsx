@@ -191,16 +191,16 @@ export function ReservaContrato({ reservaId }: { reservaId: string }) {
           </div>
 
           <a
-            href={`/api/contratos/${contrato.id}/pdf`}
+            href={`/contratos/${contrato.id}/imprimir`}
             target="_blank"
             className="inline-flex w-fit rounded-xl bg-pink-600 px-4 py-2 text-sm font-semibold text-white hover:bg-pink-700"
           >
-            Abrir PDF
+            Abrir contrato para impressão
           </a>
 
           {contrato.pdf_url && (
             <a href={contrato.pdf_url} target="_blank" className="text-sm font-semibold text-pink-700">
-              Abrir PDF salvo
+              Abrir contrato para impressão salvo
             </a>
           )}
         </div>

@@ -12,13 +12,11 @@
     "@supabase/supabase-js": "latest",
     "lucide-react": "latest",
     "next": "16.2.9",
-    "pdfkit": "^0.19.1",
     "react": "latest",
     "react-dom": "latest"
   },
   "devDependencies": {
     "@types/node": "latest",
-    "@types/pdfkit": "^0.17.6",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "autoprefixer": "latest",
