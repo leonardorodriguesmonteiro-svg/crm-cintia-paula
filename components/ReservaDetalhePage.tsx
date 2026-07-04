@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
+import { ReservaChecklist } from '@/components/reserva/ReservaChecklist'
 
 const abas = ['Resumo', 'Timeline', 'Financeiro', 'Kit', 'Checklist', 'Contrato']
 
@@ -270,7 +271,7 @@ export function ReservaDetalhePage({ id }: { id: string }) {
         </Card>
       )}
 
-      {aba === 'Checklist' && <Card><h2 className="text-lg font-semibold">Checklist</h2><p className="mt-2 text-sm text-slate-500">Checklist de separação, entrega e devolução será implementado na próxima etapa.</p></Card>}
+      {aba === 'Checklist' && <ReservaChecklist reservaId={id} />}
 
       {aba === 'Contrato' && <Card><h2 className="text-lg font-semibold">Contrato</h2><p className="mt-2 text-sm text-slate-500">Geração de contrato em PDF será implementada na próxima etapa.</p></Card>}
     </div>
