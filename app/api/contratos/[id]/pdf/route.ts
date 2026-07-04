@@ -16,7 +16,8 @@ export async function GET(
       .from('contratos')
       .select('id,numero_contrato,status,created_at,reservas(*,clientes(*),kits(*))')
       .eq('id', id)
-      .single()
+      .limit(1)
+      .maybeSingle()
 
     if (error || !data) {
       return NextResponse.json(
