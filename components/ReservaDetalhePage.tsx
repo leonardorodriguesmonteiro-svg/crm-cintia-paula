@@ -10,6 +10,7 @@ import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { ReservaChecklist } from '@/components/reserva/ReservaChecklist'
 import { ReservaLogistica } from '@/components/reserva/ReservaLogistica'
+import { ReservaContrato } from '@/components/reserva/ReservaContrato'
 
 const abas = ['Resumo', 'Timeline', 'Financeiro', 'Kit', 'Checklist', 'Logística', 'Contrato']
 
@@ -276,7 +277,7 @@ export function ReservaDetalhePage({ id }: { id: string }) {
 
       {aba === 'Logística' && <ReservaLogistica reservaId={id} />}
 
-      {aba === 'Contrato' && <Card><h2 className="text-lg font-semibold">Contrato</h2><p className="mt-2 text-sm text-slate-500">Geração de contrato em PDF será implementada na próxima etapa.</p></Card>}
+      {aba === 'Contrato' && <ReservaContrato reservaId={id} />}
     </div>
   )
 }
