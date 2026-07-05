@@ -11,8 +11,9 @@ import { Textarea } from '@/components/ui/Textarea'
 import { ReservaChecklist } from '@/components/reserva/ReservaChecklist'
 import { ReservaLogistica } from '@/components/reserva/ReservaLogistica'
 import { ReservaContrato } from '@/components/reserva/ReservaContrato'
+import { ReservaCentroOperacional } from '@/components/reserva/ReservaCentroOperacional'
 
-const abas = ['Resumo', 'Timeline', 'Financeiro', 'Kit', 'Checklist', 'Logística', 'Contrato']
+const abas = ['Resumo', 'Operação', 'Timeline', 'Financeiro', 'Kit', 'Checklist', 'Logística', 'Contrato']
 
 export function ReservaDetalhePage({ id }: { id: string }) {
   const [aba, setAba] = useState('Resumo')
@@ -216,6 +217,8 @@ export function ReservaDetalhePage({ id }: { id: string }) {
           <Card><h2 className="text-lg font-semibold">Evento</h2><div className="mt-4 space-y-2 text-sm text-slate-600"><p><strong>Data:</strong> {reserva.data_evento || '-'}</p><p><strong>Horário:</strong> {reserva.horario_evento || '-'}</p><p><strong>Status:</strong> {reserva.status || '-'}</p><p><strong>Endereço:</strong> {reserva.endereco_evento || '-'}</p><p><strong>Observações:</strong> {reserva.observacoes || '-'}</p></div></Card>
         </div>
       )}
+
+      {aba === 'Operação' && <ReservaCentroOperacional reservaId={id} />}
 
       {aba === 'Timeline' && (
         <Card>
