@@ -33,6 +33,7 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
   const [observacoes, setObservacoes] = useState('')
   const [novaEtapa, setNovaEtapa] = useState('Separação')
   const [novaTarefa, setNovaTarefa] = useState('')
+  const [mostrarTarefaExtra, setMostrarTarefaExtra] = useState(false)
 
   async function carregar() {
     const { data: osData, error: osError } = await supabase
@@ -167,7 +168,7 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
   async function adicionarTarefa(e: React.FormEvent) {
     e.preventDefault()
     if (!os) return
-    if (!novaTarefa.trim()) return setErro('Informe a descrição da tarefa.')
+    if (!novaTarefa.trim()) return setErro('Informe uma tarefa extra para esta reserva.')
 
     const { error } = await supabase.from('ordem_servico_itens').insert({
       ordem_servico_id: os.id,
@@ -246,7 +247,7 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
           <Button onClick={salvarOS}>Salvar OS</Button>
 
           <form onSubmit={adicionarTarefa} className="rounded-2xl border bg-slate-50 p-4">
-            <h3 className="mb-3 font-semibold text-slate-900">Adicionar tarefa</h3>
+            <h3 className="mb-3 font-semibold text-slate-900">Adicionar tarefa extra extra</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <Select label="Etapa" value={novaEtapa} onChange={e => setNovaEtapa(e.target.value)}>
                 <option>Separação</option>
@@ -255,7 +256,7 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
                 <option>Encerramento</option>
               </Select>
 
-              <Input label="Tarefa" value={novaTarefa} onChange={e => setNovaTarefa(e.target.value)} />
+              <Input label="Tarefa extra" value={novaTarefa} onChange={e => setNovaTarefa(e.target.value)} />
 
               <div className="flex items-end">
                 <Button type="submit">Adicionar</Button>
