@@ -72,6 +72,13 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
     return Math.round((feitos / itens.length) * 100)
   }, [itens])
 
+  const statusCalculado =
+    progresso === 100
+      ? 'Concluída'
+      : progresso > 0
+        ? 'Em andamento'
+        : 'Aberta'
+
   async function timeline(titulo: string, descricao: string) {
     await supabase.from('reserva_timeline').insert({
       reserva_id: reservaId,
@@ -145,6 +152,8 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
   }
 
   async function alternarTarefa(item: ItemOS) {
+    if (!os) return
+
     const novo = !item.concluido
 
     const { error } = await supabase
@@ -156,6 +165,30 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
       .eq('id', item.id)
 
     if (error) return setErro(error.message)
+
+    const itensAtualizados = itens.map(i =>
+      i.id === item.id ? { ...i, concluido: novo } : i
+    )
+
+    const concluidos = itensAtualizados.filter(i => i.concluido).length
+    const novoProgresso = itensAtualizados.length
+      ? Math.round((concluidos / itensAtualizados.length) * 100)
+      : 0
+
+    const novoStatus =
+      novoProgresso === 100
+        ? 'Concluída'
+        : novoProgresso > 0
+          ? 'Em andamento'
+          : 'Aberta'
+
+    await supabase
+      .from('ordens_servico')
+      .update({
+        status: novoStatus,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', os.id)
 
     await timeline(
       novo ? 'Tarefa concluída' : 'Tarefa reaberta',
@@ -221,7 +254,7 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
 
             <div className="rounded-2xl border p-4">
               <p className="text-sm text-slate-500">Status</p>
-              <p className="text-xl font-bold text-slate-900">{os.status}</p>
+              <p className="text-xl font-bold text-slate-900">{statusCalculado}</p>
             </div>
 
             <div className="rounded-2xl border p-4">
