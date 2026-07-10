@@ -24,6 +24,7 @@ export function ReservaDetalhePage({ id }: { id: string }) {
   const [erro, setErro] = useState('')
   const [editando, setEditando] = useState(false)
   const [salvando, setSalvando] = useState(false)
+  const [confirmando, setConfirmando] = useState(false)
   const [valorRecebido, setValorRecebido] = useState(0)
   const [formaPagamento, setFormaPagamento] = useState('Pix')
 
@@ -154,6 +155,33 @@ export function ReservaDetalhePage({ id }: { id: string }) {
     carregar()
   }
 
+  async function confirmarReserva() {
+    if (!confirm('Confirmar esta reserva e iniciar automaticamente contrato e Ordem de Serviço?')) return
+
+    setErro('')
+    setConfirmando(true)
+
+    try {
+      const resposta = await fetch(`/api/reservas/${id}/confirmar`, {
+        method: 'POST'
+      })
+
+      const resultado = await resposta.json()
+
+      if (!resposta.ok || !resultado.sucesso) {
+        throw new Error(resultado.erro || 'Não foi possível confirmar a reserva.')
+      }
+
+      await carregar()
+      setAba('Operação')
+      alert('Reserva confirmada. Contrato e Ordem de Serviço processados automaticamente.')
+    } catch (error: any) {
+      setErro(error.message || 'Erro ao confirmar reserva.')
+    } finally {
+      setConfirmando(false)
+    }
+  }
+
   const whatsapp = reserva.clientes?.whatsapp
     ? `https://wa.me/55${String(reserva.clientes.whatsapp).replace(/\D/g, '')}`
     : null
@@ -167,9 +195,22 @@ export function ReservaDetalhePage({ id }: { id: string }) {
           <p className="text-slate-500">{reserva.clientes?.nome || 'Cliente'} • {reserva.kits?.nome || 'Kit'}</p>
         </div>
 
-        <div className="flex gap-2">
-          {whatsapp && <a href={whatsapp} target="_blank"><Button variant="secondary">WhatsApp</Button></a>}
-          <Button onClick={() => setEditando(!editando)}>{editando ? 'Cancelar edição' : 'Editar reserva'}</Button>
+        <div className="flex flex-wrap gap-2">
+          {reserva.status !== 'Confirmada' && (
+            <Button onClick={confirmarReserva} disabled={confirmando}>
+              {confirmando ? 'Confirmando...' : 'Confirmar reserva'}
+            </Button>
+          )}
+
+          {whatsapp && (
+            <a href={whatsapp} target="_blank" rel="noreferrer">
+              <Button variant="secondary">WhatsApp</Button>
+            </a>
+          )}
+
+          <Button variant="secondary" onClick={() => setEditando(!editando)}>
+            {editando ? 'Cancelar edição' : 'Editar reserva'}
+          </Button>
         </div>
       </div>
 
