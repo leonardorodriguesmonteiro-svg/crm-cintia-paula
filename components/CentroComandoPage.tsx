@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { MissaoDoDia } from '@/components/comando/MissaoDoDia'
+import { AcoesRapidas } from '@/components/comando/AcoesRapidas'
 
 type Reserva = {
   id: string
@@ -183,6 +185,17 @@ export function CentroComandoPage() {
           {erro}
         </div>
       )}
+
+      <MissaoDoDia
+        eventosHoje={dados.eventosHoje.length}
+        entregasHoje={dados.entregasHoje}
+        retiradasHoje={dados.retiradasHoje}
+        contratosPendentes={dados.contratosPendentes}
+        osPendentes={dados.osPendentes}
+        receberHoje={dados.receberHoje}
+      />
+
+      <AcoesRapidas />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>
