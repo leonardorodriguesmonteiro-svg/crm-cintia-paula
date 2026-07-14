@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/Button'
 import { MissaoDoDia } from '@/components/comando/MissaoDoDia'
 import { AcoesRapidas } from '@/components/comando/AcoesRapidas'
 import { calcularCentroComando } from '@/lib/services/centroComandoService'
+import { gerarRecomendacoes } from '@/lib/services/inteligencia/recommendationService'
+import { RecomendacoesOperacionais } from '@/components/comando/RecomendacoesOperacionais'
 
 type Reserva = {
   id: string
@@ -121,6 +123,15 @@ export function CentroComandoPage() {
     })
   }, [reservas, contratos, ordens, logistica, hoje])
 
+  const recomendacoes = useMemo(() => {
+    return gerarRecomendacoes({
+      reservas,
+      contratos,
+      ordens,
+      hoje
+    })
+  }, [reservas, contratos, ordens, hoje])
+
   const saudacao =
     new Date().getHours() < 12
       ? 'Bom dia'
@@ -161,6 +172,8 @@ export function CentroComandoPage() {
       />
 
       <AcoesRapidas />
+
+      <RecomendacoesOperacionais recomendacoes={recomendacoes} />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>
