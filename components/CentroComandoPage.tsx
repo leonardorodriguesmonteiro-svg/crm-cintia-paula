@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { MissaoDoDia } from '@/components/comando/MissaoDoDia'
 import { AcoesRapidas } from '@/components/comando/AcoesRapidas'
+import { calcularCentroComando } from '@/lib/services/centroComandoService'
 
 type Reserva = {
   id: string
@@ -111,49 +112,13 @@ export function CentroComandoPage() {
   const hoje = new Date().toISOString().slice(0, 10)
 
   const dados = useMemo(() => {
-    const eventosHoje = reservas.filter(r => r.data_evento === hoje)
-
-    const proximosEventos = reservas
-      .filter(r => r.data_evento >= hoje && r.status !== 'Cancelada')
-      .slice(0, 6)
-
-    const contratosPendentes = contratos.filter(
-      c => c.status !== 'Assinado' && c.status !== 'Cancelado'
-    ).length
-
-    const osPendentes = ordens.filter(
-      o => o.status !== 'Concluída'
-    ).length
-
-    const entregasHoje = logistica.filter(item =>
-      item.etapa === 'Entrega' &&
-      item.horario_previsto?.slice(0, 10) === hoje &&
-      item.status !== 'Concluído'
-    ).length
-
-    const retiradasHoje = logistica.filter(item =>
-      item.etapa === 'Devolução' &&
-      item.horario_previsto?.slice(0, 10) === hoje &&
-      item.status !== 'Concluído'
-    ).length
-
-    const receberHoje = eventosHoje.reduce((total, reserva) => {
-      return total + Math.max(
-        Number(reserva.valor_total || 0) - Number(reserva.valor_sinal || 0),
-        0
-      )
-    }, 0)
-
-    return {
-      eventosHoje,
-      proximosEventos,
-      contratosPendentes,
-      osPendentes,
-      entregasHoje,
-      retiradasHoje,
-      receberHoje,
-      totalPendencias: contratosPendentes + osPendentes
-    }
+    return calcularCentroComando({
+      reservas,
+      contratos,
+      ordens,
+      logistica,
+      hoje
+    })
   }, [reservas, contratos, ordens, logistica, hoje])
 
   const saudacao =
