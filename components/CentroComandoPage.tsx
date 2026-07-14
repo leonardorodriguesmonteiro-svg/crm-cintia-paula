@@ -10,6 +10,8 @@ import { AcoesRapidas } from '@/components/comando/AcoesRapidas'
 import { calcularCentroComando } from '@/lib/services/centroComandoService'
 import { gerarRecomendacoes } from '@/lib/services/inteligencia/recommendationService'
 import { RecomendacoesOperacionais } from '@/components/comando/RecomendacoesOperacionais'
+import { SaudeOperacional } from '@/components/comando/SaudeOperacional'
+import { calcularOperationalScore } from '@/lib/intelligence/operationalScore'
 
 type Reserva = {
   id: string
@@ -55,6 +57,7 @@ export function CentroComandoPage() {
   const [ordens, setOrdens] = useState<OrdemServico[]>([])
   const [logistica, setLogistica] = useState<Logistica[]>([])
   const [workflow, setWorkflow] = useState<WorkflowEvento[]>([])
+  const [workflowAcoes, setWorkflowAcoes] = useState<any[]>([])
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(true)
 
@@ -62,7 +65,7 @@ export function CentroComandoPage() {
     setErro('')
     setCarregando(true)
 
-    const [reservasRes, contratosRes, ordensRes, logisticaRes, workflowRes] =
+    const [reservasRes, contratosRes, ordensRes, logisticaRes, workflowRes, workflowAcoesRes] =
       await Promise.all([
         supabase
           .from('reservas')
@@ -85,7 +88,11 @@ export function CentroComandoPage() {
           .from('workflow_eventos')
           .select('id,titulo,tipo,created_at')
           .order('created_at', { ascending: false })
-          .limit(5)
+          .limit(5),
+
+        supabase
+          .from('workflow_acoes')
+          .select('status')
       ])
 
     const primeiraFalha =
@@ -93,7 +100,8 @@ export function CentroComandoPage() {
       contratosRes.error ||
       ordensRes.error ||
       logisticaRes.error ||
-      workflowRes.error
+      workflowRes.error ||
+      workflowAcoesRes.error
 
     if (primeiraFalha) {
       setErro(primeiraFalha.message)
@@ -104,6 +112,7 @@ export function CentroComandoPage() {
     setOrdens(ordensRes.data || [])
     setLogistica(logisticaRes.data || [])
     setWorkflow(workflowRes.data || [])
+    setWorkflowAcoes(workflowAcoesRes.data || [])
     setCarregando(false)
   }
 
@@ -131,6 +140,20 @@ export function CentroComandoPage() {
       hoje
     })
   }, [reservas, contratos, ordens, hoje])
+
+  const score = useMemo(() => {
+    return calcularOperationalScore({
+      contratos,
+      ordens,
+      workflowAcoes,
+      recomendacoesAltas: recomendacoes.filter(
+        item => item.prioridade === 'Alta'
+      ).length,
+      recomendacoesMedias: recomendacoes.filter(
+        item => item.prioridade === 'Média'
+      ).length
+    })
+  }, [contratos, ordens, workflowAcoes, recomendacoes])
 
   const saudacao =
     new Date().getHours() < 12
@@ -172,6 +195,8 @@ export function CentroComandoPage() {
       />
 
       <AcoesRapidas />
+
+      <SaudeOperacional score={score} />
 
       <RecomendacoesOperacionais recomendacoes={recomendacoes} />
 
