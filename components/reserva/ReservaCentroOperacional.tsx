@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
+import { ReservaEquipeOS } from '@/components/reserva/ReservaEquipeOS'
 
 type OrdemServico = {
   id: string
@@ -296,6 +297,11 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
               </div>
             </div>
           </form>
+
+          <ReservaEquipeOS
+            reservaId={reservaId}
+            ordemServicoId={os.id}
+          />
 
           <div className="grid gap-4 md:grid-cols-2">
             {['Separação', 'Entrega', 'Devolução', 'Encerramento'].map(etapa => (
