@@ -1,5 +1,7 @@
+import type { ERPEventCode } from './catalog'
+
 export type ERPEvent = {
-  codigo: string
+  codigo: ERPEventCode
   titulo: string
   descricao?: string
 

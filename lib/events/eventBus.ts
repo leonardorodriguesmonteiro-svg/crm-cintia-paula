@@ -1,34 +1,49 @@
 import type { ERPEvent, ERPEventListener } from './types'
-import { registrarTimelineGlobal } from '@/lib/platform/timeline/timelineService'
+import { timelineListener } from './listeners/timeline.listener'
+import { workflowListener } from './listeners/workflow.listener'
 
-const listeners = new Map<string, ERPEventListener[]>()
+const listenersExtras = new Map<string, ERPEventListener[]>()
+
+const listenersPrincipais: ERPEventListener[] = [
+  timelineListener,
+  workflowListener
+]
 
 export function registrarListener(
   codigoEvento: string,
   listener: ERPEventListener
 ) {
-  const atuais = listeners.get(codigoEvento) || []
-  listeners.set(codigoEvento, [...atuais, listener])
+  const atuais = listenersExtras.get(codigoEvento) || []
+  listenersExtras.set(codigoEvento, [...atuais, listener])
 }
 
 export async function publicarEvento(evento: ERPEvent) {
-  await registrarTimelineGlobal(evento)
+  const especificos = listenersExtras.get(evento.codigo) || []
+  const globais = listenersExtras.get('*') || []
 
-  const listenersEspecificos = listeners.get(evento.codigo) || []
-  const listenersGlobais = listeners.get('*') || []
+  const todos = [
+    ...listenersPrincipais,
+    ...especificos,
+    ...globais
+  ]
 
-  const todos = [...listenersEspecificos, ...listenersGlobais]
+  const erros: string[] = []
 
   for (const listener of todos) {
     try {
       await listener(evento)
-    } catch (error) {
-      console.error(
-        `Erro ao processar listener do evento ${evento.codigo}:`,
-        error
-      )
+    } catch (error: any) {
+      const mensagem =
+        error?.message || `Erro ao processar ${evento.codigo}`
+
+      erros.push(mensagem)
+      console.error(mensagem)
     }
   }
 
-  return evento
+  return {
+    evento,
+    sucesso: erros.length === 0,
+    erros
+  }
 }

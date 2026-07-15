@@ -1,12 +1,12 @@
 import { reservaRepository } from '@/lib/repositories/reservaRepository'
-import { executarWorkflow } from '@/lib/workflow/engine'
 import { publicarEvento } from '@/lib/events/eventBus'
+import { ERPEvents } from '@/lib/events/catalog'
 
 export async function confirmarReserva(reservaId: string) {
   const reserva = await reservaRepository.confirmar(reservaId)
 
-  await publicarEvento({
-    codigo: 'RESERVA_CONFIRMADA',
+  const processamento = await publicarEvento({
+    codigo: ERPEvents.RESERVA_CONFIRMADA,
     titulo: 'Reserva confirmada',
     descricao:
       'A reserva foi confirmada e o fluxo automático foi iniciado.',
@@ -21,13 +21,11 @@ export async function confirmarReserva(reservaId: string) {
     }
   })
 
-  await executarWorkflow({
-    reservaId: reserva.id,
-    evento: 'RESERVA_CONFIRMADA',
-    titulo: 'Reserva confirmada',
-    descricao:
-      'A reserva foi confirmada e o fluxo automático foi iniciado.'
-  })
+  if (!processamento.sucesso) {
+    throw new Error(
+      `Reserva confirmada, mas houve falha no processamento: ${processamento.erros.join('; ')}`
+    )
+  }
 
   return reserva
 }
