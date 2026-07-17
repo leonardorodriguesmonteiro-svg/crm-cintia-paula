@@ -217,10 +217,10 @@ export function MissoesPage() {
                 </div>
 
                 <Link
-                  href={`/reservas/${missao.reserva_id}`}
+                  href={`/missoes/${missao.id}`}
                   className="mt-5 flex w-full justify-center rounded-xl bg-pink-600 px-4 py-3 text-sm font-bold text-white hover:bg-pink-700"
                 >
-                  Abrir missão
+                  Executar missão
                 </Link>
               </div>
             )
