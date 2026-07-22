@@ -1,20 +1,88 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-export function AuthGate({ children }: { children: React.ReactNode }) {
+const rotasPublicas = [
+  '/login',
+  '/redefinir-senha'
+]
+
+export function AuthGate({
+  children
+}: {
+  children: React.ReactNode
+}) {
   const router = useRouter()
-  const [ready, setReady] = useState(false)
+  const pathname = usePathname()
+  const [verificando, setVerificando] = useState(true)
+
+  const rotaPublica = rotasPublicas.some(
+    rota =>
+      pathname === rota ||
+      pathname.startsWith(`${rota}/`)
+  )
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) router.replace('/login')
-      else setReady(true)
-    })
-  }, [router])
+    let ativo = true
 
-  if (!ready) return <div className="p-8 text-sm text-slate-500">Carregando...</div>
+    if (rotaPublica) {
+      setVerificando(false)
+      return
+    }
+
+    async function verificarSessao() {
+      const {
+        data: { session }
+      } = await supabase.auth.getSession()
+
+      if (!ativo) return
+
+      if (!session) {
+        router.replace('/login')
+        return
+      }
+
+      setVerificando(false)
+    }
+
+    verificarSessao()
+
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange(
+      (evento, session) => {
+        if (!ativo) return
+
+        if (evento === 'SIGNED_OUT' || !session) {
+          router.replace('/login')
+          return
+        }
+
+        setVerificando(false)
+      }
+    )
+
+    return () => {
+      ativo = false
+      subscription.unsubscribe()
+    }
+  }, [rotaPublica, router])
+
+  if (rotaPublica) {
+    return <>{children}</>
+  }
+
+  if (verificando) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <p className="text-sm text-slate-500">
+          Verificando acesso...
+        </p>
+      </div>
+    )
+  }
+
   return <>{children}</>
 }
