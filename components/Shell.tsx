@@ -1,7 +1,8 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import {
   LayoutDashboard,
@@ -63,11 +64,37 @@ const mobileItems = [
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const router = useRouter()
+  const [saindo, setSaindo] = useState(false)
+
+  function limparSessaoLocal() {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+
+    if (!supabaseUrl) return
+
+    try {
+      const projectRef = new URL(supabaseUrl).hostname.split('.')[0]
+      const storageKey = `sb-${projectRef}-auth-token`
+      localStorage.removeItem(storageKey)
+      localStorage.removeItem(`${storageKey}-code-verifier`)
+    } catch {
+      // A navegação para o login ainda impede o acesso às rotas protegidas.
+    }
+  }
 
   async function logout() {
-    await supabase.auth.signOut()
-    router.replace('/login')
+    setSaindo(true)
+    const redirecionar = () => {
+      limparSessaoLocal()
+      window.location.replace('/login')
+    }
+    const fallback = window.setTimeout(redirecionar, 1500)
+
+    try {
+      await supabase.auth.signOut({ scope: 'local' })
+    } finally {
+      window.clearTimeout(fallback)
+      redirecionar()
+    }
   }
 
   function isActive(href: string) {
@@ -76,6 +103,29 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-slate-50 md:flex">
+      <header className="sticky top-0 z-40 flex items-center justify-between border-b bg-white/95 px-4 py-3 shadow-sm backdrop-blur md:hidden">
+        <Link href="/dashboard" className="flex items-center gap-3">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-pink-100 text-sm font-bold text-pink-700">
+            CP
+          </span>
+          <span>
+            <span className="block text-sm font-bold text-slate-900">Cintia Paula</span>
+            <span className="block text-[11px] text-slate-500">Festas e Decorações</span>
+          </span>
+        </Link>
+
+        <button
+          type="button"
+          onClick={logout}
+          disabled={saindo}
+          aria-label="Sair do sistema"
+          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+        >
+          <LogOut size={17} />
+          {saindo ? 'Saindo...' : 'Sair'}
+        </button>
+      </header>
+
       <aside className="hidden md:flex w-72 flex-col border-r bg-white p-6">
         <div className="mb-8">
           <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-pink-100 text-pink-700 font-bold">
@@ -119,10 +169,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
         <button
           onClick={logout}
+          disabled={saindo}
           className="mt-6 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
         >
           <LogOut size={18} />
-          Sair
+          {saindo ? 'Saindo...' : 'Sair'}
         </button>
       </aside>
 
