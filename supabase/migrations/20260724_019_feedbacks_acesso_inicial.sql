@@ -30,13 +30,19 @@ begin
     return false;
   end if;
 
-  select count(*), min(id)
-  into v_total_empresas, v_empresa_id
+  select count(*)
+  into v_total_empresas
   from public.empresas;
 
-  if v_total_empresas <> 1 or v_empresa_id is null then
+  if v_total_empresas <> 1 then
     return false;
   end if;
+
+  select id
+  into v_empresa_id
+  from public.empresas
+  order by id
+  limit 1;
 
   insert into public.usuarios_empresa (
     usuario_id,
