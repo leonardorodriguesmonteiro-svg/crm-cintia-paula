@@ -1,4 +1,5 @@
 import { MissionWorkspace } from '@/components/business/mission/MissionWorkspace'
+import { PageLayout } from '@/components/PageLayout'
 
 export default async function Page({
   params
@@ -7,5 +8,5 @@ export default async function Page({
 }) {
   const { id } = await params
 
-  return <MissionWorkspace missaoId={id} />
+  return <PageLayout><MissionWorkspace missaoId={id} /></PageLayout>
 }

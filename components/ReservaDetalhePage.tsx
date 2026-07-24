@@ -12,8 +12,9 @@ import { ReservaChecklist } from '@/components/reserva/ReservaChecklist'
 import { ReservaLogistica } from '@/components/reserva/ReservaLogistica'
 import { ReservaContrato } from '@/components/reserva/ReservaContrato'
 import { ReservaCentroOperacional } from '@/components/reserva/ReservaCentroOperacional'
+import { ReservaConferencia } from '@/components/reserva/ReservaConferencia'
 
-const abas = ['Resumo', 'Operação', 'Timeline', 'Financeiro', 'Kit', 'Checklist', 'Logística', 'Contrato']
+const abas = ['Resumo', 'Operação', 'Conferência', 'Timeline', 'Financeiro', 'Kit', 'Checklist', 'Logística', 'Contrato']
 
 export function ReservaDetalhePage({ id }: { id: string }) {
   const [aba, setAba] = useState('Resumo')
@@ -162,8 +163,18 @@ export function ReservaDetalhePage({ id }: { id: string }) {
     setConfirmando(true)
 
     try {
+      const { data: sessao, error: erroSessao } = await supabase.auth.getSession()
+      const token = sessao.session?.access_token
+
+      if (erroSessao || !token) {
+        throw new Error('Sua sessão expirou. Entre novamente para confirmar a reserva.')
+      }
+
       const resposta = await fetch(`/api/reservas/${id}/confirmar`, {
-        method: 'POST'
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
       })
 
       const resultado = await resposta.json()
@@ -196,7 +207,7 @@ export function ReservaDetalhePage({ id }: { id: string }) {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {reserva.status !== 'Confirmada' && (
+          {['Pendente', 'Orçamento'].includes(reserva.status) && (
             <Button onClick={confirmarReserva} disabled={confirmando}>
               {confirmando ? 'Confirmando...' : 'Confirmar reserva'}
             </Button>
@@ -260,6 +271,8 @@ export function ReservaDetalhePage({ id }: { id: string }) {
       )}
 
       {aba === 'Operação' && <ReservaCentroOperacional reservaId={id} />}
+
+      {aba === 'Conferência' && <ReservaConferencia reservaId={id} onAtualizar={carregar} />}
 
       {aba === 'Timeline' && (
         <Card>

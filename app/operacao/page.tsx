@@ -1,5 +1,6 @@
 import { CentroOperacionalPage } from '@/components/operacao/CentroOperacionalPage'
+import { PageLayout } from '@/components/PageLayout'
 
 export default function Page() {
-  return <CentroOperacionalPage />
+  return <PageLayout><CentroOperacionalPage /></PageLayout>
 }

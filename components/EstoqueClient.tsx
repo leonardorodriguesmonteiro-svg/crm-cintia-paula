@@ -23,6 +23,24 @@ type Item = {
   status: string | null
 }
 
+type Movimento = {
+  id: string
+  tipo: string
+  quantidade: number
+  saldo_total_depois: number
+  saldo_manutencao_depois: number
+  criado_em: string
+  estoque_itens: {
+    codigo: string | null
+    nome: string
+  } | null
+  conferencias: {
+    reservas: {
+      numero: string | null
+    } | null
+  } | null
+}
+
 const vazio = {
   codigo: '',
   nome: '',
@@ -39,6 +57,7 @@ const vazio = {
 
 export function EstoqueClient() {
   const [itens, setItens] = useState<Item[]>([])
+  const [movimentos, setMovimentos] = useState<Movimento[]>([])
   const [form, setForm] = useState(vazio)
   const [editando, setEditando] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
@@ -46,13 +65,22 @@ export function EstoqueClient() {
   const [salvando, setSalvando] = useState(false)
 
   async function carregar() {
-    const { data, error } = await supabase
-      .from('estoque_itens')
-      .select('*')
-      .order('created_at', { ascending: false })
+    const [itensRes, movimentosRes] = await Promise.all([
+      supabase
+        .from('estoque_itens')
+        .select('*')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('movimentos_estoque')
+        .select('id,tipo,quantidade,saldo_total_depois,saldo_manutencao_depois,criado_em,estoque_itens!movimentos_estoque_item_id_fkey(codigo,nome),conferencias(reservas(numero))')
+        .order('criado_em', { ascending: false })
+        .limit(50)
+    ])
 
-    if (error) return setErro(error.message)
-    setItens(data || [])
+    if (itensRes.error) return setErro(itensRes.error.message)
+    if (movimentosRes.error) return setErro(movimentosRes.error.message)
+    setItens(itensRes.data || [])
+    setMovimentos((movimentosRes.data as any) || [])
   }
 
   useEffect(() => {
@@ -80,10 +108,17 @@ export function EstoqueClient() {
       return
     }
 
+    if (Number(form.quantidade_manutencao) > Number(form.quantidade_total)) {
+      setErro('A quantidade em manutenção não pode ser maior que a quantidade total.')
+      setSalvando(false)
+      return
+    }
+
     const payload = {
       ...form,
+      codigo: form.codigo.trim(),
+      nome: form.nome.trim(),
       quantidade_total: Number(form.quantidade_total) || 0,
-      quantidade_disponivel: Number(form.quantidade_disponivel) || 0,
       quantidade_manutencao: Number(form.quantidade_manutencao) || 0,
       valor_reposicao: Number(form.valor_reposicao) || 0
     }
@@ -123,17 +158,43 @@ export function EstoqueClient() {
   }
 
   async function excluir(id: string) {
+    const { count, error: vinculoError } = await supabase
+      .from('kit_composicao')
+      .select('id', { count: 'exact', head: true })
+      .eq('item_id', id)
+
+    if (vinculoError) return setErro(vinculoError.message)
+    if (count) {
+      setErro('Este item faz parte da composição de um kit. Remova o vínculo antes de excluir.')
+      return
+    }
+
     if (!confirm('Deseja excluir este item do estoque?')) return
     const { error } = await supabase.from('estoque_itens').delete().eq('id', id)
     if (error) return setErro(error.message)
     carregar()
   }
 
+  const totalUnidades = itens.reduce((total, item) => total + Number(item.quantidade_total || 0), 0)
+  const totalManutencao = itens.reduce((total, item) => total + Number(item.quantidade_manutencao || 0), 0)
+  const totalDisponivel = itens.reduce((total, item) => total + Number(item.quantidade_disponivel || 0), 0)
+  const valorPatrimonio = itens.reduce(
+    (total, item) => total + Number(item.quantidade_total || 0) * Number(item.valor_reposicao || 0),
+    0
+  )
+
   return (
     <div className="space-y-6 p-4 md:p-8 pb-28">
       <div>
         <h1 className="text-3xl font-bold text-slate-900">Estoque</h1>
         <p className="text-slate-500">Controle os itens físicos usados nos kits.</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Card><p className="text-xs font-semibold uppercase text-slate-500">Unidades totais</p><p className="mt-1 text-2xl font-bold">{totalUnidades}</p></Card>
+        <Card><p className="text-xs font-semibold uppercase text-slate-500">Disponíveis</p><p className="mt-1 text-2xl font-bold">{totalDisponivel}</p></Card>
+        <Card><p className="text-xs font-semibold uppercase text-slate-500">Em manutenção</p><p className="mt-1 text-2xl font-bold">{totalManutencao}</p></Card>
+        <Card><p className="text-xs font-semibold uppercase text-slate-500">Patrimônio estimado</p><p className="mt-1 text-2xl font-bold">R$ {valorPatrimonio.toFixed(2)}</p></Card>
       </div>
 
       <Card>
@@ -164,8 +225,14 @@ export function EstoqueClient() {
             <h3 className="mb-3 text-sm font-semibold text-slate-700">Quantidades</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Input label="Quantidade total" type="number" value={form.quantidade_total} onChange={e => setForm({ ...form, quantidade_total: Number(e.target.value) })} />
-              <Input label="Quantidade disponível" type="number" value={form.quantidade_disponivel} onChange={e => setForm({ ...form, quantidade_disponivel: Number(e.target.value) })} />
               <Input label="Quantidade em manutenção" type="number" value={form.quantidade_manutencao} onChange={e => setForm({ ...form, quantidade_manutencao: Number(e.target.value) })} />
+              <div className="rounded-xl border bg-white px-3 py-2">
+                <p className="text-sm font-medium text-slate-700">Quantidade disponível</p>
+                <p className="mt-1 text-lg font-bold">
+                  {Math.max(Number(form.quantidade_total) - Number(form.quantidade_manutencao), 0)}
+                </p>
+                <p className="text-xs text-slate-500">Calculada automaticamente</p>
+              </div>
             </div>
           </div>
 
@@ -249,6 +316,46 @@ export function EstoqueClient() {
         {filtrados.length === 0 && (
           <div className="rounded-2xl border border-dashed p-8 text-center text-slate-500">
             Nenhum item encontrado.
+          </div>
+        )}
+      </Card>
+
+      <Card>
+        <div className="mb-5">
+          <h2 className="text-lg font-semibold text-slate-900">Movimentações automáticas</h2>
+          <p className="text-sm text-slate-500">Avarias, extravios e reversões gerados pelas conferências.</p>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-sm">
+            <thead>
+              <tr className="border-b text-left text-slate-500">
+                <th className="p-3">Data</th>
+                <th>Item</th>
+                <th>Reserva</th>
+                <th>Movimento</th>
+                <th>Quantidade</th>
+                <th>Saldo resultante</th>
+              </tr>
+            </thead>
+            <tbody>
+              {movimentos.map(movimento => (
+                <tr key={movimento.id} className="border-b last:border-0">
+                  <td className="p-3">{new Date(movimento.criado_em).toLocaleString('pt-BR')}</td>
+                  <td>{movimento.estoque_itens?.codigo || '-'} — {movimento.estoque_itens?.nome || 'Item'}</td>
+                  <td>{movimento.conferencias?.reservas?.numero || '—'}</td>
+                  <td>{movimento.tipo}</td>
+                  <td>{movimento.quantidade}</td>
+                  <td>{movimento.saldo_total_depois} total · {movimento.saldo_manutencao_depois} manutenção</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {movimentos.length === 0 && (
+          <div className="rounded-2xl border border-dashed p-8 text-center text-slate-500">
+            Nenhuma movimentação automática registrada.
           </div>
         )}
       </Card>

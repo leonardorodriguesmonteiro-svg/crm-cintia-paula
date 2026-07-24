@@ -12,6 +12,7 @@ type Kit = { id: string; nome: string; codigo: string | null }
 type Item = { id: string; nome: string; codigo: string | null; quantidade_disponivel: number | null }
 type Composicao = {
   id: string
+  item_id: string
   quantidade: number
   observacoes: string | null
   estoque_itens: Item | null
@@ -26,6 +27,7 @@ export function KitComposicaoClient() {
   const [observacoes, setObservacoes] = useState('')
   const [composicao, setComposicao] = useState<Composicao[]>([])
   const [erro, setErro] = useState('')
+  const [editando, setEditando] = useState<string | null>(null)
 
   async function carregarBase() {
     const kitsRes = await supabase.from('kits').select('id,nome,codigo').order('nome')
@@ -46,7 +48,7 @@ export function KitComposicaoClient() {
 
     const { data, error } = await supabase
       .from('kit_composicao')
-      .select('id,quantidade,observacoes,estoque_itens(id,nome,codigo,quantidade_disponivel)')
+      .select('id,item_id,quantidade,observacoes,estoque_itens(id,nome,codigo,quantidade_disponivel)')
       .eq('kit_id', id)
       .order('created_at', { ascending: false })
 
@@ -64,6 +66,7 @@ export function KitComposicaoClient() {
 
   useEffect(() => {
     carregarComposicao(kitId)
+    cancelarEdicao()
   }, [kitId])
 
   async function adicionar(e: React.FormEvent) {
@@ -74,12 +77,21 @@ export function KitComposicaoClient() {
     if (!itemId) return setErro('Selecione um item do estoque.')
     if (quantidade <= 0) return setErro('A quantidade deve ser maior que zero.')
 
-    const { error } = await supabase.from('kit_composicao').insert({
+    const itemSelecionado = itens.find(item => item.id === itemId)
+    if (quantidade > Number(itemSelecionado?.quantidade_disponivel || 0)) {
+      return setErro(`Há somente ${itemSelecionado?.quantidade_disponivel || 0} unidade(s) disponíveis deste item.`)
+    }
+
+    const payload = {
       kit_id: kitId,
       item_id: itemId,
       quantidade,
-      observacoes
-    })
+      observacoes: observacoes || null
+    }
+
+    const { error } = editando
+      ? await supabase.from('kit_composicao').update(payload).eq('id', editando)
+      : await supabase.from('kit_composicao').insert(payload)
 
     if (error) {
       setErro(error.message.includes('duplicate') ? 'Este item já faz parte da composição deste kit.' : error.message)
@@ -89,7 +101,23 @@ export function KitComposicaoClient() {
     setItemId('')
     setQuantidade(1)
     setObservacoes('')
+    setEditando(null)
     carregarComposicao(kitId)
+  }
+
+  function editar(linha: Composicao) {
+    setEditando(linha.id)
+    setItemId(linha.item_id)
+    setQuantidade(linha.quantidade)
+    setObservacoes(linha.observacoes || '')
+    setErro('')
+  }
+
+  function cancelarEdicao() {
+    setEditando(null)
+    setItemId('')
+    setQuantidade(1)
+    setObservacoes('')
   }
 
   async function remover(id: string) {
@@ -137,7 +165,9 @@ export function KitComposicaoClient() {
         <Card>
           <form onSubmit={adicionar} className="space-y-5">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">Adicionar item ao kit</h2>
+              <h2 className="text-lg font-semibold text-slate-900">
+                {editando ? 'Editar item da composição' : 'Adicionar item ao kit'}
+              </h2>
               <p className="text-sm text-slate-500">
                 Kit selecionado: <strong>{kitSelecionado?.nome}</strong>
               </p>
@@ -169,7 +199,10 @@ export function KitComposicaoClient() {
               />
             </div>
 
-            <Button type="submit">Adicionar item</Button>
+            <div className="flex gap-2">
+              <Button type="submit">{editando ? 'Salvar composição' : 'Adicionar item'}</Button>
+              {editando && <Button variant="secondary" onClick={cancelarEdicao}>Cancelar</Button>}
+            </div>
           </form>
         </Card>
       )}
@@ -196,9 +229,10 @@ export function KitComposicaoClient() {
                   )}
                 </div>
 
-                <Button variant="danger" onClick={() => remover(linha.id)}>
-                  Remover
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="secondary" onClick={() => editar(linha)}>Editar</Button>
+                  <Button variant="danger" onClick={() => remover(linha.id)}>Remover</Button>
+                </div>
               </div>
             ))}
 

@@ -1,5 +1,6 @@
 import { KitComposicaoClient } from '@/components/KitComposicaoClient'
+import { PageLayout } from '@/components/PageLayout'
 
 export default function KitComposicaoPage() {
-  return <KitComposicaoClient />
+  return <PageLayout><KitComposicaoClient /></PageLayout>
 }

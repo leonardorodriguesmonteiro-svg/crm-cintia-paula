@@ -1,5 +1,6 @@
 import { EquipePage } from '@/components/equipe/EquipePage'
+import { PageLayout } from '@/components/PageLayout'
 
 export default function Page() {
-  return <EquipePage />
+  return <PageLayout><EquipePage /></PageLayout>
 }
