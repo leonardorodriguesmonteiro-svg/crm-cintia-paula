@@ -15,7 +15,8 @@ import {
   Settings,
   LogOut,
   Layers3,
-  ClipboardList
+  ClipboardList,
+  MessageSquareText
 } from 'lucide-react'
 
 const grupos = [
@@ -46,6 +47,7 @@ const grupos = [
     titulo: 'Gestão',
     items: [
       { label: 'Financeiro', href: '/financeiro', icon: Wallet },
+      { label: 'Feedbacks', href: '/administracao/feedbacks', icon: MessageSquareText },
       { label: 'Configurações', href: '/configuracoes', icon: Settings }
     ]
   }
@@ -114,16 +116,30 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </span>
         </Link>
 
-        <button
-          type="button"
-          onClick={logout}
-          disabled={saindo}
-          aria-label="Sair do sistema"
-          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
-        >
-          <LogOut size={17} />
-          {saindo ? 'Saindo...' : 'Sair'}
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/administracao/feedbacks"
+            aria-label="Abrir Central de Feedback"
+            className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border transition ${
+              isActive('/administracao/feedbacks')
+                ? 'border-pink-200 bg-pink-50 text-pink-700'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <MessageSquareText size={18} />
+          </Link>
+
+          <button
+            type="button"
+            onClick={logout}
+            disabled={saindo}
+            aria-label="Sair do sistema"
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+          >
+            <LogOut size={17} />
+            {saindo ? 'Saindo...' : 'Sair'}
+          </button>
+        </div>
       </header>
 
       <aside className="hidden md:flex w-72 flex-col border-r bg-white p-6">

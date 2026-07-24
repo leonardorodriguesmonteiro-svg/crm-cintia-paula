@@ -53,6 +53,26 @@ export function FeedbacksAdminPage() {
     setErro('')
     setCarregando(true)
 
+    const {
+      data: administrador,
+      error: administradorError
+    } = await supabase.rpc('garantir_administrador_inicial')
+
+    if (administradorError) {
+      setErro(administradorError.message)
+      setCarregando(false)
+      return
+    }
+
+    if (!administrador) {
+      setErro(
+        'A Central de Feedback é restrita aos administradores da empresa.'
+      )
+      setFeedbacks([])
+      setCarregando(false)
+      return
+    }
+
     const { data, error } = await supabase
       .from('feedbacks')
       .select(`
