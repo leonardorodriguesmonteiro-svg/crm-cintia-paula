@@ -34,7 +34,7 @@ where mensagem ilike '%CPF obrigatório%';
 
 update public.feedbacks
 set
-  resposta = 'Os campos numéricos e de valores agora selecionam automaticamente o conteúdo atual ao receber foco. Assim, basta digitar o novo valor para substituir o zero.',
+  resposta = 'Os campos numéricos e de valores agora começam vazios quando o valor inicial é zero. Assim, basta clicar e digitar, sem precisar apagar o zero manualmente.',
   status = 'Concluído',
   prioridade = 'Média',
   resolvido_em = now(),

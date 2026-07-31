@@ -21,7 +21,7 @@ export function KitsModule(){
       {campo('Tema', <input className="input" placeholder="Ex.: Jardim encantado" value={form.tema||''} onChange={e=>setForm({...form,tema:e.target.value})}/>)}
       {campo('Categoria', <input className="input" placeholder="Ex.: Infantil" value={form.categoria||''} onChange={e=>setForm({...form,categoria:e.target.value})}/>)}
       {campo('Quantidade disponível', <input className="input" placeholder="Número de kits" type="number" min="1" value={form.quantidade||1} onFocus={e=>e.currentTarget.select()} onChange={e=>setForm({...form,quantidade:e.target.value})}/>)}
-      {campo('Valor da locação (R$)', <input className="input" placeholder="0,00" type="number" min="0" step="0.01" value={form.valor??0} onFocus={e=>e.currentTarget.value==='0'&&e.currentTarget.select()} onClick={e=>e.currentTarget.value==='0'&&e.currentTarget.select()} onMouseUp={e=>{if(e.currentTarget.value==='0'){e.preventDefault();e.currentTarget.select()}}} onChange={e=>setForm({...form,valor:e.target.value})}/>)}
+      {campo('Valor da locação (R$)', <input className="input" placeholder="0,00" type="number" min="0" step="0.01" value={form.valor===0?'':form.valor??''} onChange={e=>setForm({...form,valor:e.target.value})}/>)}
       {campo('URL da foto', <input className="input" placeholder="https://..." value={form.foto_url||''} onChange={e=>setForm({...form,foto_url:e.target.value})}/>)}
       {campo('Status', <input className="input" placeholder="Ex.: Disponível" value={form.status||''} onChange={e=>setForm({...form,status:e.target.value})}/>)}
       {campo('Descrição', <input className="input" placeholder="Detalhes do kit" value={form.descricao||''} onChange={e=>setForm({...form,descricao:e.target.value})}/>)}
