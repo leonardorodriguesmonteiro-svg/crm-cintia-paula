@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { CalendarCheck, CheckCircle2, CircleAlert, Download, Plus, Send, Share2, Trash2 } from 'lucide-react'
+import { CalendarCheck, CheckCircle2, CircleAlert, Copy, Download, ExternalLink, Plus, Send, Share2, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { criarDocumentoOrcamento, mensagemWhatsAppOrcamento, telefoneWhatsApp } from '@/lib/orcamentoPdf'
 import { Button } from '@/components/ui/Button'
@@ -57,6 +57,11 @@ type Orcamento = {
   total: number
   observacoes: string | null
   reserva_id: string | null
+  public_token: string | null
+  resposta_cliente: 'Aprovado' | 'Recusado' | null
+  respondido_por: string | null
+  respondido_em: string | null
+  resposta_observacao: string | null
   created_at: string
   oportunidades: {
     numero: number
@@ -565,7 +570,10 @@ export function OrcamentosPage() {
     try {
       const dados = await carregarDadosDocumento(orcamento)
       const { doc, nomeArquivo } = await criarDocumentoOrcamento(dados)
-      const mensagem = mensagemWhatsAppOrcamento(dados)
+      const link_publico = orcamento.public_token
+        ? `${window.location.origin}/proposta/${orcamento.public_token}`
+        : null
+      const mensagem = mensagemWhatsAppOrcamento({ ...dados, link_publico })
       const arquivo = new File([doc.output('blob')], nomeArquivo, { type: 'application/pdf' })
       const podeCompartilharArquivo = Boolean(
         navigator.share && navigator.canShare?.({ files: [arquivo] })
@@ -594,6 +602,25 @@ export function OrcamentosPage() {
       setErro(mensagemErroDocumento(error))
     } finally {
       setAcaoDocumento(null)
+    }
+  }
+
+  async function copiarLinkPublico(orcamento: Orcamento) {
+    setErro('')
+    setSucesso('')
+
+    if (!orcamento.public_token) {
+      setErro('Este orçamento ainda não possui um link público.')
+      return
+    }
+
+    const link = `${window.location.origin}/proposta/${orcamento.public_token}`
+
+    try {
+      await navigator.clipboard.writeText(link)
+      setSucesso(`Link público do ORC-${String(orcamento.numero).padStart(4, '0')} copiado.`)
+    } catch {
+      setErro('Não foi possível copiar o link. Abra a proposta e copie o endereço do navegador.')
     }
   }
 
@@ -740,6 +767,13 @@ export function OrcamentosPage() {
             <div className="mt-4 space-y-1 text-sm text-slate-500">
               <p>Evento: {dataCurta(orcamento.data_evento)}</p><p>Validade: {dataCurta(orcamento.validade)}</p><p className="pt-2 text-xl font-bold text-slate-900">{moeda(orcamento.total)}</p>
             </div>
+            {orcamento.resposta_cliente && (
+              <div className={`mt-4 rounded-xl px-3 py-2 text-xs ${orcamento.resposta_cliente === 'Aprovado' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>
+                <p className="font-bold">Cliente {orcamento.resposta_cliente === 'Aprovado' ? 'aprovou' : 'recusou'} a proposta</p>
+                <p className="mt-0.5">{orcamento.respondido_por || 'Cliente'} · {orcamento.respondido_em ? new Date(orcamento.respondido_em).toLocaleString('pt-BR') : 'data não informada'}</p>
+                {orcamento.resposta_observacao && <p className="mt-1">“{orcamento.resposta_observacao}”</p>}
+              </div>
+            )}
             <div className="mt-4 grid gap-2">
               <div className="grid grid-cols-2 gap-2">
                 <Button
@@ -760,6 +794,28 @@ export function OrcamentosPage() {
                   <Share2 size={16} />
                   {acaoDocumento === `compartilhar:${orcamento.id}` ? 'Preparando...' : 'Compartilhar'}
                 </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="secondary"
+                  disabled={!orcamento.public_token}
+                  className="flex items-center justify-center gap-1 px-2"
+                  onClick={() => copiarLinkPublico(orcamento)}
+                >
+                  <Copy size={16} /> Copiar link
+                </Button>
+                {orcamento.public_token ? (
+                  <a
+                    href={`/proposta/${orcamento.public_token}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-center gap-1 rounded-xl border bg-white px-2 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    <ExternalLink size={16} /> Ver proposta
+                  </a>
+                ) : (
+                  <span className="flex items-center justify-center rounded-xl border bg-slate-50 px-2 py-2 text-sm text-slate-400">Link indisponível</span>
+                )}
               </div>
               {orcamento.reserva_id ? (
                 <Link

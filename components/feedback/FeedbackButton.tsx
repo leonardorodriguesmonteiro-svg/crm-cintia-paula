@@ -171,7 +171,7 @@ export function FeedbackButton() {
     }
   }
 
-  if (pathname === '/login' || pathname === '/redefinir-senha') {
+  if (pathname === '/login' || pathname === '/redefinir-senha' || pathname.startsWith('/proposta/')) {
     return null
   }
 
