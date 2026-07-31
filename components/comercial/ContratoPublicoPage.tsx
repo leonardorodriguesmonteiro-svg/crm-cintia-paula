@@ -70,7 +70,47 @@ export function ContratoPublicoPage({ token }: { token: string }) {
   }
 
   useEffect(() => {
-    carregar()
+    async function iniciar() {
+      const busca = new URLSearchParams(window.location.search)
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+      const retorno = busca.get('pagamento') || hash.get('pagamento')
+      const paymentId = busca.get('payment_id')
+        || busca.get('collection_id')
+        || hash.get('payment_id')
+        || hash.get('collection_id')
+
+      let avisoRetorno = ''
+
+      if (retorno || paymentId) {
+        try {
+          const resposta = await fetch(`/api/contratos/${token}/pagamento`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ payment_id: paymentId })
+          })
+          const corpo = await resposta.json()
+
+          if (!resposta.ok) throw new Error(corpo.error || 'Não foi possível confirmar o pagamento.')
+          if (corpo.conciliado) avisoRetorno = 'Pagamento confirmado com sucesso.'
+          else if (corpo.status === 'pending') avisoRetorno = 'Pagamento recebido e ainda em processamento.'
+        } catch (error) {
+          avisoRetorno = error instanceof Error ? error.message : 'Não foi possível confirmar o pagamento.'
+        }
+
+        window.history.replaceState({}, '', `${window.location.pathname}#pagamento`)
+      }
+
+      await carregar()
+      if (avisoRetorno) {
+        if (avisoRetorno === 'Pagamento confirmado com sucesso.' || avisoRetorno.includes('processamento')) {
+          setSucesso(avisoRetorno)
+        } else {
+          setErro(avisoRetorno)
+        }
+      }
+    }
+
+    iniciar()
   }, [token])
 
   async function assinar(evento: React.FormEvent) {

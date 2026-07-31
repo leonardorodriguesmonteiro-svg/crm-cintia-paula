@@ -224,3 +224,63 @@ export async function consultarPagamentoMercadoPago(pagamentoId: string) {
   return payment.get({ id: pagamentoId })
 }
 
+export async function buscarPagamentoMercadoPagoPorReferencia(referencia: string) {
+  const payment = new Payment(clienteMercadoPago())
+  const resposta = await payment.search({
+    options: {
+      external_reference: referencia,
+      sort: 'date_last_updated',
+      criteria: 'desc',
+      limit: 10
+    }
+  })
+  const pagamentos = resposta.results || []
+
+  return pagamentos.find(item => String(item.status || '').toLowerCase() === 'approved')
+    || pagamentos[0]
+    || null
+}
+
+type PagamentoConciliavel = {
+  id?: string | number | null
+  status?: string | null
+  status_detail?: string | null
+  external_reference?: string | null
+  payment_method_id?: string | null
+  payment_type_id?: string | null
+  transaction_amount?: number | null
+  date_approved?: string | null
+}
+
+export async function conciliarPagamentoMercadoPago(
+  lancamentoId: string,
+  pagamento: PagamentoConciliavel
+) {
+  const pagamentoId = String(pagamento.id || '').trim()
+  const referenciaEsperada = `sinal:${lancamentoId}`
+
+  if (!pagamentoId || pagamento.external_reference !== referenciaEsperada) {
+    throw new Error('O pagamento não corresponde a esta cobrança de sinal.')
+  }
+
+  const status = String(pagamento.status || 'unknown').toLowerCase()
+  const formaPagamento = `Mercado Pago · ${pagamento.payment_method_id || pagamento.payment_type_id || 'online'}`
+  const { data, error } = await supabaseServer.rpc('conciliar_pagamento_mercado_pago', {
+    p_lancamento_id: lancamentoId,
+    p_pagamento_id: pagamentoId,
+    p_status: status,
+    p_status_detalhe: pagamento.status_detail || null,
+    p_forma_pagamento: formaPagamento,
+    p_valor: Number(pagamento.transaction_amount || 0),
+    p_pago_em: pagamento.date_approved || null
+  })
+
+  if (error) throw error
+
+  return {
+    ...data,
+    pagamento_id: pagamentoId,
+    status,
+    conciliado: status === 'approved'
+  }
+}
