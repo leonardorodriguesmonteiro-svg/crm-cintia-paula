@@ -16,7 +16,8 @@ import {
   LogOut,
   Layers3,
   ClipboardList,
-  MessageSquareText
+  MessageSquareText,
+  Briefcase
 } from 'lucide-react'
 
 const grupos = [
@@ -29,6 +30,7 @@ const grupos = [
   {
     titulo: 'Comercial',
     items: [
+      { label: 'Funil Comercial', href: '/comercial', icon: Briefcase },
       { label: 'Clientes', href: '/clientes', icon: Users },
       { label: 'Reservas', href: '/reservas', icon: ClipboardList },
       { label: 'Agenda', href: '/agenda', icon: CalendarDays },
@@ -55,6 +57,7 @@ const grupos = [
 
 const mobileItems = [
   { label: 'Início', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Funil', href: '/comercial', icon: Briefcase },
   { label: 'Clientes', href: '/clientes', icon: Users },
   { label: 'Reservas', href: '/reservas', icon: ClipboardList },
   { label: 'Agenda', href: '/agenda', icon: CalendarDays },
@@ -197,7 +200,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-4 gap-1 border-t bg-white px-2 py-2 shadow-lg md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-5 gap-1 border-t bg-white px-2 py-2 shadow-lg md:hidden">
         {mobileItems.map((item) => {
           const Icon = item.icon
           const active = isActive(item.href)
