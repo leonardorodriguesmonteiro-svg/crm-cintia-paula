@@ -4,6 +4,7 @@ export function Input({
   type,
   onFocus,
   onClick,
+  onMouseUp,
   ...props
 }: React.InputHTMLAttributes<HTMLInputElement> & { label?: string }) {
   return (
@@ -25,6 +26,14 @@ export function Input({
           }
 
           onClick?.(evento)
+        }}
+        onMouseUp={evento => {
+          if (type === 'number' && evento.currentTarget.value === '0') {
+            evento.preventDefault()
+            evento.currentTarget.select()
+          }
+
+          onMouseUp?.(evento)
         }}
         {...props}
       />
