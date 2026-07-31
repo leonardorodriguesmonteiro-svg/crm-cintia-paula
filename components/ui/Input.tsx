@@ -3,6 +3,7 @@ export function Input({
   className = '',
   type,
   onFocus,
+  onClick,
   ...props
 }: React.InputHTMLAttributes<HTMLInputElement> & { label?: string }) {
   return (
@@ -12,11 +13,18 @@ export function Input({
         className={`w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100 ${className}`}
         type={type}
         onFocus={evento => {
-          if (type === 'number') {
+          if (type === 'number' && evento.currentTarget.value === '0') {
             evento.currentTarget.select()
           }
 
           onFocus?.(evento)
+        }}
+        onClick={evento => {
+          if (type === 'number' && evento.currentTarget.value === '0') {
+            evento.currentTarget.select()
+          }
+
+          onClick?.(evento)
         }}
         {...props}
       />
