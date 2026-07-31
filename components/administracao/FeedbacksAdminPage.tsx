@@ -39,6 +39,10 @@ const prioridadesDisponiveis = [
   'Baixa'
 ]
 
+function protocolo(id: string) {
+  return `FB-${id.replace(/-/g, '').slice(0, 8).toUpperCase()}`
+}
+
 export function FeedbacksAdminPage() {
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([])
   const [busca, setBusca] = useState('')
@@ -378,6 +382,10 @@ export function FeedbacksAdminPage() {
               <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-bold text-pink-700">
+                      {protocolo(item.id)}
+                    </span>
+
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-bold ${corTipo(item.tipo)}`}
                     >
