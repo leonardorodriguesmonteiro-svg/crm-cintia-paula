@@ -17,7 +17,8 @@ import {
   Layers3,
   ClipboardList,
   MessageSquareText,
-  Briefcase
+  Briefcase,
+  ReceiptText
 } from 'lucide-react'
 
 const grupos = [
@@ -31,6 +32,7 @@ const grupos = [
     titulo: 'Comercial',
     items: [
       { label: 'Funil Comercial', href: '/comercial', icon: Briefcase },
+      { label: 'Orçamentos', href: '/orcamentos', icon: ReceiptText },
       { label: 'Clientes', href: '/clientes', icon: Users },
       { label: 'Reservas', href: '/reservas', icon: ClipboardList },
       { label: 'Agenda', href: '/agenda', icon: CalendarDays },
@@ -58,6 +60,7 @@ const grupos = [
 const mobileItems = [
   { label: 'Início', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Funil', href: '/comercial', icon: Briefcase },
+  { label: 'Orçamentos', href: '/orcamentos', icon: ReceiptText },
   { label: 'Clientes', href: '/clientes', icon: Users },
   { label: 'Reservas', href: '/reservas', icon: ClipboardList },
   { label: 'Agenda', href: '/agenda', icon: CalendarDays },

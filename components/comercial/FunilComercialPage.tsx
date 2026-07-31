@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import {
   CalendarDays,
   ChevronDown,
@@ -503,7 +504,13 @@ export function FunilComercialPage() {
                               {etapas.map(opcao => <option key={opcao}>{opcao}</option>)}
                             </Select>
 
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-3 gap-2">
+                              <Link
+                                href={`/orcamentos?oportunidade=${item.id}`}
+                                className="flex items-center justify-center rounded-xl border bg-white px-2 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                              >
+                                Orçamento
+                              </Link>
                               <Button variant="secondary" className="px-3" onClick={() => editar(item)}>Editar</Button>
                               <Button variant="secondary" className="flex items-center justify-center gap-1 px-3" onClick={() => setDetalheAberto(detalheAberto === item.id ? null : item.id)}>
                                 Histórico {detalheAberto === item.id ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
