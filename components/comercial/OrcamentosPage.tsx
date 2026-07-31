@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { CalendarCheck, CheckCircle2, CircleAlert, Plus, Send, Trash2 } from 'lucide-react'
+import { CalendarCheck, CheckCircle2, CircleAlert, Download, Plus, Send, Share2, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { criarDocumentoOrcamento, mensagemWhatsAppOrcamento, telefoneWhatsApp } from '@/lib/orcamentoPdf'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
@@ -15,6 +16,8 @@ type Oportunidade = {
   numero: number
   cliente_id: string | null
   nome_contato: string
+  celular: string
+  email: string | null
   interesse: string | null
   data_evento: string | null
   etapa: string
@@ -58,6 +61,8 @@ type Orcamento = {
   oportunidades: {
     numero: number
     nome_contato: string
+    celular: string
+    email: string | null
   } | null
 }
 
@@ -85,6 +90,20 @@ type ConversaoReserva = {
   reserva_id: string
   criada: boolean
   mensagem: string
+}
+
+type DadosDocumento = Orcamento & {
+  cliente: {
+    nome: string
+    whatsapp: string | null
+    email: string | null
+  }
+  itens: Array<{
+    descricao: string
+    quantidade: number
+    valor_unitario: number
+    subtotal: number
+  }>
 }
 
 function dataValidadeInicial() {
@@ -151,6 +170,7 @@ export function OrcamentosPage() {
   const [sucesso, setSucesso] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [convertendoId, setConvertendoId] = useState<string | null>(null)
+  const [acaoDocumento, setAcaoDocumento] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(true)
 
   async function carregar() {
@@ -160,13 +180,13 @@ export function OrcamentosPage() {
     const [oportunidadesRes, kitsRes, orcamentosRes] = await Promise.all([
       supabase
         .from('oportunidades')
-        .select('id,numero,cliente_id,nome_contato,interesse,data_evento,etapa')
+        .select('id,numero,cliente_id,nome_contato,celular,email,interesse,data_evento,etapa')
         .neq('etapa', 'Perdido')
         .order('updated_at', { ascending: false }),
       supabase.from('kits').select('id,codigo,nome,valor').order('nome'),
       supabase
         .from('orcamentos')
-        .select('*,oportunidades(numero,nome_contato)')
+        .select('*,oportunidades(numero,nome_contato,celular,email)')
         .order('created_at', { ascending: false })
     ])
 
@@ -457,6 +477,126 @@ export function OrcamentosPage() {
     await carregar()
   }
 
+  async function carregarDadosDocumento(orcamento: Orcamento): Promise<DadosDocumento> {
+    const itensPromise = supabase
+      .from('orcamento_itens')
+      .select('descricao,quantidade,valor_unitario,subtotal')
+      .eq('orcamento_id', orcamento.id)
+      .order('created_at')
+
+    const clientePromise = orcamento.cliente_id
+      ? supabase
+          .from('clientes')
+          .select('nome,whatsapp,email')
+          .eq('id', orcamento.cliente_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null })
+
+    const [itensRes, clienteRes] = await Promise.all([itensPromise, clientePromise])
+
+    if (itensRes.error) throw itensRes.error
+    if (clienteRes.error) throw clienteRes.error
+
+    return {
+      ...orcamento,
+      cliente: clienteRes.data || {
+        nome: orcamento.oportunidades?.nome_contato || 'Cliente',
+        whatsapp: orcamento.oportunidades?.celular || null,
+        email: orcamento.oportunidades?.email || null
+      },
+      itens: (itensRes.data || []).map(item => ({
+        descricao: item.descricao,
+        quantidade: Number(item.quantidade),
+        valor_unitario: Number(item.valor_unitario),
+        subtotal: Number(item.subtotal)
+      }))
+    }
+  }
+
+  function mensagemErroDocumento(error: unknown) {
+    return error instanceof Error ? error.message : 'Não foi possível gerar o PDF.'
+  }
+
+  async function baixarPdf(orcamento: Orcamento) {
+    setErro('')
+    setSucesso('')
+    setAcaoDocumento(`pdf:${orcamento.id}`)
+
+    try {
+      const dados = await carregarDadosDocumento(orcamento)
+      const { doc, nomeArquivo } = await criarDocumentoOrcamento(dados)
+      doc.save(nomeArquivo)
+      setSucesso(`PDF do ORC-${String(orcamento.numero).padStart(4, '0')} gerado com sucesso.`)
+    } catch (error) {
+      setErro(mensagemErroDocumento(error))
+    } finally {
+      setAcaoDocumento(null)
+    }
+  }
+
+  async function registrarEnvio(orcamento: Orcamento) {
+    if (orcamento.status !== 'Rascunho') return
+
+    const { error: orcamentoError } = await supabase
+      .from('orcamentos')
+      .update({ status: 'Enviado' })
+      .eq('id', orcamento.id)
+
+    if (orcamentoError) throw orcamentoError
+
+    if (orcamento.oportunidade_id) {
+      const { error: oportunidadeError } = await supabase
+        .from('oportunidades')
+        .update({ etapa: 'Orçamento enviado' })
+        .eq('id', orcamento.oportunidade_id)
+        .in('etapa', ['Novo contato', 'Em atendimento', 'Orçamento enviado', 'Negociação'])
+
+      if (oportunidadeError) throw oportunidadeError
+    }
+
+    await carregar()
+  }
+
+  async function compartilharPdf(orcamento: Orcamento) {
+    setErro('')
+    setSucesso('')
+    setAcaoDocumento(`compartilhar:${orcamento.id}`)
+
+    try {
+      const dados = await carregarDadosDocumento(orcamento)
+      const { doc, nomeArquivo } = await criarDocumentoOrcamento(dados)
+      const mensagem = mensagemWhatsAppOrcamento(dados)
+      const arquivo = new File([doc.output('blob')], nomeArquivo, { type: 'application/pdf' })
+      const podeCompartilharArquivo = Boolean(
+        navigator.share && navigator.canShare?.({ files: [arquivo] })
+      )
+
+      if (podeCompartilharArquivo) {
+        await navigator.share({
+          title: `Orçamento ORC-${String(orcamento.numero).padStart(4, '0')}`,
+          text: mensagem,
+          files: [arquivo]
+        })
+        setSucesso('PDF compartilhado com sucesso.')
+      } else {
+        doc.save(nomeArquivo)
+        const numero = telefoneWhatsApp(dados.cliente.whatsapp)
+        const destino = `https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`
+        const janela = window.open(destino, '_blank', 'noopener,noreferrer')
+
+        if (!janela) window.location.assign(destino)
+        setSucesso('PDF baixado. Anexe o arquivo à conversa aberta no WhatsApp.')
+      }
+
+      await registrarEnvio(orcamento)
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      setErro(mensagemErroDocumento(error))
+    } finally {
+      setAcaoDocumento(null)
+    }
+  }
+
   async function editar(orcamento: Orcamento) {
     setErro('')
     const { data, error } = await supabase
@@ -601,6 +741,26 @@ export function OrcamentosPage() {
               <p>Evento: {dataCurta(orcamento.data_evento)}</p><p>Validade: {dataCurta(orcamento.validade)}</p><p className="pt-2 text-xl font-bold text-slate-900">{moeda(orcamento.total)}</p>
             </div>
             <div className="mt-4 grid gap-2">
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="secondary"
+                  disabled={acaoDocumento !== null}
+                  className="flex items-center justify-center gap-1 px-2"
+                  onClick={() => baixarPdf(orcamento)}
+                >
+                  <Download size={16} />
+                  {acaoDocumento === `pdf:${orcamento.id}` ? 'Gerando...' : 'Baixar PDF'}
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={acaoDocumento !== null}
+                  className="flex items-center justify-center gap-1 px-2"
+                  onClick={() => compartilharPdf(orcamento)}
+                >
+                  <Share2 size={16} />
+                  {acaoDocumento === `compartilhar:${orcamento.id}` ? 'Preparando...' : 'Compartilhar'}
+                </Button>
+              </div>
               {orcamento.reserva_id ? (
                 <Link
                   href={`/reservas/${orcamento.reserva_id}`}
