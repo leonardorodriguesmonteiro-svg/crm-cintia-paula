@@ -1,4 +1,11 @@
-import { MercadoPagoConfig, Payment, Preference, WebhookSignatureValidator } from 'mercadopago'
+import {
+  InvalidWebhookSignatureError,
+  MercadoPagoConfig,
+  Payment,
+  Preference,
+  SignatureFailureReason,
+  WebhookSignatureValidator
+} from 'mercadopago'
 import { supabaseServer } from '@/lib/supabaseServer'
 
 export class MercadoPagoNaoConfiguradoError extends Error {
@@ -214,9 +221,29 @@ export function validarWebhookMercadoPago(dados: {
     xSignature: dados.xSignature,
     xRequestId: dados.xRequestId,
     dataId: dados.dataId,
-    secret,
-    toleranceSeconds: 300
+    secret
   })
+
+  const timestamp = String(dados.xSignature || '')
+    .split(',')
+    .map((parte) => parte.trim().split('='))
+    .find(([chave]) => chave.toLowerCase() === 'ts')?.[1]
+
+  if (!timestamp) return
+
+  const timestampNumerico = Number(timestamp)
+  const timestampMs = timestampNumerico < 100_000_000_000
+    ? timestampNumerico * 1000
+    : timestampNumerico
+  const diferencaSegundos = Math.abs(Date.now() - timestampMs) / 1000
+
+  if (!Number.isFinite(diferencaSegundos) || diferencaSegundos > 300) {
+    throw new InvalidWebhookSignatureError(
+      SignatureFailureReason.TimestampOutOfTolerance,
+      dados.xRequestId || undefined,
+      timestamp
+    )
+  }
 }
 
 export async function consultarPagamentoMercadoPago(pagamentoId: string) {
