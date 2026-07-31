@@ -180,7 +180,7 @@ export function FeedbackButton() {
       <button
         type="button"
         onClick={() => abrir('enviar')}
-        className="fixed bottom-5 right-5 z-40 rounded-full bg-pink-600 px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-pink-700 hover:shadow-xl"
+        className="fixed bottom-24 right-4 z-[60] rounded-full bg-pink-600 px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-pink-700 hover:shadow-xl md:bottom-5 md:right-5"
         aria-label="Abrir Central de Feedback"
       >
         💡 Feedbacks
