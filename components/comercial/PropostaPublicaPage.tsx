@@ -177,7 +177,7 @@ export function PropostaPublicaPage({ token }: { token: string }) {
           {respondida ? (
             <div className="text-center">
               {respondida === 'Aprovado' ? <CheckCircle2 className="mx-auto text-green-600" size={48} /> : <XCircle className="mx-auto text-red-500" size={48} />}
-              <h2 className="mt-4 text-2xl font-bold text-slate-900">Proposta {respondida.toLowerCase()}</h2>
+              <h2 className="mt-4 text-2xl font-bold text-slate-900">Proposta {respondida === 'Aprovado' ? 'aprovada' : 'recusada'}</h2>
               <p className="mt-2 text-slate-500">Resposta registrada em {dataHora(proposta.respondido_em)}{proposta.respondido_por ? ` por ${proposta.respondido_por}` : ''}.</p>
               {proposta.resposta_observacao && <p className="mx-auto mt-4 max-w-xl rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">{proposta.resposta_observacao}</p>}
             </div>

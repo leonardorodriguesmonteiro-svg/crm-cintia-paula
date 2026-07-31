@@ -615,11 +615,27 @@ export function OrcamentosPage() {
     }
 
     const link = `${window.location.origin}/proposta/${orcamento.public_token}`
+    let copiado = false
 
     try {
       await navigator.clipboard.writeText(link)
-      setSucesso(`Link público do ORC-${String(orcamento.numero).padStart(4, '0')} copiado.`)
+      copiado = true
     } catch {
+      const campo = document.createElement('textarea')
+      campo.value = link
+      campo.setAttribute('readonly', '')
+      campo.style.position = 'fixed'
+      campo.style.opacity = '0'
+      document.body.appendChild(campo)
+      campo.select()
+      campo.setSelectionRange(0, campo.value.length)
+      copiado = document.execCommand('copy')
+      document.body.removeChild(campo)
+    }
+
+    if (copiado) {
+      setSucesso(`Link público do ORC-${String(orcamento.numero).padStart(4, '0')} copiado.`)
+    } else {
       setErro('Não foi possível copiar o link. Abra a proposta e copie o endereço do navegador.')
     }
   }
