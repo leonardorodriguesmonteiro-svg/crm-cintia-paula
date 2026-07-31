@@ -1,0 +1,182 @@
+import { createHash } from 'crypto'
+import { NextRequest, NextResponse } from 'next/server'
+import { gerarPixCopiaECola } from '@/lib/pix'
+import { supabaseServer } from '@/lib/supabaseServer'
+
+export const dynamic = 'force-dynamic'
+
+type Contexto = {
+  params: Promise<{ token: string }>
+}
+
+const tokenValido = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function linkHttps(valor: string | null | undefined) {
+  if (!valor) return null
+  try {
+    const url = new URL(valor)
+    return url.protocol === 'https:' ? url.toString() : null
+  } catch {
+    return null
+  }
+}
+
+function documentoMascarado(valor: string | null) {
+  if (!valor) return null
+  const digitos = valor.replace(/\D/g, '')
+  return digitos.length >= 4 ? `•••• ${digitos.slice(-4)}` : null
+}
+
+async function buscarContrato(token: string) {
+  const { data: contrato, error: contratoError } = await supabaseServer
+    .from('contratos')
+    .select('id,numero_contrato,status,reserva_id,created_at,assinado_em,assinado_por,assinatura_documento,assinatura_aceite')
+    .eq('public_token', token)
+    .maybeSingle()
+
+  if (contratoError) throw contratoError
+  if (!contrato) return null
+
+  const { data: reserva, error: reservaError } = await supabaseServer
+    .from('reservas')
+    .select('id,cliente_id,kit_id,data_evento,horario_evento,endereco_evento,valor_total,valor_sinal,status_pagamento')
+    .eq('id', contrato.reserva_id)
+    .maybeSingle()
+
+  if (reservaError) throw reservaError
+  if (!reserva) return null
+
+  const [clienteRes, kitRes, orcamentoRes, configuracaoRes] = await Promise.all([
+    supabaseServer.from('clientes').select('nome').eq('id', reserva.cliente_id).maybeSingle(),
+    supabaseServer.from('kits').select('nome,codigo').eq('id', reserva.kit_id).maybeSingle(),
+    supabaseServer
+      .from('orcamentos')
+      .select('numero,formalizacao_status,valor_sinal_formalizacao,vencimento_sinal,sinal_pago_em,lancamento_sinal_id')
+      .eq('contrato_id', contrato.id)
+      .maybeSingle(),
+    supabaseServer
+      .from('configuracoes_pagamento')
+      .select('pix_chave,pix_beneficiario,pix_cidade,link_pagamento,instrucoes')
+      .eq('id', true)
+      .maybeSingle()
+  ])
+
+  const primeiroErro = clienteRes.error || kitRes.error || orcamentoRes.error || configuracaoRes.error
+  if (primeiroErro) throw primeiroErro
+
+  const orcamento = orcamentoRes.data
+  const configuracao = configuracaoRes.data
+  const valorSinal = Number(orcamento?.valor_sinal_formalizacao || reserva.valor_sinal || 0)
+  const sinalPago = Boolean(orcamento?.sinal_pago_em) || ['Sinal pago', 'Pago', 'Quitado'].includes(reserva.status_pagamento || '')
+  const pixCopiaECola = configuracao?.pix_chave && !sinalPago
+    ? gerarPixCopiaECola({
+        chave: configuracao.pix_chave,
+        beneficiario: configuracao.pix_beneficiario,
+        cidade: configuracao.pix_cidade,
+        valor: valorSinal,
+        identificador: orcamento?.numero ? `ORC${String(orcamento.numero).padStart(4, '0')}` : contrato.numero_contrato
+      })
+    : null
+
+  return {
+    numero: contrato.numero_contrato,
+    status: contrato.status || 'Gerado',
+    criado_em: contrato.created_at,
+    cliente: clienteRes.data?.nome || 'Cliente',
+    evento: {
+      data: reserva.data_evento,
+      horario: reserva.horario_evento,
+      endereco: reserva.endereco_evento
+    },
+    kit: {
+      nome: kitRes.data?.nome || 'Kit não informado',
+      codigo: kitRes.data?.codigo || null
+    },
+    valor_total: Number(reserva.valor_total || 0),
+    assinatura: contrato.status === 'Assinado' ? {
+      nome: contrato.assinado_por,
+      documento: documentoMascarado(contrato.assinatura_documento),
+      em: contrato.assinado_em,
+      aceite: Boolean(contrato.assinatura_aceite)
+    } : null,
+    pode_assinar: !['Assinado', 'Cancelado'].includes(contrato.status || ''),
+    pagamento: {
+      valor_sinal: valorSinal,
+      vencimento: orcamento?.vencimento_sinal || null,
+      pago: sinalPago,
+      pix_chave: configuracao?.pix_chave || null,
+      pix_copia_cola: pixCopiaECola,
+      link: linkHttps(configuracao?.link_pagamento),
+      instrucoes: configuracao?.instrucoes || 'Após o pagamento, envie o comprovante para a equipe Cintia Paula.'
+    }
+  }
+}
+
+export async function GET(_request: NextRequest, contexto: Contexto) {
+  const { token } = await contexto.params
+
+  if (!tokenValido.test(token)) {
+    return NextResponse.json({ error: 'Contrato não encontrado.' }, { status: 404 })
+  }
+
+  try {
+    const contrato = await buscarContrato(token)
+    if (!contrato) return NextResponse.json({ error: 'Contrato não encontrado.' }, { status: 404 })
+
+    return NextResponse.json(
+      { contrato },
+      { headers: { 'Cache-Control': 'no-store, max-age=0' } }
+    )
+  } catch {
+    return NextResponse.json({ error: 'Não foi possível carregar este contrato.' }, { status: 500 })
+  }
+}
+
+export async function POST(request: NextRequest, contexto: Contexto) {
+  const { token } = await contexto.params
+
+  if (!tokenValido.test(token)) {
+    return NextResponse.json({ error: 'Contrato não encontrado.' }, { status: 404 })
+  }
+
+  let corpo: { nome?: string; documento?: string; aceite?: boolean }
+
+  try {
+    corpo = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Assinatura inválida.' }, { status: 400 })
+  }
+
+  const nome = String(corpo.nome || '').trim().slice(0, 120)
+  const documento = String(corpo.documento || '').replace(/\D/g, '').slice(0, 14)
+
+  if (!corpo.aceite || nome.length < 2 || ![11, 14].includes(documento.length)) {
+    return NextResponse.json(
+      { error: 'Informe seu nome, CPF ou CNPJ e confirme o aceite do contrato.' },
+      { status: 400 }
+    )
+  }
+
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || 'indisponivel'
+  const segredoAuditoria = process.env.CONTRATO_AUDIT_SALT || process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  const ipHash = createHash('sha256').update(`${segredoAuditoria}:${ip}`).digest('hex')
+  const userAgent = String(request.headers.get('user-agent') || '').slice(0, 500)
+
+  const { data, error } = await supabaseServer.rpc('registrar_assinatura_publica_contrato', {
+    p_token: token,
+    p_nome: nome,
+    p_documento: documento,
+    p_ip_hash: ipHash,
+    p_user_agent: userAgent
+  })
+
+  if (error) {
+    const status = error.message.includes('não encontrado') ? 404 : 400
+    return NextResponse.json({ error: error.message }, { status })
+  }
+
+  return NextResponse.json({ sucesso: true, mensagem: data?.mensagem, assinatura: data })
+}
+

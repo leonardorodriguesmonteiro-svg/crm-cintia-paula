@@ -77,6 +77,9 @@ type Orcamento = {
     celular: string
     email: string | null
   } | null
+  contratos: {
+    public_token: string | null
+  } | null
 }
 
 type FormOrcamento = {
@@ -219,7 +222,7 @@ export function OrcamentosPage() {
       supabase.from('kits').select('id,codigo,nome,valor').order('nome'),
       supabase
         .from('orcamentos')
-        .select('*,oportunidades(numero,nome_contato,celular,email)')
+        .select('*,oportunidades(numero,nome_contato,celular,email),contratos(public_token)')
         .order('created_at', { ascending: false })
     ])
 
@@ -668,6 +671,41 @@ export function OrcamentosPage() {
     }
   }
 
+  async function copiarLinkContrato(orcamento: Orcamento) {
+    setErro('')
+    setSucesso('')
+
+    if (!orcamento.contratos?.public_token) {
+      setErro('Este contrato ainda não possui um link de assinatura.')
+      return
+    }
+
+    const link = `${window.location.origin}/contrato/${orcamento.contratos.public_token}`
+    let copiado = false
+
+    try {
+      await navigator.clipboard.writeText(link)
+      copiado = true
+    } catch {
+      const campo = document.createElement('textarea')
+      campo.value = link
+      campo.setAttribute('readonly', '')
+      campo.style.position = 'fixed'
+      campo.style.opacity = '0'
+      document.body.appendChild(campo)
+      campo.select()
+      campo.setSelectionRange(0, campo.value.length)
+      copiado = document.execCommand('copy')
+      document.body.removeChild(campo)
+    }
+
+    if (copiado) {
+      setSucesso(`Link de assinatura do ${orcamento.contrato_id ? 'contrato' : 'orçamento'} copiado.`)
+    } else {
+      setErro('Não foi possível copiar o link. Abra a página do cliente e copie o endereço.')
+    }
+  }
+
   function valorSinalDo(orcamento: Orcamento) {
     return valoresSinal[orcamento.id]
       ?? String(orcamento.valor_sinal_formalizacao || Math.max(orcamento.total * 0.3, 1).toFixed(2))
@@ -949,6 +987,13 @@ export function OrcamentosPage() {
                       {orcamento.reserva_id && <Link href={`/reservas/${orcamento.reserva_id}`} className="rounded-xl border bg-white px-3 py-2 text-center text-xs font-semibold text-slate-700 hover:bg-slate-50">Abrir reserva</Link>}
                       <a href={`/contratos/${orcamento.contrato_id}/imprimir`} target="_blank" rel="noreferrer" className="rounded-xl border bg-white px-3 py-2 text-center text-xs font-semibold text-slate-700 hover:bg-slate-50">Abrir contrato</a>
                     </div>
+
+                    {orcamento.contratos?.public_token && !orcamento.contrato_assinado_em && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button variant="secondary" className="flex items-center justify-center gap-1 px-2 text-xs" onClick={() => copiarLinkContrato(orcamento)}><Copy size={15} /> Copiar link de assinatura</Button>
+                        <a href={`/contrato/${orcamento.contratos.public_token}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1 rounded-xl border border-pink-200 bg-pink-50 px-2 py-2 text-xs font-semibold text-pink-700 hover:bg-pink-100"><ExternalLink size={15} /> Página do cliente</a>
+                      </div>
+                    )}
 
                     {!orcamento.contrato_assinado_em ? (
                       <Button

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ExternalLink, FileSignature } from 'lucide-react'
+import { Check, Copy, ExternalLink, FileSignature } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
 
@@ -11,6 +11,9 @@ type Contrato = {
   reserva_id: string | null
   numero_contrato: string
   status: string | null
+  public_token: string | null
+  assinado_em: string | null
+  assinado_por: string | null
   created_at: string | null
   reservas: {
     data_evento: string | null
@@ -35,6 +38,7 @@ export function ContratosPage() {
   const [contratos, setContratos] = useState<Contrato[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
+  const [copiadoId, setCopiadoId] = useState<string | null>(null)
 
   async function carregar() {
     setCarregando(true)
@@ -42,7 +46,7 @@ export function ContratosPage() {
 
     const { data, error } = await supabase
       .from('contratos')
-      .select('id,reserva_id,numero_contrato,status,created_at,reservas(data_evento,valor_total,clientes(nome),kits(nome))')
+      .select('id,reserva_id,numero_contrato,status,public_token,assinado_em,assinado_por,created_at,reservas(data_evento,valor_total,clientes(nome),kits(nome))')
       .order('created_at', { ascending: false })
 
     if (error) setErro(error.message)
@@ -55,6 +59,36 @@ export function ContratosPage() {
   }, [])
 
   const pendentes = contratos.filter(item => item.status !== 'Assinado' && item.status !== 'Cancelado').length
+
+  async function copiarLink(contrato: Contrato) {
+    if (!contrato.public_token) return
+    const link = `${window.location.origin}/contrato/${contrato.public_token}`
+    let copiaConcluida = false
+
+    try {
+      await navigator.clipboard.writeText(link)
+      copiaConcluida = true
+    } catch {
+      const campo = document.createElement('textarea')
+      campo.value = link
+      campo.setAttribute('readonly', '')
+      campo.style.position = 'fixed'
+      campo.style.opacity = '0'
+      document.body.appendChild(campo)
+      campo.select()
+      campo.setSelectionRange(0, campo.value.length)
+      copiaConcluida = document.execCommand('copy')
+      document.body.removeChild(campo)
+    }
+
+    if (copiaConcluida) {
+      setErro('')
+      setCopiadoId(contrato.id)
+      window.setTimeout(() => setCopiadoId(null), 2500)
+    } else {
+      setErro('Não foi possível copiar o link. Abra a página de assinatura e copie o endereço.')
+    }
+  }
 
   return (
     <div className="space-y-6 p-4 pb-28 md:p-8">
@@ -81,10 +115,13 @@ export function ContratosPage() {
             <div className="mt-4 space-y-1 text-sm text-slate-500">
               <p>Kit: {contrato.reservas?.kits?.nome || '-'}</p>
               <p>Evento: {contrato.reservas?.data_evento ? new Date(`${contrato.reservas.data_evento}T12:00:00`).toLocaleDateString('pt-BR') : '-'}</p>
+              {contrato.assinado_em && <p>Assinado em {new Date(contrato.assinado_em).toLocaleString('pt-BR')}{contrato.assinado_por ? ` por ${contrato.assinado_por}` : ''}</p>}
               <p className="pt-2 text-lg font-bold text-slate-900">{moeda(contrato.reservas?.valor_total || 0)}</p>
             </div>
             <div className="mt-4 grid gap-2">
-              <a href={`/contratos/${contrato.id}/imprimir`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-xl bg-pink-600 px-4 py-2 text-sm font-semibold text-white hover:bg-pink-700"><FileSignature size={16} /> Abrir contrato</a>
+              {contrato.public_token && contrato.status !== 'Assinado' && <button type="button" onClick={() => copiarLink(contrato)} className="flex items-center justify-center gap-2 rounded-xl bg-pink-600 px-4 py-2 text-sm font-semibold text-white hover:bg-pink-700">{copiadoId === contrato.id ? <Check size={16} /> : <Copy size={16} />} {copiadoId === contrato.id ? 'Link copiado' : 'Copiar link de assinatura'}</button>}
+              {contrato.public_token && <a href={`/contrato/${contrato.public_token}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-xl border border-pink-200 bg-pink-50 px-4 py-2 text-sm font-semibold text-pink-700 hover:bg-pink-100"><FileSignature size={16} /> Abrir página do cliente</a>}
+              <a href={`/contratos/${contrato.id}/imprimir`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-xl border bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"><FileSignature size={16} /> Abrir versão para impressão</a>
               {contrato.reserva_id && <Link href={`/reservas/${contrato.reserva_id}`} className="flex items-center justify-center gap-2 rounded-xl border bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"><ExternalLink size={16} /> Abrir reserva</Link>}
             </div>
           </Card>

@@ -2,12 +2,17 @@ import { supabaseServer } from '@/lib/supabaseServer'
 
 export const dynamic = 'force-dynamic'
 
+function mascararDocumento(valor: string | null) {
+  const digitos = String(valor || '').replace(/\D/g, '')
+  return digitos.length >= 4 ? `•••• ${digitos.slice(-4)}` : '-'
+}
+
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
   const { data: contrato } = await supabaseServer
     .from('contratos')
-    .select('id,numero_contrato,status,reserva_id,created_at')
+    .select('id,numero_contrato,status,reserva_id,created_at,assinado_em,assinado_por,assinatura_documento,assinatura_aceite')
     .eq('id', id)
     .maybeSingle()
 
@@ -87,6 +92,16 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             <p>Cintia Paula Festas e Decorações</p>
           </div>
         </div>
+
+        {contrato.status === 'Assinado' && contrato.assinado_em && (
+          <div style={{ ...box, marginTop: 32, borderColor: '#bbf7d0', background: '#f0fdf4' }}>
+            <h3 style={{ color: '#166534' }}>Certificado de aceite eletrônico</h3>
+            <p><strong>Assinado por:</strong> {contrato.assinado_por || cliente?.nome || '-'}</p>
+            <p><strong>Documento final:</strong> {mascararDocumento(contrato.assinatura_documento)}</p>
+            <p><strong>Data e hora:</strong> {new Date(contrato.assinado_em).toLocaleString('pt-BR')}</p>
+            <p><strong>Registro:</strong> {contrato.assinatura_aceite ? 'Aceite eletrônico registrado pelo cliente.' : 'Assinatura confirmada internamente pela equipe.'}</p>
+          </div>
+        )}
 
         <footer style={{ marginTop: 40, borderTop: '1px solid #e5e7eb', paddingTop: 16, fontSize: 12, color: '#64748b', textAlign: 'center' }}>
           Documento gerado pelo CRM Cintia Paula
