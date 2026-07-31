@@ -51,6 +51,13 @@ type WorkflowEvento = {
   created_at: string
 }
 
+type Formalizacao = {
+  id: string
+  numero: number
+  formalizacao_status: string | null
+  oportunidades: { nome_contato: string } | null
+}
+
 export function CentroComandoPage() {
   const [reservas, setReservas] = useState<Reserva[]>([])
   const [contratos, setContratos] = useState<Contrato[]>([])
@@ -58,6 +65,7 @@ export function CentroComandoPage() {
   const [logistica, setLogistica] = useState<Logistica[]>([])
   const [workflow, setWorkflow] = useState<WorkflowEvento[]>([])
   const [workflowAcoes, setWorkflowAcoes] = useState<any[]>([])
+  const [formalizacoes, setFormalizacoes] = useState<Formalizacao[]>([])
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(true)
 
@@ -65,7 +73,7 @@ export function CentroComandoPage() {
     setErro('')
     setCarregando(true)
 
-    const [reservasRes, contratosRes, ordensRes, logisticaRes, workflowRes, workflowAcoesRes] =
+    const [reservasRes, contratosRes, ordensRes, logisticaRes, workflowRes, workflowAcoesRes, formalizacoesRes] =
       await Promise.all([
         supabase
           .from('reservas')
@@ -92,7 +100,14 @@ export function CentroComandoPage() {
 
         supabase
           .from('workflow_acoes')
-          .select('status')
+          .select('status'),
+
+        supabase
+          .from('orcamentos')
+          .select('id,numero,formalizacao_status,oportunidades(nome_contato)')
+          .eq('status', 'Aprovado')
+          .neq('formalizacao_status', 'Venda confirmada')
+          .order('updated_at', { ascending: false })
       ])
 
     const primeiraFalha =
@@ -101,7 +116,8 @@ export function CentroComandoPage() {
       ordensRes.error ||
       logisticaRes.error ||
       workflowRes.error ||
-      workflowAcoesRes.error
+      workflowAcoesRes.error ||
+      formalizacoesRes.error
 
     if (primeiraFalha) {
       setErro(primeiraFalha.message)
@@ -113,6 +129,7 @@ export function CentroComandoPage() {
     setLogistica(logisticaRes.data || [])
     setWorkflow(workflowRes.data || [])
     setWorkflowAcoes(workflowAcoesRes.data || [])
+    setFormalizacoes((formalizacoesRes.data as unknown as Formalizacao[]) || [])
     setCarregando(false)
   }
 
@@ -248,6 +265,13 @@ export function CentroComandoPage() {
           </div>
 
           <div className="mt-5 space-y-3">
+            {formalizacoes.length > 0 && (
+              <Link href="/orcamentos" className="block rounded-xl border border-amber-200 bg-amber-50 p-4 hover:bg-amber-100">
+                <p className="font-semibold text-amber-900">Vendas aguardando formalização</p>
+                <p className="text-sm text-amber-700">{formalizacoes.length} orçamento(s) precisam de contrato ou sinal.</p>
+              </Link>
+            )}
+
             <Link href="/contratos" className="block rounded-xl border p-4 hover:bg-slate-50">
               <p className="font-semibold text-slate-900">
                 Contratos aguardando conclusão

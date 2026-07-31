@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -26,9 +27,20 @@ type Recebimento = {
   observacoes: string | null
 }
 
+type LancamentoSinal = {
+  id: string
+  reserva_id: string | null
+  descricao: string
+  valor: number
+  data_vencimento: string | null
+  status: string
+  reservas: { clientes: { nome: string } | null } | null
+}
+
 export function FinanceiroPage() {
   const [reservas, setReservas] = useState<Reserva[]>([])
   const [recebimentos, setRecebimentos] = useState<Recebimento[]>([])
+  const [sinais, setSinais] = useState<LancamentoSinal[]>([])
   const [reservaId, setReservaId] = useState('')
   const [valor, setValor] = useState(0)
   const [forma, setForma] = useState('Pix')
@@ -48,11 +60,20 @@ export function FinanceiroPage() {
       .eq('status', 'Pago')
       .order('created_at', { ascending: false })
 
+    const sinaisRes = await supabase
+      .from('lancamentos_financeiros')
+      .select('id,reserva_id,descricao,valor,data_vencimento,status,reservas(clientes(nome))')
+      .eq('categoria', 'Sinal')
+      .order('data_vencimento', { ascending: true })
+
     if (reservasRes.error) setErro(reservasRes.error.message)
     else setReservas((reservasRes.data as any) || [])
 
     if (recebimentosRes.error) setErro(recebimentosRes.error.message)
     else setRecebimentos((recebimentosRes.data as any) || [])
+
+    if (sinaisRes.error) setErro(sinaisRes.error.message)
+    else setSinais((sinaisRes.data as unknown as LancamentoSinal[]) || [])
   }
 
   useEffect(() => {
@@ -62,6 +83,8 @@ export function FinanceiroPage() {
   const totalContratado = reservas.reduce((t, r) => t + Number(r.valor_total || 0), 0)
   const totalRecebido = recebimentos.reduce((t, r) => t + Number(r.valor || 0), 0)
   const totalAReceber = Math.max(totalContratado - totalRecebido, 0)
+  const sinaisPendentes = sinais.filter(item => item.status === 'Pendente')
+  const totalSinaisPendentes = sinaisPendentes.reduce((total, item) => total + Number(item.valor || 0), 0)
 
   const resumoPorReserva = useMemo(() => {
     return reservas.map((reserva) => {
@@ -128,7 +151,7 @@ export function FinanceiroPage() {
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>
           <p className="text-sm text-slate-500">Valor contratado</p>
           <p className="mt-2 text-3xl font-bold text-slate-900">R$ {totalContratado.toFixed(2)}</p>
@@ -143,7 +166,29 @@ export function FinanceiroPage() {
           <p className="text-sm text-slate-500">A receber</p>
           <p className="mt-2 text-3xl font-bold text-yellow-700">R$ {totalAReceber.toFixed(2)}</p>
         </Card>
+
+        <Card>
+          <p className="text-sm text-slate-500">Sinais pendentes</p>
+          <p className="mt-2 text-3xl font-bold text-amber-700">R$ {totalSinaisPendentes.toFixed(2)}</p>
+          <p className="mt-1 text-xs text-slate-400">{sinaisPendentes.length} cobrança(s)</p>
+        </Card>
       </div>
+
+      <Card>
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <div><h2 className="text-lg font-semibold text-slate-900">Cobranças de sinal</h2><p className="text-sm text-slate-500">Geradas automaticamente na formalização das vendas.</p></div>
+          <Link href="/orcamentos" className="text-sm font-semibold text-pink-700">Abrir formalizações</Link>
+        </div>
+        <div className="space-y-3">
+          {sinais.map(item => (
+            <div key={item.id} className="flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div><p className="font-semibold text-slate-900">{item.reservas?.clientes?.nome || item.descricao}</p><p className="text-sm text-slate-500">Vencimento: {item.data_vencimento ? new Date(`${item.data_vencimento}T12:00:00`).toLocaleDateString('pt-BR') : '-'} · R$ {Number(item.valor).toFixed(2)}</p></div>
+              <span className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${item.status === 'Pago' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>{item.status}</span>
+            </div>
+          ))}
+          {sinais.length === 0 && <div className="rounded-2xl border border-dashed p-7 text-center text-slate-500">Nenhuma cobrança de sinal gerada.</div>}
+        </div>
+      </Card>
 
       <Card>
         <form onSubmit={registrarRecebimento} className="space-y-5">

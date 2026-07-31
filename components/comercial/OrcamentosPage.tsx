@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { CalendarCheck, CheckCircle2, CircleAlert, Copy, Download, ExternalLink, Plus, Send, Share2, Trash2 } from 'lucide-react'
+import { CalendarCheck, CheckCircle2, CircleAlert, Copy, Download, ExternalLink, FileSignature, HandCoins, Plus, Send, Share2, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { criarDocumentoOrcamento, mensagemWhatsAppOrcamento, telefoneWhatsApp } from '@/lib/orcamentoPdf'
 import { Button } from '@/components/ui/Button'
@@ -62,6 +62,14 @@ type Orcamento = {
   respondido_por: string | null
   respondido_em: string | null
   resposta_observacao: string | null
+  formalizacao_status: string | null
+  contrato_id: string | null
+  lancamento_sinal_id: string | null
+  valor_sinal_formalizacao: number | null
+  vencimento_sinal: string | null
+  formalizado_em: string | null
+  contrato_assinado_em: string | null
+  sinal_pago_em: string | null
   created_at: string
   oportunidades: {
     numero: number
@@ -117,6 +125,12 @@ function dataValidadeInicial() {
   return data.toISOString().slice(0, 10)
 }
 
+function dataVencimentoSinalInicial() {
+  const data = new Date()
+  data.setDate(data.getDate() + 2)
+  return data.toISOString().slice(0, 10)
+}
+
 const formVazio: FormOrcamento = {
   oportunidade_id: '',
   status: 'Rascunho',
@@ -162,6 +176,14 @@ function corStatus(status: string) {
   return 'bg-amber-100 text-amber-800'
 }
 
+function corFormalizacao(status: string | null) {
+  if (status === 'Venda confirmada') return 'bg-green-100 text-green-800'
+  if (status === 'Aguardando sinal') return 'bg-blue-100 text-blue-800'
+  if (status === 'Aguardando contrato') return 'bg-purple-100 text-purple-800'
+  if (status === 'Cancelada') return 'bg-red-100 text-red-800'
+  return 'bg-amber-100 text-amber-800'
+}
+
 export function OrcamentosPage() {
   const [oportunidades, setOportunidades] = useState<Oportunidade[]>([])
   const [kits, setKits] = useState<Kit[]>([])
@@ -176,6 +198,12 @@ export function OrcamentosPage() {
   const [salvando, setSalvando] = useState(false)
   const [convertendoId, setConvertendoId] = useState<string | null>(null)
   const [acaoDocumento, setAcaoDocumento] = useState<string | null>(null)
+  const [formalizandoId, setFormalizandoId] = useState<string | null>(null)
+  const [assinandoId, setAssinandoId] = useState<string | null>(null)
+  const [recebendoSinalId, setRecebendoSinalId] = useState<string | null>(null)
+  const [valoresSinal, setValoresSinal] = useState<Record<string, string>>({})
+  const [vencimentosSinal, setVencimentosSinal] = useState<Record<string, string>>({})
+  const [formasSinal, setFormasSinal] = useState<Record<string, string>>({})
   const [carregando, setCarregando] = useState(true)
 
   async function carregar() {
@@ -640,6 +668,79 @@ export function OrcamentosPage() {
     }
   }
 
+  function valorSinalDo(orcamento: Orcamento) {
+    return valoresSinal[orcamento.id]
+      ?? String(orcamento.valor_sinal_formalizacao || Math.max(orcamento.total * 0.3, 1).toFixed(2))
+  }
+
+  function vencimentoSinalDo(orcamento: Orcamento) {
+    return vencimentosSinal[orcamento.id]
+      ?? orcamento.vencimento_sinal
+      ?? dataVencimentoSinalInicial()
+  }
+
+  async function formalizarVenda(orcamento: Orcamento) {
+    setErro('')
+    setSucesso('')
+    setFormalizandoId(orcamento.id)
+
+    const { data, error } = await supabase.rpc('formalizar_orcamento_aprovado', {
+      p_orcamento_id: orcamento.id,
+      p_valor_sinal: Number(valorSinalDo(orcamento)),
+      p_vencimento: vencimentoSinalDo(orcamento)
+    })
+
+    if (error) {
+      setErro(error.message)
+    } else {
+      setSucesso(data?.mensagem || 'Venda formalizada com sucesso.')
+      await carregar()
+    }
+
+    setFormalizandoId(null)
+  }
+
+  async function confirmarAssinatura(orcamento: Orcamento) {
+    if (!window.confirm('Confirmar que o contrato foi assinado pelo cliente?')) return
+
+    setErro('')
+    setSucesso('')
+    setAssinandoId(orcamento.id)
+
+    const { data, error } = await supabase.rpc('confirmar_assinatura_formalizacao', {
+      p_orcamento_id: orcamento.id
+    })
+
+    if (error) setErro(error.message)
+    else {
+      setSucesso(data?.mensagem || 'Assinatura confirmada.')
+      await carregar()
+    }
+
+    setAssinandoId(null)
+  }
+
+  async function confirmarSinal(orcamento: Orcamento) {
+    if (!window.confirm(`Confirmar o recebimento de ${moeda(orcamento.valor_sinal_formalizacao || 0)}?`)) return
+
+    setErro('')
+    setSucesso('')
+    setRecebendoSinalId(orcamento.id)
+
+    const { data, error } = await supabase.rpc('confirmar_pagamento_sinal_formalizacao', {
+      p_orcamento_id: orcamento.id,
+      p_forma_pagamento: formasSinal[orcamento.id] || 'Pix'
+    })
+
+    if (error) setErro(error.message)
+    else {
+      setSucesso(data?.mensagem || 'Pagamento do sinal confirmado.')
+      await carregar()
+    }
+
+    setRecebendoSinalId(null)
+  }
+
   async function editar(orcamento: Orcamento) {
     setErro('')
     const { data, error } = await supabase
@@ -790,6 +891,106 @@ export function OrcamentosPage() {
                 {orcamento.resposta_observacao && <p className="mt-1">“{orcamento.resposta_observacao}”</p>}
               </div>
             )}
+            {orcamento.status === 'Aprovado' && (
+              <div className="mt-4 rounded-2xl border border-pink-100 bg-pink-50/60 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-bold uppercase text-pink-700">Formalização da venda</p>
+                    <p className="mt-0.5 text-xs text-slate-500">Reserva, contrato e cobrança do sinal em um só fluxo.</p>
+                  </div>
+                  <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${corFormalizacao(orcamento.formalizacao_status)}`}>
+                    {orcamento.formalizacao_status || 'Aguardando formalização'}
+                  </span>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-4">
+                  {[
+                    { rotulo: 'Cliente aprovou', concluido: true },
+                    { rotulo: 'Reserva criada', concluido: Boolean(orcamento.reserva_id) },
+                    { rotulo: 'Contrato assinado', concluido: Boolean(orcamento.contrato_assinado_em) },
+                    { rotulo: 'Sinal recebido', concluido: Boolean(orcamento.sinal_pago_em) }
+                  ].map(etapa => (
+                    <div key={etapa.rotulo} className={`rounded-xl border p-2 ${etapa.concluido ? 'border-green-200 bg-green-50 text-green-800' : 'border-slate-200 bg-white text-slate-500'}`}>
+                      <p className="flex items-center gap-1 font-semibold">{etapa.concluido ? <CheckCircle2 size={13} /> : <CircleAlert size={13} />}{etapa.rotulo}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {!orcamento.contrato_id ? (
+                  <div className="mt-4 space-y-3">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Input
+                        label="Valor do sinal"
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={valorSinalDo(orcamento)}
+                        onChange={evento => setValoresSinal(atuais => ({ ...atuais, [orcamento.id]: evento.target.value }))}
+                      />
+                      <Input
+                        label="Vencimento do sinal"
+                        type="date"
+                        value={vencimentoSinalDo(orcamento)}
+                        onChange={evento => setVencimentosSinal(atuais => ({ ...atuais, [orcamento.id]: evento.target.value }))}
+                      />
+                    </div>
+                    <Button
+                      disabled={formalizandoId === orcamento.id}
+                      className="flex w-full items-center justify-center gap-2"
+                      onClick={() => formalizarVenda(orcamento)}
+                    >
+                      <FileSignature size={17} />
+                      {formalizandoId === orcamento.id ? 'Formalizando...' : 'Gerar reserva, contrato e cobrança'}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="mt-4 space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      {orcamento.reserva_id && <Link href={`/reservas/${orcamento.reserva_id}`} className="rounded-xl border bg-white px-3 py-2 text-center text-xs font-semibold text-slate-700 hover:bg-slate-50">Abrir reserva</Link>}
+                      <a href={`/contratos/${orcamento.contrato_id}/imprimir`} target="_blank" rel="noreferrer" className="rounded-xl border bg-white px-3 py-2 text-center text-xs font-semibold text-slate-700 hover:bg-slate-50">Abrir contrato</a>
+                    </div>
+
+                    {!orcamento.contrato_assinado_em ? (
+                      <Button
+                        variant="secondary"
+                        disabled={assinandoId === orcamento.id}
+                        className="flex w-full items-center justify-center gap-2"
+                        onClick={() => confirmarAssinatura(orcamento)}
+                      >
+                        <FileSignature size={16} /> {assinandoId === orcamento.id ? 'Confirmando...' : 'Confirmar contrato assinado'}
+                      </Button>
+                    ) : (
+                      <p className="rounded-xl bg-green-50 px-3 py-2 text-xs font-semibold text-green-800">Contrato assinado em {new Date(orcamento.contrato_assinado_em).toLocaleString('pt-BR')}.</p>
+                    )}
+
+                    {!orcamento.sinal_pago_em ? (
+                      <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                        <Select
+                          label={`Forma do sinal · ${moeda(orcamento.valor_sinal_formalizacao || 0)}`}
+                          value={formasSinal[orcamento.id] || 'Pix'}
+                          onChange={evento => setFormasSinal(atuais => ({ ...atuais, [orcamento.id]: evento.target.value }))}
+                        >
+                          <option>Pix</option><option>Cartão</option><option>Dinheiro</option><option>Transferência</option><option>Boleto</option>
+                        </Select>
+                        <Button
+                          disabled={recebendoSinalId === orcamento.id}
+                          className="flex items-center justify-center gap-2 self-end"
+                          onClick={() => confirmarSinal(orcamento)}
+                        >
+                          <HandCoins size={16} /> {recebendoSinalId === orcamento.id ? 'Confirmando...' : 'Confirmar sinal'}
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="rounded-xl bg-green-50 px-3 py-2 text-xs font-semibold text-green-800">Sinal recebido em {new Date(orcamento.sinal_pago_em).toLocaleString('pt-BR')}.</p>
+                    )}
+
+                    {orcamento.formalizacao_status === 'Venda confirmada' && (
+                      <p className="rounded-xl bg-green-600 px-4 py-3 text-center text-sm font-bold text-white">Venda confirmada e pronta para a operação.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="mt-4 grid gap-2">
               <div className="grid grid-cols-2 gap-2">
                 <Button
@@ -840,7 +1041,7 @@ export function OrcamentosPage() {
                 >
                   Abrir reserva gerada
                 </Link>
-              ) : ['Enviado', 'Aprovado'].includes(orcamento.status) ? (
+              ) : orcamento.status === 'Enviado' ? (
                 <Button
                   disabled={convertendoId === orcamento.id}
                   onClick={() => aprovarECriarReserva(orcamento)}
