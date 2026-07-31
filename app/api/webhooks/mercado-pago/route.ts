@@ -53,6 +53,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 503 })
     }
     if (error instanceof InvalidWebhookSignatureError) {
+      console.warn('[mercado-pago:webhook] assinatura rejeitada', {
+        motivo: error.reason,
+        possuiAssinatura: Boolean(request.headers.get('x-signature')),
+        possuiRequestId: Boolean(requestId),
+        possuiDataId: Boolean(dataId)
+      })
       return NextResponse.json({ error: 'Assinatura do webhook inválida.' }, { status: 401 })
     }
     return NextResponse.json({ error: 'Não foi possível validar o webhook.' }, { status: 401 })
