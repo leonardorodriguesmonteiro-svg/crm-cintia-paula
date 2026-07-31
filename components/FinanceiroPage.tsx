@@ -34,7 +34,21 @@ type LancamentoSinal = {
   valor: number
   data_vencimento: string | null
   status: string
+  provedor_pagamento: string | null
+  link_pagamento: string | null
+  status_provedor: string | null
+  status_detalhe_provedor: string | null
   reservas: { clientes: { nome: string } | null } | null
+}
+
+const rotulosMercadoPago: Record<string, string> = {
+  approved: 'Aprovado',
+  pending: 'Pendente no Mercado Pago',
+  in_process: 'Em análise',
+  rejected: 'Recusado',
+  cancelled: 'Cancelado',
+  refunded: 'Estornado',
+  charged_back: 'Contestado'
 }
 
 export function FinanceiroPage() {
@@ -62,7 +76,7 @@ export function FinanceiroPage() {
 
     const sinaisRes = await supabase
       .from('lancamentos_financeiros')
-      .select('id,reserva_id,descricao,valor,data_vencimento,status,reservas(clientes(nome))')
+      .select('id,reserva_id,descricao,valor,data_vencimento,status,provedor_pagamento,link_pagamento,status_provedor,status_detalhe_provedor,reservas(clientes(nome))')
       .eq('categoria', 'Sinal')
       .order('data_vencimento', { ascending: true })
 
@@ -182,8 +196,29 @@ export function FinanceiroPage() {
         <div className="space-y-3">
           {sinais.map(item => (
             <div key={item.id} className="flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div><p className="font-semibold text-slate-900">{item.reservas?.clientes?.nome || item.descricao}</p><p className="text-sm text-slate-500">Vencimento: {item.data_vencimento ? new Date(`${item.data_vencimento}T12:00:00`).toLocaleDateString('pt-BR') : '-'} · R$ {Number(item.valor).toFixed(2)}</p></div>
-              <span className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${item.status === 'Pago' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>{item.status}</span>
+              <div>
+                <p className="font-semibold text-slate-900">{item.reservas?.clientes?.nome || item.descricao}</p>
+                <p className="text-sm text-slate-500">Vencimento: {item.data_vencimento ? new Date(`${item.data_vencimento}T12:00:00`).toLocaleDateString('pt-BR') : '-'} · R$ {Number(item.valor).toFixed(2)}</p>
+                {item.provedor_pagamento && (
+                  <p className="mt-1 text-xs text-slate-500">
+                    {item.provedor_pagamento}
+                    {item.status_provedor ? ` · ${rotulosMercadoPago[item.status_provedor] || item.status_provedor}` : ' · Cobrança criada'}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {item.link_pagamento && item.status !== 'Pago' && (
+                  <a
+                    href={item.link_pagamento}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-xl border bg-white px-3 py-2 text-xs font-semibold text-pink-700 hover:bg-pink-50"
+                  >
+                    Abrir cobrança
+                  </a>
+                )}
+                <span className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${item.status === 'Pago' ? 'bg-green-100 text-green-800' : item.status === 'Cancelado' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>{item.status}</span>
+              </div>
             </div>
           ))}
           {sinais.length === 0 && <div className="rounded-2xl border border-dashed p-7 text-center text-slate-500">Nenhuma cobrança de sinal gerada.</div>}

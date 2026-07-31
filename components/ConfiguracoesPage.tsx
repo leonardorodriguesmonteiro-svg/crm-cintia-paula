@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { CreditCard, MessageSquareText, Save } from 'lucide-react'
+import { CreditCard, ExternalLink, MessageSquareText, Save, ShieldCheck, Webhook } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -25,10 +25,18 @@ const configuracaoInicial: ConfiguracaoPagamento = {
   instrucoes: 'Após o pagamento, envie o comprovante para a equipe Cintia Paula.'
 }
 
+type StatusMercadoPago = {
+  access_token_configurado: boolean
+  webhook_secret_configurado: boolean
+  pronto: boolean
+  webhook_url: string
+}
+
 export function ConfiguracoesPage() {
   const [configuracao, setConfiguracao] = useState(configuracaoInicial)
   const [carregando, setCarregando] = useState(true)
   const [salvando, setSalvando] = useState(false)
+  const [mercadoPago, setMercadoPago] = useState<StatusMercadoPago | null>(null)
   const [erro, setErro] = useState('')
   const [sucesso, setSucesso] = useState('')
 
@@ -50,6 +58,13 @@ export function ConfiguracoesPage() {
       link_pagamento: data.link_pagamento || '',
       instrucoes: data.instrucoes || ''
     })
+
+    try {
+      const resposta = await fetch('/api/pagamentos/mercado-pago/status', { cache: 'no-store' })
+      if (resposta.ok) setMercadoPago(await resposta.json())
+    } catch {
+      setMercadoPago(null)
+    }
 
     setCarregando(false)
   }
@@ -154,6 +169,28 @@ export function ConfiguracoesPage() {
             </div>
           </form>
         )}
+      </Card>
+
+      <Card>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="rounded-2xl bg-sky-50 p-3 text-sky-700"><ShieldCheck size={22} /></div>
+            <div><h2 className="text-xl font-bold text-slate-900">Mercado Pago Checkout Pro</h2><p className="mt-1 text-sm text-slate-500">Criação de cobranças e confirmação automática por webhook.</p></div>
+          </div>
+          <span className={`w-fit rounded-full px-4 py-2 text-xs font-bold ${mercadoPago?.pronto ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>{mercadoPago?.pronto ? 'Conectado' : 'Credenciais pendentes'}</span>
+        </div>
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <div className={`rounded-2xl border p-4 ${mercadoPago?.access_token_configurado ? 'border-green-200 bg-green-50' : 'bg-slate-50'}`}><p className="text-sm font-bold text-slate-900">Access Token</p><p className="mt-1 text-xs text-slate-500">{mercadoPago?.access_token_configurado ? 'Configurado com segurança no servidor.' : 'Aguardando configuração na Vercel.'}</p></div>
+          <div className={`rounded-2xl border p-4 ${mercadoPago?.webhook_secret_configurado ? 'border-green-200 bg-green-50' : 'bg-slate-50'}`}><p className="text-sm font-bold text-slate-900">Assinatura do webhook</p><p className="mt-1 text-xs text-slate-500">{mercadoPago?.webhook_secret_configurado ? 'Validação das notificações ativa.' : 'Aguardando a chave secreta do webhook.'}</p></div>
+        </div>
+
+        {mercadoPago?.webhook_url && <div className="mt-4 rounded-2xl bg-slate-900 p-4 text-white"><p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-300"><Webhook size={15} /> URL do webhook</p><p className="mt-2 break-all font-mono text-xs leading-5">{mercadoPago.webhook_url}</p></div>}
+
+        <div className="mt-4 flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+          <p>As chaves nunca são salvas no banco nem exibidas nesta tela.</p>
+          <a href="https://www.mercadopago.com.br/developers/panel/app" target="_blank" rel="noreferrer" className="flex shrink-0 items-center gap-2 font-semibold text-sky-700 hover:text-sky-800"><ExternalLink size={16} /> Abrir integrações</a>
+        </div>
       </Card>
     </div>
   )

@@ -22,6 +22,8 @@ type ContratoPublico = {
     pix_chave: string | null
     pix_copia_cola: string | null
     link: string | null
+    provedor: string | null
+    status_provedor: string | null
     instrucoes: string
   }
 }
@@ -86,7 +88,7 @@ export function ContratoPublicoPage({ token }: { token: string }) {
       const corpo = await resposta.json()
       if (!resposta.ok) throw new Error(corpo.error || 'Não foi possível registrar a assinatura.')
 
-      setSucesso(corpo.mensagem || 'Assinatura registrada com sucesso.')
+      setSucesso([corpo.mensagem || 'Assinatura registrada com sucesso.', corpo.aviso_pagamento].filter(Boolean).join(' '))
       await carregar()
     } catch (error) {
       setErro(error instanceof Error ? error.message : 'Não foi possível registrar a assinatura.')
@@ -218,7 +220,7 @@ export function ContratoPublicoPage({ token }: { token: string }) {
                 <div className="flex items-start gap-3"><CreditCard className="mt-1 shrink-0 text-pink-600" size={24} /><div><h2 className="text-2xl font-bold text-slate-900">Pagamento do sinal</h2><p className="mt-1 text-slate-500">Valor: <strong className="text-slate-900">{moeda(pagamento.valor_sinal)}</strong>{pagamento.vencimento ? ` · vencimento em ${dataCurta(pagamento.vencimento)}` : ''}</p></div></div>
 
                 <div className="mt-6 space-y-4">
-                  {pagamento.link && <a href={pagamento.link} target="_blank" rel="noreferrer" className="flex w-full items-center justify-center gap-2 rounded-xl bg-pink-600 px-4 py-3 text-sm font-bold text-white hover:bg-pink-700"><CreditCard size={18} /> Abrir pagamento seguro</a>}
+                  {pagamento.link && <a href={pagamento.link} target="_blank" rel="noreferrer" className="flex w-full items-center justify-center gap-2 rounded-xl bg-pink-600 px-4 py-3 text-sm font-bold text-white hover:bg-pink-700"><CreditCard size={18} /> {pagamento.provedor === 'Mercado Pago' ? 'Pagar com Mercado Pago' : 'Abrir pagamento seguro'}</a>}
 
                   {pagamento.pix_copia_cola && (
                     <div className="rounded-2xl border bg-slate-50 p-4">

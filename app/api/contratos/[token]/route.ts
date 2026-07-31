@@ -1,5 +1,6 @@
 import { createHash } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
+import { criarOuObterPreferenciaMercadoPago, MercadoPagoNaoConfiguradoError } from '@/lib/mercadoPago'
 import { gerarPixCopiaECola } from '@/lib/pix'
 import { supabaseServer } from '@/lib/supabaseServer'
 
@@ -66,6 +67,17 @@ async function buscarContrato(token: string) {
 
   const orcamento = orcamentoRes.data
   const configuracao = configuracaoRes.data
+  const lancamentoRes = orcamento?.lancamento_sinal_id
+    ? await supabaseServer
+        .from('lancamentos_financeiros')
+        .select('link_pagamento,provedor_pagamento,status_provedor')
+        .eq('id', orcamento.lancamento_sinal_id)
+        .maybeSingle()
+    : { data: null, error: null }
+
+  if (lancamentoRes.error) throw lancamentoRes.error
+
+  const lancamento = lancamentoRes.data
   const valorSinal = Number(orcamento?.valor_sinal_formalizacao || reserva.valor_sinal || 0)
   const sinalPago = Boolean(orcamento?.sinal_pago_em) || ['Sinal pago', 'Pago', 'Quitado'].includes(reserva.status_pagamento || '')
   const pixCopiaECola = configuracao?.pix_chave && !sinalPago
@@ -106,7 +118,9 @@ async function buscarContrato(token: string) {
       pago: sinalPago,
       pix_chave: configuracao?.pix_chave || null,
       pix_copia_cola: pixCopiaECola,
-      link: linkHttps(configuracao?.link_pagamento),
+      link: linkHttps(lancamento?.link_pagamento) || linkHttps(configuracao?.link_pagamento),
+      provedor: lancamento?.provedor_pagamento || null,
+      status_provedor: lancamento?.status_provedor || null,
       instrucoes: configuracao?.instrucoes || 'Após o pagamento, envie o comprovante para a equipe Cintia Paula.'
     }
   }
@@ -177,6 +191,41 @@ export async function POST(request: NextRequest, contexto: Contexto) {
     return NextResponse.json({ error: error.message }, { status })
   }
 
-  return NextResponse.json({ sucesso: true, mensagem: data?.mensagem, assinatura: data })
-}
+  let cobranca: { link_pagamento: string | null; criado: boolean } | null = null
+  let avisoPagamento: string | null = null
 
+  try {
+    const { data: contrato } = await supabaseServer
+      .from('contratos')
+      .select('id')
+      .eq('public_token', token)
+      .maybeSingle()
+
+    const { data: orcamento } = contrato
+      ? await supabaseServer
+          .from('orcamentos')
+          .select('lancamento_sinal_id')
+          .eq('contrato_id', contrato.id)
+          .maybeSingle()
+      : { data: null }
+
+    if (orcamento?.lancamento_sinal_id) {
+      cobranca = await criarOuObterPreferenciaMercadoPago(
+        orcamento.lancamento_sinal_id,
+        request.nextUrl.origin
+      )
+    }
+  } catch (error) {
+    if (!(error instanceof MercadoPagoNaoConfiguradoError)) {
+      avisoPagamento = 'A assinatura foi registrada, mas o link do Mercado Pago precisará ser gerado pela equipe.'
+    }
+  }
+
+  return NextResponse.json({
+    sucesso: true,
+    mensagem: data?.mensagem,
+    assinatura: data,
+    cobranca,
+    aviso_pagamento: avisoPagamento
+  })
+}

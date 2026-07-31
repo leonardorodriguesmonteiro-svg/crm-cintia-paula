@@ -80,6 +80,11 @@ type Orcamento = {
   contratos: {
     public_token: string | null
   } | null
+  lancamentos_financeiros: {
+    provedor_pagamento: string | null
+    link_pagamento: string | null
+    status_provedor: string | null
+  } | null
 }
 
 type FormOrcamento = {
@@ -207,6 +212,8 @@ export function OrcamentosPage() {
   const [valoresSinal, setValoresSinal] = useState<Record<string, string>>({})
   const [vencimentosSinal, setVencimentosSinal] = useState<Record<string, string>>({})
   const [formasSinal, setFormasSinal] = useState<Record<string, string>>({})
+  const [gerandoCobrancaId, setGerandoCobrancaId] = useState<string | null>(null)
+  const [mercadoPagoPronto, setMercadoPagoPronto] = useState(false)
   const [carregando, setCarregando] = useState(true)
 
   async function carregar() {
@@ -222,7 +229,7 @@ export function OrcamentosPage() {
       supabase.from('kits').select('id,codigo,nome,valor').order('nome'),
       supabase
         .from('orcamentos')
-        .select('*,oportunidades(numero,nome_contato,celular,email),contratos(public_token)')
+        .select('*,oportunidades(numero,nome_contato,celular,email),contratos(public_token),lancamentos_financeiros(provedor_pagamento,link_pagamento,status_provedor)')
         .order('created_at', { ascending: false })
     ])
 
@@ -241,6 +248,10 @@ export function OrcamentosPage() {
 
   useEffect(() => {
     carregar()
+    fetch('/api/pagamentos/mercado-pago/status', { cache: 'no-store' })
+      .then(resposta => resposta.json())
+      .then(dados => setMercadoPagoPronto(Boolean(dados.pronto)))
+      .catch(() => setMercadoPagoPronto(false))
   }, [])
 
   useEffect(() => {
@@ -731,11 +742,56 @@ export function OrcamentosPage() {
     if (error) {
       setErro(error.message)
     } else {
-      setSucesso(data?.mensagem || 'Venda formalizada com sucesso.')
+      let mensagem = data?.mensagem || 'Venda formalizada com sucesso.'
+
+      if (mercadoPagoPronto) {
+        try {
+          const cobranca = await solicitarCobrancaMercadoPago(orcamento.id)
+          if (cobranca?.sucesso) mensagem += ' Cobrança do Mercado Pago criada.'
+        } catch {
+          mensagem += ' A venda foi criada, mas a cobrança do Mercado Pago precisa ser tentada novamente.'
+        }
+      }
+
+      setSucesso(mensagem)
       await carregar()
     }
 
     setFormalizandoId(null)
+  }
+
+  async function solicitarCobrancaMercadoPago(orcamentoId: string, forcar = false) {
+    const { data: sessao } = await supabase.auth.getSession()
+    const token = sessao.session?.access_token
+    if (!token) throw new Error('Sua sessão expirou. Entre novamente no ERP.')
+
+    const resposta = await fetch('/api/pagamentos/mercado-pago/preferencia', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ orcamento_id: orcamentoId, forcar })
+    })
+    const corpo = await resposta.json()
+    if (!resposta.ok) throw new Error(corpo.error || 'Não foi possível gerar a cobrança do Mercado Pago.')
+    return corpo
+  }
+
+  async function gerarCobrancaMercadoPago(orcamento: Orcamento, forcar = false) {
+    setErro('')
+    setSucesso('')
+    setGerandoCobrancaId(orcamento.id)
+
+    try {
+      const corpo = await solicitarCobrancaMercadoPago(orcamento.id, forcar)
+      setSucesso(corpo.mensagem || 'Cobrança do Mercado Pago disponível.')
+      await carregar()
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível gerar a cobrança do Mercado Pago.')
+    } finally {
+      setGerandoCobrancaId(null)
+    }
   }
 
   async function confirmarAssinatura(orcamento: Orcamento) {
@@ -993,6 +1049,17 @@ export function OrcamentosPage() {
                         <Button variant="secondary" className="flex items-center justify-center gap-1 px-2 text-xs" onClick={() => copiarLinkContrato(orcamento)}><Copy size={15} /> Copiar link de assinatura</Button>
                         <a href={`/contrato/${orcamento.contratos.public_token}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1 rounded-xl border border-pink-200 bg-pink-50 px-2 py-2 text-xs font-semibold text-pink-700 hover:bg-pink-100"><ExternalLink size={15} /> Página do cliente</a>
                       </div>
+                    )}
+
+                    {!orcamento.sinal_pago_em && (
+                      mercadoPagoPronto ? (
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {orcamento.lancamentos_financeiros?.link_pagamento && <a href={orcamento.lancamentos_financeiros.link_pagamento} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1 rounded-xl bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-800 hover:bg-sky-100"><ExternalLink size={15} /> Abrir Mercado Pago</a>}
+                          <Button variant="secondary" disabled={gerandoCobrancaId === orcamento.id} className="flex items-center justify-center gap-1 px-2 text-xs" onClick={() => gerarCobrancaMercadoPago(orcamento, Boolean(orcamento.lancamentos_financeiros?.link_pagamento))}><HandCoins size={15} /> {gerandoCobrancaId === orcamento.id ? 'Gerando...' : orcamento.lancamentos_financeiros?.link_pagamento ? 'Renovar cobrança' : 'Gerar Mercado Pago'}</Button>
+                        </div>
+                      ) : (
+                        <Link href="/configuracoes" className="block rounded-xl bg-amber-50 px-3 py-2 text-center text-xs font-semibold text-amber-800">Conecte o Mercado Pago em Configurações</Link>
+                      )
                     )}
 
                     {!orcamento.contrato_assinado_em ? (
