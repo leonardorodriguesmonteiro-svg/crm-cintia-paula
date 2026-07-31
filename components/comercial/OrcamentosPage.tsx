@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { CalendarCheck, CheckCircle2, CircleAlert, Plus, Send, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/Button'
@@ -52,6 +53,7 @@ type Orcamento = {
   frete: number
   total: number
   observacoes: string | null
+  reserva_id: string | null
   created_at: string
   oportunidades: {
     numero: number
@@ -77,6 +79,12 @@ type FormOrcamento = {
 type Disponibilidade = {
   disponivel: boolean
   motivo: string
+}
+
+type ConversaoReserva = {
+  reserva_id: string
+  criada: boolean
+  mensagem: string
 }
 
 function dataValidadeInicial() {
@@ -142,6 +150,7 @@ export function OrcamentosPage() {
   const [erro, setErro] = useState('')
   const [sucesso, setSucesso] = useState('')
   const [salvando, setSalvando] = useState(false)
+  const [convertendoId, setConvertendoId] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(true)
 
   async function carregar() {
@@ -326,11 +335,12 @@ export function OrcamentosPage() {
       .limit(1)
       .maybeSingle()
 
+    const desejaAprovar = form.status === 'Aprovado'
     const payload = {
       empresa_id: vinculo?.empresa_id || null,
       oportunidade_id: form.oportunidade_id,
       cliente_id: oportunidade?.cliente_id || null,
-      status: form.status,
+      status: desejaAprovar ? 'Enviado' : form.status,
       validade: form.validade || null,
       data_evento: form.data_evento,
       horario_evento: form.horario_evento || null,
@@ -391,6 +401,28 @@ export function OrcamentosPage() {
       return
     }
 
+    if (desejaAprovar && orcamentoId) {
+      const { data: conversao, error: conversaoError } = await supabase.rpc(
+        'aprovar_orcamento_e_criar_reserva',
+        { p_orcamento_id: orcamentoId }
+      )
+
+      if (conversaoError) {
+        setErro(`O orçamento foi salvo, mas a reserva não foi criada: ${conversaoError.message}`)
+        setSalvando(false)
+        await carregar()
+        return
+      }
+
+      const resultado = conversao as ConversaoReserva
+      setSucesso(resultado.mensagem)
+      setFormAberto(false)
+      setEditandoId(null)
+      setSalvando(false)
+      await carregar()
+      return
+    }
+
     if (form.status === 'Enviado' && oportunidade && !['Fechado', 'Perdido'].includes(oportunidade.etapa)) {
       await supabase.from('oportunidades').update({ etapa: 'Orçamento enviado' }).eq('id', oportunidade.id)
     }
@@ -399,6 +431,29 @@ export function OrcamentosPage() {
     setFormAberto(false)
     setEditandoId(null)
     setSalvando(false)
+    await carregar()
+  }
+
+  async function aprovarECriarReserva(orcamento: Orcamento) {
+    if (!window.confirm(`Aprovar o ORC-${String(orcamento.numero).padStart(4, '0')} e gerar a reserva confirmada?`)) return
+
+    setErro('')
+    setSucesso('')
+    setConvertendoId(orcamento.id)
+
+    const { data, error } = await supabase.rpc('aprovar_orcamento_e_criar_reserva', {
+      p_orcamento_id: orcamento.id
+    })
+
+    if (error) {
+      setErro(error.message)
+      setConvertendoId(null)
+      return
+    }
+
+    const resultado = data as ConversaoReserva
+    setSucesso(resultado.mensagem)
+    setConvertendoId(null)
     await carregar()
   }
 
@@ -545,7 +600,24 @@ export function OrcamentosPage() {
             <div className="mt-4 space-y-1 text-sm text-slate-500">
               <p>Evento: {dataCurta(orcamento.data_evento)}</p><p>Validade: {dataCurta(orcamento.validade)}</p><p className="pt-2 text-xl font-bold text-slate-900">{moeda(orcamento.total)}</p>
             </div>
-            <Button variant="secondary" className="mt-4 w-full" onClick={() => editar(orcamento)}>Editar orçamento</Button>
+            <div className="mt-4 grid gap-2">
+              {orcamento.reserva_id ? (
+                <Link
+                  href={`/reservas/${orcamento.reserva_id}`}
+                  className="rounded-xl bg-pink-600 px-4 py-2 text-center text-sm font-semibold text-white transition hover:bg-pink-700"
+                >
+                  Abrir reserva gerada
+                </Link>
+              ) : ['Enviado', 'Aprovado'].includes(orcamento.status) ? (
+                <Button
+                  disabled={convertendoId === orcamento.id}
+                  onClick={() => aprovarECriarReserva(orcamento)}
+                >
+                  {convertendoId === orcamento.id ? 'Gerando reserva...' : 'Aprovar e gerar reserva'}
+                </Button>
+              ) : null}
+              <Button variant="secondary" onClick={() => editar(orcamento)}>Editar orçamento</Button>
+            </div>
           </Card>
         ))}
       </div>
