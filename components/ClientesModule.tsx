@@ -39,11 +39,11 @@ const empty = {
   observacoes: ''
 }
 
-function somenteDigitos(valor = '') {
-  return valor.replace(/\D/g, '')
+function somenteDigitos(valor: string | null | undefined = '') {
+  return (valor || '').replace(/\D/g, '')
 }
 
-function formatarCelular(valor = '') {
+function formatarCelular(valor: string | null | undefined = '') {
   const digitos = somenteDigitos(valor).slice(0, 11)
 
   if (digitos.length <= 2) return digitos
@@ -53,7 +53,7 @@ function formatarCelular(valor = '') {
   return `${digitos.slice(0, 2)} ${digitos.slice(2, inicioNumero)}-${digitos.slice(inicioNumero)}`
 }
 
-function formatarCpf(valor = '') {
+function formatarCpf(valor: string | null | undefined = '') {
   const digitos = somenteDigitos(valor).slice(0, 11)
   return digitos
     .replace(/^(\d{3})(\d)/, '$1.$2')
@@ -61,7 +61,7 @@ function formatarCpf(valor = '') {
     .replace(/\.(\d{3})(\d)/, '.$1-$2')
 }
 
-function formatarCep(valor = '') {
+function formatarCep(valor: string | null | undefined = '') {
   const digitos = somenteDigitos(valor).slice(0, 8)
   return digitos.replace(/^(\d{5})(\d)/, '$1-$2')
 }
