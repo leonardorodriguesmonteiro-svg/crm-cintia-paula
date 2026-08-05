@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Check, Copy, ExternalLink, FileSignature } from 'lucide-react'
+import { Check, Copy, ExternalLink, FileSignature, Mail } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
 
@@ -14,11 +14,13 @@ type Contrato = {
   public_token: string | null
   assinado_em: string | null
   assinado_por: string | null
+  email_enviado_em: string | null
+  email_destino: string | null
   created_at: string | null
   reservas: {
     data_evento: string | null
     valor_total: number | null
-    clientes: { nome: string } | null
+    clientes: { nome: string; email: string | null } | null
     kits: { nome: string } | null
   } | null
 }
@@ -39,6 +41,7 @@ export function ContratosPage() {
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
   const [copiadoId, setCopiadoId] = useState<string | null>(null)
+  const [enviandoId, setEnviandoId] = useState<string | null>(null)
 
   async function carregar() {
     setCarregando(true)
@@ -46,7 +49,7 @@ export function ContratosPage() {
 
     const { data, error } = await supabase
       .from('contratos')
-      .select('id,reserva_id,numero_contrato,status,public_token,assinado_em,assinado_por,created_at,reservas(data_evento,valor_total,clientes(nome),kits(nome))')
+      .select('id,reserva_id,numero_contrato,status,public_token,assinado_em,assinado_por,email_enviado_em,email_destino,created_at,reservas(data_evento,valor_total,clientes(nome,email),kits(nome))')
       .order('created_at', { ascending: false })
 
     if (error) setErro(error.message)
@@ -90,6 +93,31 @@ export function ContratosPage() {
     }
   }
 
+  async function enviarEmail(contrato: Contrato) {
+    setErro('')
+    setEnviandoId(contrato.id)
+
+    try {
+      const { data: sessao } = await supabase.auth.getSession()
+      const token = sessao.session?.access_token
+      if (!token) throw new Error('Sua sessão expirou. Entre novamente no ERP.')
+
+      const resposta = await fetch(`/api/contratos/${contrato.id}/enviar-email`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const corpo = await resposta.json()
+      if (!resposta.ok) throw new Error(corpo.error || 'Não foi possível enviar o contrato.')
+
+      await carregar()
+      alert(corpo.mensagem || 'Contrato enviado por e-mail.')
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível enviar o contrato.')
+    } finally {
+      setEnviandoId(null)
+    }
+  }
+
   return (
     <div className="space-y-6 p-4 pb-28 md:p-8">
       <div>
@@ -116,10 +144,12 @@ export function ContratosPage() {
               <p>Kit: {contrato.reservas?.kits?.nome || '-'}</p>
               <p>Evento: {contrato.reservas?.data_evento ? new Date(`${contrato.reservas.data_evento}T12:00:00`).toLocaleDateString('pt-BR') : '-'}</p>
               {contrato.assinado_em && <p>Assinado em {new Date(contrato.assinado_em).toLocaleString('pt-BR')}{contrato.assinado_por ? ` por ${contrato.assinado_por}` : ''}</p>}
+              {contrato.email_enviado_em && <p>E-mail enviado em {new Date(contrato.email_enviado_em).toLocaleString('pt-BR')} para {contrato.email_destino}</p>}
               <p className="pt-2 text-lg font-bold text-slate-900">{moeda(contrato.reservas?.valor_total || 0)}</p>
             </div>
             <div className="mt-4 grid gap-2">
               {contrato.public_token && contrato.status !== 'Assinado' && <button type="button" onClick={() => copiarLink(contrato)} className="flex items-center justify-center gap-2 rounded-xl bg-pink-600 px-4 py-2 text-sm font-semibold text-white hover:bg-pink-700">{copiadoId === contrato.id ? <Check size={16} /> : <Copy size={16} />} {copiadoId === contrato.id ? 'Link copiado' : 'Copiar link de assinatura'}</button>}
+              {contrato.public_token && <button type="button" disabled={enviandoId === contrato.id || !contrato.reservas?.clientes?.email} onClick={() => enviarEmail(contrato)} className="flex items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"><Mail size={16} /> {enviandoId === contrato.id ? 'Enviando...' : contrato.reservas?.clientes?.email ? 'Enviar boas-vindas e contrato' : 'Cliente sem e-mail'}</button>}
               {contrato.public_token && <a href={`/contrato/${contrato.public_token}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-xl border border-pink-200 bg-pink-50 px-4 py-2 text-sm font-semibold text-pink-700 hover:bg-pink-100"><FileSignature size={16} /> Abrir página do cliente</a>}
               <a href={`/contratos/${contrato.id}/imprimir`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-xl border bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"><FileSignature size={16} /> Abrir versão para impressão</a>
               {contrato.reserva_id && <Link href={`/reservas/${contrato.reserva_id}`} className="flex items-center justify-center gap-2 rounded-xl border bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"><ExternalLink size={16} /> Abrir reserva</Link>}

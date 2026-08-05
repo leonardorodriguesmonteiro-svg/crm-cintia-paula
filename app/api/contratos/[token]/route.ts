@@ -47,9 +47,14 @@ async function buscarContrato(token: string) {
   if (reservaError) throw reservaError
   if (!reserva) return null
 
-  const [clienteRes, kitRes, orcamentoRes, configuracaoRes] = await Promise.all([
+  const [clienteRes, kitRes, itensRes, orcamentoRes, configuracaoRes] = await Promise.all([
     supabaseServer.from('clientes').select('nome').eq('id', reserva.cliente_id).maybeSingle(),
     supabaseServer.from('kits').select('nome,codigo').eq('id', reserva.kit_id).maybeSingle(),
+    supabaseServer
+      .from('reserva_itens')
+      .select('descricao,quantidade,valor_unitario,subtotal,kit_id')
+      .eq('reserva_id', reserva.id)
+      .order('ordem', { ascending: true }),
     supabaseServer
       .from('orcamentos')
       .select('numero,formalizacao_status,valor_sinal_formalizacao,vencimento_sinal,sinal_pago_em,lancamento_sinal_id')
@@ -62,7 +67,7 @@ async function buscarContrato(token: string) {
       .maybeSingle()
   ])
 
-  const primeiroErro = clienteRes.error || kitRes.error || orcamentoRes.error || configuracaoRes.error
+  const primeiroErro = clienteRes.error || kitRes.error || itensRes.error || orcamentoRes.error || configuracaoRes.error
   if (primeiroErro) throw primeiroErro
 
   const orcamento = orcamentoRes.data
@@ -104,6 +109,13 @@ async function buscarContrato(token: string) {
       nome: kitRes.data?.nome || 'Kit não informado',
       codigo: kitRes.data?.codigo || null
     },
+    itens: (itensRes.data || []).map(item => ({
+      descricao: item.descricao,
+      quantidade: Number(item.quantidade || 0),
+      valor_unitario: Number(item.valor_unitario || 0),
+      subtotal: Number(item.subtotal || 0),
+      kit: Boolean(item.kit_id)
+    })),
     valor_total: Number(reserva.valor_total || 0),
     assinatura: contrato.status === 'Assinado' ? {
       nome: contrato.assinado_por,

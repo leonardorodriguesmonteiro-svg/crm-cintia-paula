@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CalendarDays, Check, CheckCircle2, Clock3, Copy, CreditCard, FileSignature, MapPin, PartyPopper, ShieldCheck, XCircle } from 'lucide-react'
+import { CalendarDays, Check, CheckCircle2, Clock3, Copy, CreditCard, FileSignature, MapPin, PartyPopper, Printer, ShieldCheck, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { clausulasLocacaoContrato, declaracaoAceiteContrato, termosGeraisContrato } from '@/lib/contratoTermos'
 
 type ContratoPublico = {
   numero: string
@@ -12,6 +13,7 @@ type ContratoPublico = {
   cliente: string
   evento: { data: string | null; horario: string | null; endereco: string | null }
   kit: { nome: string; codigo: string | null }
+  itens: Array<{ descricao: string; quantidade: number; valor_unitario: number; subtotal: number; kit: boolean }>
   valor_total: number
   assinatura: { nome: string | null; documento: string | null; em: string | null; aceite: boolean } | null
   pode_assinar: boolean
@@ -211,15 +213,24 @@ export function ContratoPublicoPage({ token }: { token: string }) {
             <div className="flex gap-3 rounded-2xl bg-slate-50 p-4"><PartyPopper className="shrink-0 text-pink-600" size={20} /><div><p className="text-xs font-bold uppercase text-slate-400">Kit contratado</p><p className="font-semibold text-slate-800">{contrato.kit.nome}</p>{contrato.kit.codigo && <p className="text-xs text-slate-500">Código {contrato.kit.codigo}</p>}</div></div>
             <div className="flex gap-3 rounded-2xl bg-slate-50 p-4"><MapPin className="shrink-0 text-pink-600" size={20} /><div><p className="text-xs font-bold uppercase text-slate-400">Local</p><p className="font-semibold text-slate-800">{contrato.evento.endereco || 'A definir'}</p></div></div>
           </div>
+          <Button type="button" variant="secondary" className="mt-5 flex items-center gap-2 print:hidden" onClick={() => window.print()}><Printer size={17} /> Baixar ou imprimir contrato</Button>
         </section>
 
         <section className="rounded-3xl border bg-white p-6 shadow-sm md:p-8">
           <h2 className="text-xl font-bold text-slate-900">Condições da contratação</h2>
           <div className="mt-5 space-y-5 text-sm leading-7 text-slate-600">
-            <div><h3 className="font-bold text-slate-900">1. Objeto</h3><p>Locação do kit <strong>{contrato.kit.nome}</strong> para o evento descrito neste documento.</p></div>
-            <div><h3 className="font-bold text-slate-900">2. Valor</h3><p>O valor total contratado é de <strong>{moeda(contrato.valor_total)}</strong>, com sinal de <strong>{moeda(pagamento.valor_sinal)}</strong>.</p></div>
-            <div><h3 className="font-bold text-slate-900">3. Responsabilidades</h3><p>A contratante deverá zelar pelos itens locados durante o período do evento e responder por danos, perdas ou extravios identificados na devolução.</p></div>
-            <div><h3 className="font-bold text-slate-900">4. Cancelamento e reagendamento</h3><p>As condições de cancelamento, reagendamento e devolução de valores seguem as regras comerciais previamente acordadas entre as partes.</p></div>
+            <div><h3 className="font-bold text-slate-900">1. Objeto</h3><p>Locação dos kits e serviços descritos neste documento para a realização do evento contratado.</p></div>
+            <div>
+              <h3 className="font-bold text-slate-900">2. Itens contratados</h3>
+              <div className="mt-2 overflow-hidden rounded-xl border">
+                {(contrato.itens || []).map((item, indice) => <div key={`${item.descricao}-${indice}`} className="flex justify-between gap-3 border-b px-3 py-2 last:border-b-0"><span>{item.quantidade} × {item.descricao}</span><strong>{moeda(item.subtotal)}</strong></div>)}
+                {!contrato.itens?.length && <div className="px-3 py-2">1 × {contrato.kit.nome}</div>}
+              </div>
+            </div>
+            <div><h3 className="font-bold text-slate-900">3. Valor</h3><p>O valor total contratado é de <strong>{moeda(contrato.valor_total)}</strong>, com sinal de <strong>{moeda(pagamento.valor_sinal)}</strong>.</p></div>
+            <div><h3 className="font-bold text-slate-900">4. Termos e condições</h3><ol className="mt-2 list-decimal space-y-2 pl-5">{termosGeraisContrato.map(termo => <li key={termo}>{termo}</li>)}</ol></div>
+            <div><h3 className="font-bold text-slate-900">5. Cláusulas para locação</h3><ol className="mt-2 list-decimal space-y-2 pl-5">{clausulasLocacaoContrato.map(clausula => <li key={clausula.titulo}><strong>{clausula.titulo}:</strong> {clausula.texto}</li>)}</ol></div>
+            <div className="rounded-xl bg-slate-50 p-4 font-semibold text-slate-800">{declaracaoAceiteContrato}</div>
           </div>
         </section>
 
@@ -239,7 +250,7 @@ export function ContratoPublicoPage({ token }: { token: string }) {
               <Input label="CPF ou CNPJ do contratante *" required inputMode="numeric" minLength={11} maxLength={18} autoComplete="off" value={documento} onChange={evento => setDocumento(evento.target.value)} />
               <label className="flex cursor-pointer items-start gap-3 rounded-2xl border bg-slate-50 p-4 text-sm text-slate-700">
                 <input type="checkbox" className="mt-1 h-4 w-4 accent-pink-600" checked={aceite} onChange={evento => setAceite(evento.target.checked)} />
-                <span>Li os dados e as condições acima e concordo com este contrato de locação.</span>
+                <span>{declaracaoAceiteContrato}</span>
               </label>
               <Button type="submit" disabled={assinando || !aceite} className="flex w-full items-center justify-center gap-2 py-3"><FileSignature size={18} /> {assinando ? 'Registrando assinatura...' : 'Assinar e continuar para o sinal'}</Button>
             </form>

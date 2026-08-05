@@ -51,7 +51,7 @@ export function ReservaConferencia({
 }) {
   const [tipo, setTipo] = useState<TipoConferencia>('Retirada')
   const [statusReserva, setStatusReserva] = useState('')
-  const [kitId, setKitId] = useState('')
+  const [kitIds, setKitIds] = useState<string[]>([])
   const [responsavel, setResponsavel] = useState('')
   const [observacoes, setObservacoes] = useState('')
   const [itens, setItens] = useState<ItemConferencia[]>([])
@@ -74,16 +74,28 @@ export function ReservaConferencia({
       return
     }
 
-    const kit = reservaRes.data.kit_id || ''
-    setKitId(kit)
+    const itensReservaRes = await supabase
+      .from('reserva_itens')
+      .select('kit_id')
+      .eq('reserva_id', reservaId)
+      .not('kit_id', 'is', null)
+
+    const kits = Array.from(new Set(
+      (itensReservaRes.data || []).map(item => item.kit_id).filter(Boolean)
+    )) as string[]
+    if (!kits.length && reservaRes.data.kit_id) kits.push(reservaRes.data.kit_id)
+
+    setKitIds(kits)
     setStatusReserva(reservaRes.data.status || '')
 
     const [composicaoRes, historicoRes] = await Promise.all([
-      supabase
-        .from('kit_composicao')
-        .select('item_id,quantidade,estoque_itens(id,codigo,nome)')
-        .eq('kit_id', kit)
-        .order('created_at', { ascending: true }),
+      kits.length
+        ? supabase
+            .from('kit_composicao')
+            .select('item_id,quantidade,estoque_itens(id,codigo,nome)')
+            .in('kit_id', kits)
+            .order('created_at', { ascending: true })
+        : Promise.resolve({ data: [], error: null }),
       supabase
         .from('conferencias')
         .select('id,tipo,responsavel,observacoes,status,conferido_em,conferencia_itens(id,item_id,quantidade_prevista,quantidade_conferida,quantidade_danificada,quantidade_faltante,observacoes,estoque_itens!conferencia_itens_item_id_fkey(codigo,nome))')
@@ -121,15 +133,20 @@ export function ReservaConferencia({
 
     setResponsavel('')
     setObservacoes('')
-    setItens(((composicaoRes.data as any[]) || []).map(item => ({
-      itemId: item.item_id,
-      codigo: item.estoque_itens?.codigo || '',
-      nome: item.estoque_itens?.nome || 'Item',
-      quantidadePrevista: Number(item.quantidade || 0),
-      quantidadeConferida: Number(item.quantidade || 0),
-      quantidadeDanificada: 0,
-      observacoes: ''
-    })))
+    const composicaoAgrupada = ((composicaoRes.data as any[]) || []).reduce<Record<string, any>>((mapa, item) => {
+      const atual = mapa[item.item_id]
+      mapa[item.item_id] = {
+        itemId: item.item_id,
+        codigo: item.estoque_itens?.codigo || atual?.codigo || '',
+        nome: item.estoque_itens?.nome || atual?.nome || 'Item',
+        quantidadePrevista: Number(atual?.quantidadePrevista || 0) + Number(item.quantidade || 0),
+        quantidadeConferida: Number(atual?.quantidadeConferida || 0) + Number(item.quantidade || 0),
+        quantidadeDanificada: 0,
+        observacoes: ''
+      }
+      return mapa
+    }, {})
+    setItens(Object.values(composicaoAgrupada))
   }
 
   useEffect(() => {
@@ -260,13 +277,13 @@ export function ReservaConferencia({
             />
           </div>
 
-          {!kitId && (
+          {!kitIds.length && (
             <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
               Esta reserva não possui kit vinculado.
             </div>
           )}
 
-          {kitId && itens.length === 0 && (
+          {kitIds.length > 0 && itens.length === 0 && (
             <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
               O kit ainda não possui composição. Configure-a antes da conferência.
             </div>

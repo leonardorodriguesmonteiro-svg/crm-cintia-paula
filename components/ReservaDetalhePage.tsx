@@ -16,12 +16,18 @@ import { ReservaConferencia } from '@/components/reserva/ReservaConferencia'
 
 const abas = ['Resumo', 'Operação', 'Conferência', 'Timeline', 'Financeiro', 'Kit', 'Checklist', 'Logística', 'Contrato']
 
+function dataCurta(valor: string | null | undefined) {
+  if (!valor) return '-'
+  return new Date(`${valor}T12:00:00`).toLocaleDateString('pt-BR')
+}
+
 export function ReservaDetalhePage({ id }: { id: string }) {
   const [aba, setAba] = useState('Resumo')
   const [reserva, setReserva] = useState<any>(null)
   const [recebimentos, setRecebimentos] = useState<any[]>([])
   const [timeline, setTimeline] = useState<any[]>([])
   const [composicao, setComposicao] = useState<any[]>([])
+  const [itensReserva, setItensReserva] = useState<any[]>([])
   const [erro, setErro] = useState('')
   const [editando, setEditando] = useState(false)
   const [salvando, setSalvando] = useState(false)
@@ -50,6 +56,11 @@ export function ReservaDetalhePage({ id }: { id: string }) {
     const reservaRes = await supabase.from('reservas').select('*,clientes(*),kits(*)').eq('id', id).single()
     const recebimentosRes = await supabase.from('recebimentos').select('*').eq('reserva_id', id).order('created_at', { ascending: false })
     const timelineRes = await supabase.from('reserva_timeline').select('*').eq('reserva_id', id).order('created_at', { ascending: false })
+    const itensRes = await supabase
+      .from('reserva_itens')
+      .select('id,kit_id,descricao,quantidade,valor_unitario,subtotal,kits(id,nome,codigo)')
+      .eq('reserva_id', id)
+      .order('ordem', { ascending: true })
 
     if (reservaRes.error) return setErro(reservaRes.error.message)
 
@@ -64,14 +75,22 @@ export function ReservaDetalhePage({ id }: { id: string }) {
 
     if (!recebimentosRes.error) setRecebimentos(recebimentosRes.data || [])
     if (!timelineRes.error) setTimeline(timelineRes.data || [])
+    if (!itensRes.error) setItensReserva(itensRes.data || [])
 
-    if (reservaRes.data.kit_id) {
+    const kitIds = Array.from(new Set(
+      (itensRes.data || []).map(item => item.kit_id).filter(Boolean)
+    )) as string[]
+    if (!kitIds.length && reservaRes.data.kit_id) kitIds.push(reservaRes.data.kit_id)
+
+    if (kitIds.length) {
       const compRes = await supabase
         .from('kit_composicao')
-        .select('quantidade,observacoes,estoque_itens(nome,codigo,categoria,quantidade_disponivel)')
-        .eq('kit_id', reservaRes.data.kit_id)
+        .select('kit_id,quantidade,valor_ajuste,observacoes,kits(nome),estoque_itens(nome,codigo,categoria,quantidade_disponivel)')
+        .in('kit_id', kitIds)
 
       if (!compRes.error) setComposicao(compRes.data || [])
+    } else {
+      setComposicao([])
     }
   }
 
@@ -85,6 +104,7 @@ export function ReservaDetalhePage({ id }: { id: string }) {
   const valorTotal = Number(reserva.valor_total || 0)
   const recebido = recebimentos.reduce((t, r) => t + Number(r.valor || 0), 0)
   const saldo = Math.max(valorTotal - recebido, 0)
+  const nomesKits = itensReserva.filter(item => item.kit_id).map(item => item.kits?.nome || item.descricao)
 
   async function salvarEdicao(e: React.FormEvent) {
     e.preventDefault()
@@ -203,7 +223,7 @@ export function ReservaDetalhePage({ id }: { id: string }) {
         <div>
           <Link href="/reservas" className="text-sm font-semibold text-pink-700">← Voltar para Reservas</Link>
           <h1 className="mt-2 text-3xl font-bold text-slate-900">Centro da Reserva</h1>
-          <p className="text-slate-500">{reserva.clientes?.nome || 'Cliente'} • {reserva.kits?.nome || 'Kit'}</p>
+          <p className="text-slate-500">{reserva.clientes?.nome || 'Cliente'} • {nomesKits.join(' + ') || reserva.kits?.nome || 'Kit'}</p>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -265,8 +285,8 @@ export function ReservaDetalhePage({ id }: { id: string }) {
 
       {aba === 'Resumo' && (
         <div className="grid gap-4 xl:grid-cols-2">
-          <Card><h2 className="text-lg font-semibold">Cliente</h2><div className="mt-4 space-y-2 text-sm text-slate-600"><p><strong>Nome:</strong> {reserva.clientes?.nome || '-'}</p><p><strong>WhatsApp:</strong> {reserva.clientes?.whatsapp || '-'}</p><p><strong>Instagram:</strong> {reserva.clientes?.instagram || '-'}</p><p><strong>Email:</strong> {reserva.clientes?.email || '-'}</p></div></Card>
-          <Card><h2 className="text-lg font-semibold">Evento</h2><div className="mt-4 space-y-2 text-sm text-slate-600"><p><strong>Data:</strong> {reserva.data_evento || '-'}</p><p><strong>Horário:</strong> {reserva.horario_evento || '-'}</p><p><strong>Status:</strong> {reserva.status || '-'}</p><p><strong>Endereço:</strong> {reserva.endereco_evento || '-'}</p><p><strong>Observações:</strong> {reserva.observacoes || '-'}</p></div></Card>
+          <Card><h2 className="text-lg font-semibold">Cliente</h2><div className="mt-4 space-y-2 text-sm text-slate-600"><p><strong>Nome:</strong> {reserva.clientes?.nome || '-'}</p><p><strong>WhatsApp:</strong> {reserva.clientes?.whatsapp || '-'}</p><p><strong>Instagram:</strong> {reserva.clientes?.instagram || '-'}</p><p><strong>Email:</strong> {reserva.clientes?.email || '-'}</p><p><strong>CPF:</strong> {reserva.clientes?.cpf || '-'} • <strong>RG:</strong> {reserva.clientes?.rg || '-'}</p><p><strong>Endereço:</strong> {[reserva.clientes?.endereco, reserva.clientes?.numero, reserva.clientes?.complemento, reserva.clientes?.bairro, reserva.clientes?.cidade, reserva.clientes?.estado].filter(Boolean).join(', ') || '-'}</p>{reserva.clientes?.observacoes && <p><strong>Observações:</strong> {reserva.clientes.observacoes}</p>}</div></Card>
+          <Card><h2 className="text-lg font-semibold">Evento</h2><div className="mt-4 space-y-2 text-sm text-slate-600"><p><strong>Data:</strong> {dataCurta(reserva.data_evento)}</p><p><strong>Horário:</strong> {reserva.horario_evento || '-'}</p><p><strong>Status:</strong> {reserva.status || '-'}</p><p><strong>Endereço:</strong> {reserva.endereco_evento || '-'}</p><p><strong>Observações:</strong> {reserva.observacoes || '-'}</p></div></Card>
         </div>
       )}
 
@@ -317,11 +337,19 @@ export function ReservaDetalhePage({ id }: { id: string }) {
       {aba === 'Kit' && (
         <Card>
           <h2 className="text-lg font-semibold">Kit e composição</h2>
-          <p className="mt-2 text-sm text-slate-600"><strong>Kit:</strong> {reserva.kits?.nome || '-'}</p>
+          <div className="mt-4 space-y-2">
+            {itensReserva.map(item => (
+              <div key={item.id} className="flex flex-col justify-between gap-2 rounded-xl border p-3 text-sm sm:flex-row sm:items-center">
+                <div><p className="font-semibold">{item.descricao}</p><p className="text-slate-500">{item.quantidade} × R$ {Number(item.valor_unitario || 0).toFixed(2)}</p></div>
+                <strong className={Number(item.subtotal || 0) < 0 ? 'text-amber-700' : 'text-slate-900'}>R$ {Number(item.subtotal || 0).toFixed(2)}</strong>
+              </div>
+            ))}
+          </div>
+          <h3 className="mt-6 font-semibold text-slate-900">Composição física dos kits</h3>
           <div className="mt-4 space-y-2">
             {composicao.map((item, index) => (
               <div key={index} className="rounded-xl border p-3 text-sm">
-                <p className="font-semibold">{item.estoque_itens?.nome || 'Item'}</p>
+                <p className="font-semibold">{item.estoque_itens?.nome || 'Item'} <span className="font-normal text-slate-400">· {item.kits?.nome || 'Kit'}</span></p>
                 <p className="text-slate-500">Quantidade no kit: {item.quantidade} • Disponível: {item.estoque_itens?.quantidade_disponivel ?? 0}</p>
               </div>
             ))}

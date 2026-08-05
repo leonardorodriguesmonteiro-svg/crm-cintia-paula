@@ -753,6 +753,24 @@ export function OrcamentosPage() {
         }
       }
 
+      if (data?.contrato_id) {
+        try {
+          const { data: sessao } = await supabase.auth.getSession()
+          const token = sessao.session?.access_token
+          if (!token) throw new Error('Sessão expirada.')
+
+          const emailRes = await fetch(`/api/contratos/${data.contrato_id}/enviar-email`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` }
+          })
+          const emailCorpo = await emailRes.json()
+          if (!emailRes.ok) throw new Error(emailCorpo.error || 'E-mail não enviado.')
+          mensagem += ' Carta de boas-vindas e contrato enviados por e-mail.'
+        } catch (error) {
+          mensagem += ` ${error instanceof Error ? error.message : 'O envio automático do e-mail ficou pendente.'}`
+        }
+      }
+
       setSucesso(mensagem)
       await carregar()
     }

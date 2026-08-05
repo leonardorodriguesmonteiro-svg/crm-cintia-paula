@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
+import { clausulasLocacaoContrato, declaracaoAceiteContrato, termosGeraisContrato } from '@/lib/contratoTermos'
 
 type Contrato = {
   id: string
@@ -20,6 +21,7 @@ export function ReservaContrato({ reservaId }: { reservaId: string }) {
   const [contrato, setContrato] = useState<Contrato | null>(null)
   const [reserva, setReserva] = useState<any>(null)
   const [recebimentos, setRecebimentos] = useState<any[]>([])
+  const [itensReserva, setItensReserva] = useState<any[]>([])
   const [status, setStatus] = useState('Gerado')
   const [observacoes, setObservacoes] = useState('')
   const [erro, setErro] = useState('')
@@ -42,12 +44,19 @@ export function ReservaContrato({ reservaId }: { reservaId: string }) {
       .select('*')
       .eq('reserva_id', reservaId)
 
+    const itensRes = await supabase
+      .from('reserva_itens')
+      .select('id,descricao,quantidade,valor_unitario,subtotal,kit_id')
+      .eq('reserva_id', reservaId)
+      .order('ordem', { ascending: true })
+
     if (contratoRes.error) return setErro(contratoRes.error.message)
     if (reservaRes.error) return setErro(reservaRes.error.message)
 
     setContrato(contratoRes.data)
     setReserva(reservaRes.data)
     setRecebimentos(recebimentosRes.data || [])
+    setItensReserva(itensRes.data || [])
     setStatus(contratoRes.data?.status || 'Gerado')
     setObservacoes(contratoRes.data?.observacoes || '')
   }
@@ -164,10 +173,16 @@ export function ReservaContrato({ reservaId }: { reservaId: string }) {
               </p>
 
               <p>
-                <strong>OBJETO:</strong> Locação/contratação do kit <strong>{reserva?.kits?.nome || 'Kit não informado'}</strong>, 
+                <strong>OBJETO:</strong> Locação/contratação dos kits e serviços abaixo,
                 para evento a ser realizado em <strong>{reserva?.data_evento || 'data não informada'}</strong>, 
                 às <strong>{reserva?.horario_evento || 'horário não informado'}</strong>, no endereço <strong>{reserva?.endereco_evento || 'não informado'}</strong>.
               </p>
+
+              <div className="rounded-xl border bg-white p-3">
+                <strong>ITENS CONTRATADOS:</strong>
+                {itensReserva.map(item => <p key={item.id}>{item.quantidade} × {item.descricao} — R$ {Number(item.subtotal || 0).toFixed(2)}</p>)}
+                {!itensReserva.length && <p>1 × {reserva?.kits?.nome || 'Kit não informado'}</p>}
+              </div>
 
               <p>
                 <strong>VALOR:</strong> O valor total contratado é de <strong>R$ {valorTotal.toFixed(2)}</strong>. 
@@ -175,14 +190,11 @@ export function ReservaContrato({ reservaId }: { reservaId: string }) {
                 restando saldo de <strong>R$ {saldo.toFixed(2)}</strong>.
               </p>
 
-              <p>
-                <strong>RESPONSABILIDADES:</strong> A contratante deverá zelar pelos itens locados durante o período do evento, 
-                responsabilizando-se por danos, perdas ou extravios identificados na devolução.
-              </p>
+              <div><strong>TERMOS E CONDIÇÕES:</strong><ol className="list-decimal space-y-1 pl-5">{termosGeraisContrato.map(termo => <li key={termo}>{termo}</li>)}</ol></div>
 
-              <p>
-                <strong>CANCELAMENTO:</strong> As condições de cancelamento, reagendamento e devolução de valores deverão seguir as regras comerciais previamente acordadas entre as partes.
-              </p>
+              <div><strong>CLÁUSULAS PARA LOCAÇÃO:</strong><ol className="list-decimal space-y-1 pl-5">{clausulasLocacaoContrato.map(clausula => <li key={clausula.titulo}><strong>{clausula.titulo}:</strong> {clausula.texto}</li>)}</ol></div>
+
+              <p><strong>{declaracaoAceiteContrato}</strong></p>
 
               <p>
                 <strong>STATUS DO CONTRATO:</strong> {status}.

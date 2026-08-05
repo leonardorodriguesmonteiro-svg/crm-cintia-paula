@@ -8,12 +8,13 @@ import { Select } from '@/components/ui/Select'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 
-type Kit = { id: string; nome: string; codigo: string | null }
+type Kit = { id: string; nome: string; codigo: string | null; valor: number | null }
 type Item = { id: string; nome: string; codigo: string | null; quantidade_disponivel: number | null }
 type Composicao = {
   id: string
   item_id: string
   quantidade: number
+  valor_ajuste: number
   observacoes: string | null
   estoque_itens: Item | null
 }
@@ -24,13 +25,14 @@ export function KitComposicaoClient() {
   const [kitId, setKitId] = useState('')
   const [itemId, setItemId] = useState('')
   const [quantidade, setQuantidade] = useState(1)
+  const [valorAjuste, setValorAjuste] = useState(0)
   const [observacoes, setObservacoes] = useState('')
   const [composicao, setComposicao] = useState<Composicao[]>([])
   const [erro, setErro] = useState('')
   const [editando, setEditando] = useState<string | null>(null)
 
   async function carregarBase() {
-    const kitsRes = await supabase.from('kits').select('id,nome,codigo').order('nome')
+    const kitsRes = await supabase.from('kits').select('id,nome,codigo,valor').order('nome')
     const itensRes = await supabase.from('estoque_itens').select('id,nome,codigo,quantidade_disponivel').order('nome')
 
     if (kitsRes.error) setErro(kitsRes.error.message)
@@ -48,7 +50,7 @@ export function KitComposicaoClient() {
 
     const { data, error } = await supabase
       .from('kit_composicao')
-      .select('id,item_id,quantidade,observacoes,estoque_itens(id,nome,codigo,quantidade_disponivel)')
+      .select('id,item_id,quantidade,valor_ajuste,observacoes,estoque_itens(id,nome,codigo,quantidade_disponivel)')
       .eq('kit_id', id)
       .order('created_at', { ascending: false })
 
@@ -86,6 +88,7 @@ export function KitComposicaoClient() {
       kit_id: kitId,
       item_id: itemId,
       quantidade,
+      valor_ajuste: Number(valorAjuste) || 0,
       observacoes: observacoes || null
     }
 
@@ -100,6 +103,7 @@ export function KitComposicaoClient() {
 
     setItemId('')
     setQuantidade(1)
+    setValorAjuste(0)
     setObservacoes('')
     setEditando(null)
     carregarComposicao(kitId)
@@ -109,6 +113,7 @@ export function KitComposicaoClient() {
     setEditando(linha.id)
     setItemId(linha.item_id)
     setQuantidade(linha.quantidade)
+    setValorAjuste(Number(linha.valor_ajuste || 0))
     setObservacoes(linha.observacoes || '')
     setErro('')
   }
@@ -117,6 +122,7 @@ export function KitComposicaoClient() {
     setEditando(null)
     setItemId('')
     setQuantidade(1)
+    setValorAjuste(0)
     setObservacoes('')
   }
 
@@ -129,6 +135,9 @@ export function KitComposicaoClient() {
   }
 
   const kitSelecionado = kits.find(k => k.id === kitId)
+  const valorBase = Number(kitSelecionado?.valor || 0)
+  const totalAjustes = composicao.reduce((total, linha) => total + Number(linha.valor_ajuste || 0), 0)
+  const valorCalculado = Math.max(valorBase + totalAjustes, 0)
 
   return (
     <div className="space-y-6 p-4 md:p-8 pb-28">
@@ -173,7 +182,7 @@ export function KitComposicaoClient() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Select label="Item do estoque" value={itemId} onChange={(e) => setItemId(e.target.value)}>
                 <option value="">Selecione um item...</option>
                 {itens.map((item) => (
@@ -189,6 +198,15 @@ export function KitComposicaoClient() {
                 min="1"
                 value={quantidade}
                 onChange={(e) => setQuantidade(Number(e.target.value))}
+              />
+
+              <Input
+                label="Ajuste no preço (R$)"
+                type="number"
+                step="0.01"
+                value={valorAjuste}
+                onChange={(e) => setValorAjuste(Number(e.target.value))}
+                placeholder="Use negativo para reduzir"
               />
 
               <Textarea
@@ -214,6 +232,11 @@ export function KitComposicaoClient() {
             <p className="text-sm text-slate-500">
               {composicao.length} item(ns) vinculados à composição.
             </p>
+            <div className="mt-3 grid gap-2 rounded-2xl bg-pink-50 p-4 text-sm text-pink-900 sm:grid-cols-3">
+              <p>Valor base: <strong>R$ {valorBase.toFixed(2)}</strong></p>
+              <p>Ajustes da composição: <strong>R$ {totalAjustes.toFixed(2)}</strong></p>
+              <p>Valor sugerido: <strong>R$ {valorCalculado.toFixed(2)}</strong></p>
+            </div>
           </div>
 
           <div className="space-y-3">
@@ -223,6 +246,9 @@ export function KitComposicaoClient() {
                   <p className="font-semibold text-slate-900">{linha.estoque_itens?.nome}</p>
                   <p className="text-sm text-slate-500">
                     {linha.estoque_itens?.codigo || 'Sem código'} • Quantidade no kit: {linha.quantidade}
+                  </p>
+                  <p className={`text-sm font-medium ${Number(linha.valor_ajuste || 0) < 0 ? 'text-amber-700' : 'text-green-700'}`}>
+                    Ajuste no preço: {Number(linha.valor_ajuste || 0) >= 0 ? '+' : ''}R$ {Number(linha.valor_ajuste || 0).toFixed(2)}
                   </p>
                   {linha.observacoes && (
                     <p className="text-sm text-slate-600 mt-1">{linha.observacoes}</p>

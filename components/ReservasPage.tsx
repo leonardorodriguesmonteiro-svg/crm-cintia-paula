@@ -11,6 +11,17 @@ import { Textarea } from '@/components/ui/Textarea'
 
 type Cliente = { id: string; nome: string; whatsapp: string | null }
 type Kit = { id: string; nome: string; codigo: string | null; valor: number | null }
+type ReservaItem = {
+  id?: string
+  kit_id: string | null
+  descricao: string
+  quantidade: number
+  valor_unitario: number
+  subtotal?: number
+  kits?: Kit | null
+}
+
+type LinhaForm = ReservaItem & { chave: string }
 
 type Reserva = {
   id: string
@@ -23,6 +34,7 @@ type Reserva = {
   observacoes: string | null
   clientes: Cliente | null
   kits: Kit | null
+  reserva_itens: ReservaItem[]
 }
 
 const vazio = {
@@ -31,10 +43,22 @@ const vazio = {
   data_evento: '',
   horario_evento: '',
   endereco_evento: '',
-  valor_total: 0,
   valor_sinal: 0,
   status: 'Pendente',
   observacoes: ''
+}
+
+function chaveLinha() {
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+function dataCurta(valor: string | null | undefined) {
+  if (!valor) return '-'
+  return new Date(`${valor}T12:00:00`).toLocaleDateString('pt-BR')
+}
+
+function moeda(valor: number) {
+  return Number(valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 export function ReservasPage() {
@@ -42,26 +66,42 @@ export function ReservasPage() {
   const [kits, setKits] = useState<Kit[]>([])
   const [reservas, setReservas] = useState<Reserva[]>([])
   const [form, setForm] = useState(vazio)
+  const [linhas, setLinhas] = useState<LinhaForm[]>([])
+  const [kitAdicionar, setKitAdicionar] = useState('')
+  const [descricaoAdicional, setDescricaoAdicional] = useState('')
+  const [valorAdicional, setValorAdicional] = useState(0)
+  const [ajustesPorKit, setAjustesPorKit] = useState<Record<string, number>>({})
   const [editando, setEditando] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
   const [erro, setErro] = useState('')
   const [salvando, setSalvando] = useState(false)
 
   async function carregarBase() {
-    const clientesRes = await supabase.from('clientes').select('id,nome,whatsapp').order('nome')
-    const kitsRes = await supabase.from('kits').select('id,nome,codigo,valor').order('nome')
+    const [clientesRes, kitsRes, ajustesRes] = await Promise.all([
+      supabase.from('clientes').select('id,nome,whatsapp').order('nome'),
+      supabase.from('kits').select('id,nome,codigo,valor').order('nome'),
+      supabase.from('kit_composicao').select('kit_id,valor_ajuste')
+    ])
 
     if (clientesRes.error) setErro(clientesRes.error.message)
     else setClientes(clientesRes.data || [])
 
     if (kitsRes.error) setErro(kitsRes.error.message)
     else setKits(kitsRes.data || [])
+
+    if (ajustesRes.error) setErro(ajustesRes.error.message)
+    else {
+      setAjustesPorKit((ajustesRes.data || []).reduce<Record<string, number>>((mapa, item) => {
+        mapa[item.kit_id] = (mapa[item.kit_id] || 0) + Number(item.valor_ajuste || 0)
+        return mapa
+      }, {}))
+    }
   }
 
   async function carregarReservas() {
     const { data, error } = await supabase
       .from('reservas')
-      .select('id,data_evento,horario_evento,endereco_evento,valor_total,valor_sinal,status,observacoes,clientes(id,nome,whatsapp),kits(id,nome,codigo,valor)')
+      .select('id,data_evento,horario_evento,endereco_evento,valor_total,valor_sinal,status,observacoes,clientes(id,nome,whatsapp),kits(id,nome,codigo,valor),reserva_itens(id,kit_id,descricao,quantidade,valor_unitario,subtotal,kits(id,nome,codigo,valor))')
       .order('data_evento', { ascending: true })
 
     if (error) return setErro(error.message)
@@ -79,6 +119,7 @@ export function ReservasPage() {
       [
         reserva.clientes?.nome,
         reserva.kits?.nome,
+        ...(reserva.reserva_itens || []).map(item => item.descricao),
         reserva.status,
         reserva.data_evento,
         reserva.endereco_evento
@@ -97,8 +138,8 @@ export function ReservasPage() {
       return
     }
 
-    if (!form.kit_id) {
-      setErro('Selecione um kit.')
+    if (!linhas.some(linha => linha.kit_id)) {
+      setErro('Adicione pelo menos um kit à reserva.')
       setSalvando(false)
       return
     }
@@ -109,23 +150,31 @@ export function ReservasPage() {
       return
     }
 
-    const payload = {
-      ...form,
-      valor_total: Number(form.valor_total) || 0,
-      valor_sinal: Number(form.valor_sinal) || 0
-    }
+    const { error: salvarError } = await supabase.rpc('salvar_reserva_com_itens', {
+      p_reserva_id: editando,
+      p_cliente_id: form.cliente_id,
+      p_data_evento: form.data_evento,
+      p_horario_evento: form.horario_evento || null,
+      p_endereco_evento: form.endereco_evento || null,
+      p_valor_sinal: Number(form.valor_sinal) || 0,
+      p_status: form.status,
+      p_observacoes: form.observacoes || null,
+      p_itens: linhas.map(linha => ({
+        kit_id: linha.kit_id,
+        descricao: linha.descricao,
+        quantidade: linha.kit_id ? 1 : Number(linha.quantidade) || 1,
+        valor_unitario: Number(linha.valor_unitario) || 0
+      }))
+    })
 
-    const resposta = editando
-      ? await supabase.from('reservas').update(payload).eq('id', editando)
-      : await supabase.from('reservas').insert(payload)
-
-    if (resposta.error) {
-      setErro(resposta.error.message)
+    if (salvarError) {
+      setErro(salvarError.message)
       setSalvando(false)
       return
     }
 
     setForm(vazio)
+    setLinhas([])
     setEditando(null)
     setSalvando(false)
     carregarReservas()
@@ -139,11 +188,27 @@ export function ReservasPage() {
       data_evento: reserva.data_evento || '',
       horario_evento: reserva.horario_evento || '',
       endereco_evento: reserva.endereco_evento || '',
-      valor_total: reserva.valor_total || 0,
       valor_sinal: reserva.valor_sinal || 0,
       status: reserva.status || 'Pendente',
       observacoes: reserva.observacoes || ''
     })
+    const itens = reserva.reserva_itens?.length
+      ? reserva.reserva_itens
+      : reserva.kits
+        ? [{
+            kit_id: reserva.kits.id,
+            descricao: reserva.kits.nome,
+            quantidade: 1,
+            valor_unitario: Number(reserva.valor_total || reserva.kits.valor || 0)
+          }]
+        : []
+    setLinhas(itens.map(item => ({
+      chave: chaveLinha(),
+      kit_id: item.kit_id,
+      descricao: item.descricao,
+      quantidade: Number(item.quantidade || 1),
+      valor_unitario: Number(item.valor_unitario || 0)
+    })))
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -154,12 +219,48 @@ export function ReservasPage() {
     carregarReservas()
   }
 
-  const kitSelecionado = kits.find(k => k.id === form.kit_id)
+  function adicionarKit() {
+    const kit = kits.find(item => item.id === kitAdicionar)
+    if (!kit) return setErro('Selecione o kit que deseja adicionar.')
+    if (linhas.some(linha => linha.kit_id === kit.id)) return setErro('Este kit já foi adicionado à reserva.')
 
-  function preencherValorDoKit() {
-    if (!kitSelecionado) return
-    setForm({ ...form, valor_total: Number(kitSelecionado.valor) || 0 })
+    setLinhas(atuais => [...atuais, {
+      chave: chaveLinha(),
+      kit_id: kit.id,
+      descricao: kit.nome,
+      quantidade: 1,
+      valor_unitario: Math.max(Number(kit.valor || 0) + Number(ajustesPorKit[kit.id] || 0), 0)
+    }])
+    setKitAdicionar('')
+    setErro('')
   }
+
+  function adicionarItemLivre() {
+    if (descricaoAdicional.trim().length < 2) return setErro('Descreva o adicional, composição ou desconto.')
+    setLinhas(atuais => [...atuais, {
+      chave: chaveLinha(),
+      kit_id: null,
+      descricao: descricaoAdicional.trim(),
+      quantidade: 1,
+      valor_unitario: Number(valorAdicional) || 0
+    }])
+    setDescricaoAdicional('')
+    setValorAdicional(0)
+    setErro('')
+  }
+
+  function atualizarLinha(chave: string, alteracoes: Partial<LinhaForm>) {
+    setLinhas(atuais => atuais.map(linha => linha.chave === chave ? { ...linha, ...alteracoes } : linha))
+  }
+
+  function removerLinha(chave: string) {
+    setLinhas(atuais => atuais.filter(linha => linha.chave !== chave))
+  }
+
+  const valorTotalCalculado = Math.max(linhas.reduce(
+    (total, linha) => total + Number(linha.quantidade || 0) * Number(linha.valor_unitario || 0),
+    0
+  ), 0)
 
   return (
     <div className="space-y-6 p-4 md:p-8 pb-28">
@@ -175,7 +276,7 @@ export function ReservasPage() {
               {editando ? 'Editar reserva' : 'Nova reserva'}
             </h2>
             <p className="text-sm text-slate-500">
-              Selecione cliente, kit, data, valores e status da reserva.
+              Selecione o cliente e monte a reserva com quantos kits, composições e ajustes forem necessários.
             </p>
           </div>
 
@@ -185,7 +286,7 @@ export function ReservasPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <Select label="Cliente *" value={form.cliente_id} onChange={e => setForm({ ...form, cliente_id: e.target.value })}>
               <option value="">Selecione um cliente...</option>
               {clientes.map(cliente => (
@@ -194,25 +295,49 @@ export function ReservasPage() {
                 </option>
               ))}
             </Select>
-
-            <Select label="Kit *" value={form.kit_id} onChange={e => setForm({ ...form, kit_id: e.target.value })}>
-              <option value="">Selecione um kit...</option>
-              {kits.map(kit => (
-                <option key={kit.id} value={kit.id}>
-                  {kit.codigo ? `${kit.codigo} - ` : ''}{kit.nome}
-                </option>
-              ))}
-            </Select>
           </div>
 
-          {kitSelecionado && (
-            <div className="rounded-xl border bg-pink-50 p-4 text-sm text-pink-800 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-              <span>Valor cadastrado para este kit: <strong>R$ {Number(kitSelecionado.valor || 0).toFixed(2)}</strong></span>
-              <Button type="button" variant="secondary" onClick={preencherValorDoKit}>
-                Usar valor do kit
-              </Button>
+          <div className="space-y-4 rounded-2xl border bg-slate-50 p-4">
+            <div>
+              <h3 className="font-semibold text-slate-900">Kits e itens da reserva</h3>
+              <p className="text-sm text-slate-500">O preço sugerido do kit já considera os ajustes cadastrados em sua composição.</p>
             </div>
-          )}
+
+            <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+              <Select label="Adicionar kit" value={kitAdicionar} onChange={e => setKitAdicionar(e.target.value)}>
+                <option value="">Selecione um kit...</option>
+                {kits.map(kit => (
+                  <option key={kit.id} value={kit.id}>
+                    {kit.codigo ? `${kit.codigo} - ` : ''}{kit.nome} — {moeda(Math.max(Number(kit.valor || 0) + Number(ajustesPorKit[kit.id] || 0), 0))}
+                  </option>
+                ))}
+              </Select>
+              <Button type="button" className="self-end" onClick={adicionarKit}>Adicionar kit</Button>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-[1fr_180px_auto]">
+              <Input label="Adicional, composição ou desconto" placeholder="Ex.: arranjo extra ou desconto promocional" value={descricaoAdicional} onChange={e => setDescricaoAdicional(e.target.value)} />
+              <Input label="Valor (R$)" type="number" step="0.01" placeholder="Use negativo para desconto" value={valorAdicional} onChange={e => setValorAdicional(Number(e.target.value))} />
+              <Button type="button" variant="secondary" className="self-end" onClick={adicionarItemLivre}>Adicionar ajuste</Button>
+            </div>
+
+            <div className="space-y-2">
+              {linhas.map(linha => (
+                <div key={linha.chave} className="grid gap-3 rounded-xl border bg-white p-3 md:grid-cols-[1fr_110px_150px_auto] md:items-end">
+                  <Input label={linha.kit_id ? 'Kit' : 'Descrição'} disabled={Boolean(linha.kit_id)} value={linha.descricao} onChange={e => atualizarLinha(linha.chave, { descricao: e.target.value })} />
+                  <Input label="Quantidade" type="number" min="0.01" step="0.01" disabled={Boolean(linha.kit_id)} value={linha.quantidade} onChange={e => atualizarLinha(linha.chave, { quantidade: Number(e.target.value) })} />
+                  <Input label="Valor unitário (R$)" type="number" step="0.01" value={linha.valor_unitario} onChange={e => atualizarLinha(linha.chave, { valor_unitario: Number(e.target.value) })} />
+                  <Button type="button" variant="danger" onClick={() => removerLinha(linha.chave)}>Remover</Button>
+                </div>
+              ))}
+              {linhas.length === 0 && <p className="rounded-xl border border-dashed bg-white p-5 text-center text-sm text-slate-500">Adicione os kits e ajustes que fazem parte desta reserva.</p>}
+            </div>
+
+            <div className="flex items-center justify-between rounded-xl bg-pink-50 px-4 py-3 text-pink-900">
+              <span className="text-sm font-semibold">Total calculado automaticamente</span>
+              <strong className="text-xl">{moeda(valorTotalCalculado)}</strong>
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Input label="Data do evento *" type="date" value={form.data_evento} onChange={e => setForm({ ...form, data_evento: e.target.value })} />
@@ -229,8 +354,8 @@ export function ReservasPage() {
           <Input label="Endereço do evento" placeholder="Rua, número, bairro, cidade" value={form.endereco_evento} onChange={e => setForm({ ...form, endereco_evento: e.target.value })} />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input label="Valor total" type="number" value={form.valor_total} onChange={e => setForm({ ...form, valor_total: Number(e.target.value) })} />
             <Input label="Valor do sinal" type="number" value={form.valor_sinal} onChange={e => setForm({ ...form, valor_sinal: Number(e.target.value) })} />
+            <Input label="Valor total" value={moeda(valorTotalCalculado)} readOnly />
           </div>
 
           <Textarea label="Observações" placeholder="Detalhes da reserva..." value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} />
@@ -241,7 +366,7 @@ export function ReservasPage() {
             </Button>
 
             {editando && (
-              <Button variant="secondary" onClick={() => { setEditando(null); setForm(vazio) }}>
+              <Button variant="secondary" onClick={() => { setEditando(null); setForm(vazio); setLinhas([]) }}>
                 Cancelar
               </Button>
             )}
@@ -267,11 +392,11 @@ export function ReservasPage() {
                   {reserva.clientes?.nome || 'Cliente não informado'}
                 </p>
                 <p className="text-sm text-slate-500">
-                  {reserva.kits?.nome || 'Kit não informado'} • {reserva.data_evento}
+                  {(reserva.reserva_itens || []).filter(item => item.kit_id).map(item => item.kits?.nome || item.descricao).join(' + ') || reserva.kits?.nome || 'Kit não informado'} • {dataCurta(reserva.data_evento)}
                   {reserva.horario_evento ? ` às ${reserva.horario_evento}` : ''}
                 </p>
                 <p className="text-sm text-slate-600">
-                  Total: R$ {Number(reserva.valor_total || 0).toFixed(2)} • Sinal: R$ {Number(reserva.valor_sinal || 0).toFixed(2)}
+                  Total: {moeda(Number(reserva.valor_total || 0))} • Sinal: {moeda(Number(reserva.valor_sinal || 0))}
                 </p>
                 {reserva.endereco_evento && (
                   <p className="text-sm text-slate-600">Local: {reserva.endereco_evento}</p>
