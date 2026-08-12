@@ -12,6 +12,7 @@ import { gerarRecomendacoes } from '@/lib/services/inteligencia/recommendationSe
 import { RecomendacoesOperacionais } from '@/components/comando/RecomendacoesOperacionais'
 import { SaudeOperacional } from '@/components/comando/SaudeOperacional'
 import { calcularOperationalScore } from '@/lib/intelligence/operationalScore'
+import { useAcesso } from '@/components/auth/AcessoContext'
 
 type Reserva = {
   id: string
@@ -59,6 +60,7 @@ type Formalizacao = {
 }
 
 export function CentroComandoPage() {
+  const { pode } = useAcesso()
   const [reservas, setReservas] = useState<Reserva[]>([])
   const [contratos, setContratos] = useState<Contrato[]>([])
   const [ordens, setOrdens] = useState<OrdemServico[]>([])
@@ -73,6 +75,7 @@ export function CentroComandoPage() {
     setErro('')
     setCarregando(true)
 
+    const consultaVazia = () => Promise.resolve({ data: [], error: null })
     const [reservasRes, contratosRes, ordensRes, logisticaRes, workflowRes, workflowAcoesRes, formalizacoesRes] =
       await Promise.all([
         supabase
@@ -80,34 +83,34 @@ export function CentroComandoPage() {
           .select('id,data_evento,horario_evento,status,valor_total,valor_sinal,clientes(nome),kits(nome)')
           .order('data_evento', { ascending: true }),
 
-        supabase
+        pode('contratos') ? supabase
           .from('contratos')
-          .select('id,reserva_id,status'),
+          .select('id,reserva_id,status') : consultaVazia(),
 
-        supabase
+        pode('operacao') ? supabase
           .from('ordens_servico')
-          .select('id,reserva_id,status,data_prevista'),
+          .select('id,reserva_id,status,data_prevista') : consultaVazia(),
 
-        supabase
+        pode('operacao') ? supabase
           .from('reserva_logistica')
-          .select('id,etapa,status,horario_previsto'),
+          .select('id,etapa,status,horario_previsto') : consultaVazia(),
 
-        supabase
+        pode('operacao') ? supabase
           .from('workflow_eventos')
           .select('id,titulo,tipo,created_at')
           .order('created_at', { ascending: false })
-          .limit(5),
+          .limit(5) : consultaVazia(),
 
-        supabase
+        pode('operacao') ? supabase
           .from('workflow_acoes')
-          .select('status'),
+          .select('status') : consultaVazia(),
 
-        supabase
+        pode('orcamentos') ? supabase
           .from('orcamentos')
           .select('id,numero,formalizacao_status,oportunidades(nome_contato)')
           .eq('status', 'Aprovado')
           .neq('formalizacao_status', 'Venda confirmada')
-          .order('updated_at', { ascending: false })
+          .order('updated_at', { ascending: false }) : consultaVazia()
       ])
 
     const primeiraFalha =
@@ -155,8 +158,13 @@ export function CentroComandoPage() {
       contratos,
       ordens,
       hoje
+    }).filter(item => {
+      if (item.modulo === 'Jurídico') return pode('contratos')
+      if (item.modulo === 'Financeiro') return pode('financeiro') || pode('comercial')
+      if (item.modulo === 'Operação') return pode('operacao')
+      return true
     })
-  }, [reservas, contratos, ordens, hoje])
+  }, [reservas, contratos, ordens, hoje, pode])
 
   const score = useMemo(() => {
     return calcularOperationalScore({
@@ -272,23 +280,23 @@ export function CentroComandoPage() {
               </Link>
             )}
 
-            <Link href="/contratos" className="block rounded-xl border p-4 hover:bg-slate-50">
+            {pode('contratos') && <Link href="/contratos" className="block rounded-xl border p-4 hover:bg-slate-50">
               <p className="font-semibold text-slate-900">
                 Contratos aguardando conclusão
               </p>
               <p className="text-sm text-slate-500">
                 {dados.contratosPendentes} contrato(s)
               </p>
-            </Link>
+            </Link>}
 
-            <Link href="/reservas" className="block rounded-xl border p-4 hover:bg-slate-50">
+            {pode('operacao') && <Link href="/reservas" className="block rounded-xl border p-4 hover:bg-slate-50">
               <p className="font-semibold text-slate-900">
                 Ordens de Serviço pendentes
               </p>
               <p className="text-sm text-slate-500">
                 {dados.osPendentes} OS pendente(s)
               </p>
-            </Link>
+            </Link>}
           </div>
         </Card>
 
@@ -303,9 +311,9 @@ export function CentroComandoPage() {
               </p>
             </div>
 
-            <Link href="/agenda" className="text-sm font-semibold text-pink-700">
+            {pode('agenda') && <Link href="/agenda" className="text-sm font-semibold text-pink-700">
               Ver agenda
-            </Link>
+            </Link>}
           </div>
 
           <div className="mt-5 space-y-3">
@@ -336,7 +344,7 @@ export function CentroComandoPage() {
         </Card>
       </div>
 
-      <Card>
+      {pode('operacao') && <Card>
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">
@@ -368,7 +376,7 @@ export function CentroComandoPage() {
             </p>
           )}
         </div>
-      </Card>
+      </Card>}
     </div>
   )
 }

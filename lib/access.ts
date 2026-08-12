@@ -60,7 +60,7 @@ export function moduloDaRota(pathname: string): ModuloAcesso | null {
   if (pathname.startsWith('/kits') || pathname.startsWith('/estoque')) {
     return pathname.startsWith('/estoque') ? 'estoque' : 'kits'
   }
-  if (pathname.startsWith('/operacao') || pathname.startsWith('/missoes')) return 'operacao'
+  if (pathname.startsWith('/operacao') || pathname.startsWith('/missoes') || pathname.startsWith('/workflow')) return 'operacao'
   if (pathname.startsWith('/equipe')) return 'equipe'
   if (pathname.startsWith('/contratos')) return 'contratos'
   if (pathname.startsWith('/agenda')) return 'agenda'

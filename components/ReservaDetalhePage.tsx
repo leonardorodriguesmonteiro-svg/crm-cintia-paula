@@ -13,6 +13,7 @@ import { ReservaLogistica } from '@/components/reserva/ReservaLogistica'
 import { ReservaContrato } from '@/components/reserva/ReservaContrato'
 import { ReservaCentroOperacional } from '@/components/reserva/ReservaCentroOperacional'
 import { ReservaConferencia } from '@/components/reserva/ReservaConferencia'
+import { useAcesso } from '@/components/auth/AcessoContext'
 
 const abas = ['Resumo', 'Operação', 'Conferência', 'Timeline', 'Financeiro', 'Kit', 'Checklist', 'Logística', 'Contrato']
 
@@ -22,6 +23,7 @@ function dataCurta(valor: string | null | undefined) {
 }
 
 export function ReservaDetalhePage({ id }: { id: string }) {
+  const { acesso } = useAcesso()
   const [aba, setAba] = useState('Resumo')
   const [reserva, setReserva] = useState<any>(null)
   const [recebimentos, setRecebimentos] = useState<any[]>([])
@@ -105,6 +107,16 @@ export function ReservaDetalhePage({ id }: { id: string }) {
   const recebido = recebimentos.reduce((t, r) => t + Number(r.valor || 0), 0)
   const saldo = Math.max(valorTotal - recebido, 0)
   const nomesKits = itensReserva.filter(item => item.kit_id).map(item => item.kits?.nome || item.descricao)
+  const podeGerenciarReserva = acesso?.perfil === 'Administrador' || acesso?.perfil === 'Comercial'
+  const podeRegistrarRecebimento = podeGerenciarReserva || acesso?.perfil === 'Financeiro'
+  const abasPorPerfil: Record<string, string[]> = {
+    Administrador: abas,
+    Comercial: ['Resumo', 'Timeline', 'Financeiro', 'Kit', 'Contrato'],
+    Financeiro: ['Resumo', 'Timeline', 'Financeiro', 'Contrato'],
+    'Operação': ['Resumo', 'Operação', 'Conferência', 'Timeline', 'Kit', 'Checklist', 'Logística'],
+    Estoque: ['Resumo', 'Conferência', 'Timeline', 'Kit', 'Checklist']
+  }
+  const abasVisiveis = abasPorPerfil[acesso?.perfil || ''] || ['Resumo']
 
   async function salvarEdicao(e: React.FormEvent) {
     e.preventDefault()
@@ -227,7 +239,7 @@ export function ReservaDetalhePage({ id }: { id: string }) {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {['Pendente', 'Orçamento'].includes(reserva.status) && (
+          {podeGerenciarReserva && ['Pendente', 'Orçamento'].includes(reserva.status) && (
             <Button onClick={confirmarReserva} disabled={confirmando}>
               {confirmando ? 'Confirmando...' : 'Confirmar reserva'}
             </Button>
@@ -239,9 +251,9 @@ export function ReservaDetalhePage({ id }: { id: string }) {
             </a>
           )}
 
-          <Button variant="secondary" onClick={() => setEditando(!editando)}>
+          {podeGerenciarReserva && <Button variant="secondary" onClick={() => setEditando(!editando)}>
             {editando ? 'Cancelar edição' : 'Editar reserva'}
-          </Button>
+          </Button>}
         </div>
       </div>
 
@@ -253,7 +265,7 @@ export function ReservaDetalhePage({ id }: { id: string }) {
 
       <Card>
         <div className="flex flex-wrap gap-2">
-          {abas.map(item => (
+          {abasVisiveis.map(item => (
             <button
               key={item}
               onClick={() => setAba(item)}
@@ -313,7 +325,7 @@ export function ReservaDetalhePage({ id }: { id: string }) {
       {aba === 'Financeiro' && (
         <Card>
           <h2 className="text-lg font-semibold">Financeiro</h2>
-          <form onSubmit={registrarRecebimento} className="mt-4 space-y-4 rounded-2xl border bg-slate-50 p-4">
+          {podeRegistrarRecebimento ? <form onSubmit={registrarRecebimento} className="mt-4 space-y-4 rounded-2xl border bg-slate-50 p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Input label="Valor recebido" type="number" value={valorRecebido} onChange={e => setValorRecebido(Number(e.target.value))} />
               <Select label="Forma de pagamento" value={formaPagamento} onChange={e => setFormaPagamento(e.target.value)}>
@@ -321,7 +333,7 @@ export function ReservaDetalhePage({ id }: { id: string }) {
               </Select>
             </div>
             <Button type="submit" disabled={salvando || saldo <= 0}>{salvando ? 'Registrando...' : saldo <= 0 ? 'Reserva quitada' : 'Registrar recebimento'}</Button>
-          </form>
+          </form> : <p className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">Consulta financeira disponível. O registro de recebimentos é realizado pelo Comercial ou Financeiro.</p>}
 
           <div className="mt-4 space-y-3">
             {recebimentos.map(item => (
@@ -362,7 +374,7 @@ export function ReservaDetalhePage({ id }: { id: string }) {
 
       {aba === 'Logística' && <ReservaLogistica reservaId={id} />}
 
-      {aba === 'Contrato' && <ReservaContrato reservaId={id} />}
+      {aba === 'Contrato' && <ReservaContrato reservaId={id} somenteLeitura={acesso?.perfil === 'Financeiro'} />}
     </div>
   )
 }

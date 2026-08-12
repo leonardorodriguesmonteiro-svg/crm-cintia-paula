@@ -1,21 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { criarOuObterPreferenciaMercadoPago, MercadoPagoNaoConfiguradoError } from '@/lib/mercadoPago'
 import { supabaseServer } from '@/lib/supabaseServer'
+import { exigirPerfis, respostaErroAdministrativo } from '@/lib/server/adminAuth'
 
 export const dynamic = 'force-dynamic'
 
-async function usuarioAutenticado(request: NextRequest) {
-  const authorization = request.headers.get('authorization') || ''
-  const token = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : ''
-  if (!token) return null
-
-  const { data, error } = await supabaseServer.auth.getUser(token)
-  return error ? null : data.user
-}
-
 export async function POST(request: NextRequest) {
-  const usuario = await usuarioAutenticado(request)
-  if (!usuario) return NextResponse.json({ error: 'Sua sessão expirou. Entre novamente no ERP.' }, { status: 401 })
+  try {
+    await exigirPerfis(request, ['Comercial', 'Financeiro'])
+  } catch (error) {
+    const resposta = respostaErroAdministrativo(error)
+    return NextResponse.json({ error: resposta.mensagem }, { status: resposta.status })
+  }
 
   let corpo: { orcamento_id?: string; forcar?: boolean }
 
@@ -61,4 +57,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

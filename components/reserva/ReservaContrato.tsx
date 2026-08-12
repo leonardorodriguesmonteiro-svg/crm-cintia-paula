@@ -17,7 +17,7 @@ type Contrato = {
   created_at: string | null
 }
 
-export function ReservaContrato({ reservaId }: { reservaId: string }) {
+export function ReservaContrato({ reservaId, somenteLeitura = false }: { reservaId: string; somenteLeitura?: boolean }) {
   const [contrato, setContrato] = useState<Contrato | null>(null)
   const [reserva, setReserva] = useState<any>(null)
   const [recebimentos, setRecebimentos] = useState<any[]>([])
@@ -127,7 +127,7 @@ export function ReservaContrato({ reservaId }: { reservaId: string }) {
           <p className="text-sm text-slate-500 mb-4">
             Nenhum contrato gerado para esta reserva.
           </p>
-          <Button onClick={gerarContrato}>Gerar contrato</Button>
+          {somenteLeitura ? <p className="text-sm text-blue-800">A geração do contrato é realizada pelo Comercial.</p> : <Button onClick={gerarContrato}>Gerar contrato</Button>}
         </div>
       ) : (
         <div className="mt-6 space-y-5">
@@ -140,21 +140,22 @@ export function ReservaContrato({ reservaId }: { reservaId: string }) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Select label="Status" value={status} onChange={e => setStatus(e.target.value)}>
+            <Select label="Status" value={status} disabled={somenteLeitura} onChange={e => setStatus(e.target.value)}>
               <option>Gerado</option>
               <option>Enviado</option>
               <option>Assinado</option>
               <option>Cancelado</option>
             </Select>
 
-            <div className="flex items-end">
+            {!somenteLeitura && <div className="flex items-end">
               <Button onClick={salvarContrato}>Salvar contrato</Button>
-            </div>
+            </div>}
           </div>
 
           <Textarea
             label="Observações"
             value={observacoes}
+            readOnly={somenteLeitura}
             onChange={e => setObservacoes(e.target.value)}
             placeholder="Observações internas sobre o contrato..."
           />

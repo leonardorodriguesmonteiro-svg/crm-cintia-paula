@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useAcesso } from '@/components/auth/AcessoContext'
 
 type Cliente = {
   id: string
@@ -67,6 +68,8 @@ function formatarCep(valor: string | null | undefined = '') {
 }
 
 export function ClientesModule(){
+  const { acesso } = useAcesso()
+  const podeGerenciar = acesso?.perfil === 'Administrador' || acesso?.perfil === 'Comercial'
   const [clientes,setClientes]=useState<Cliente[]>([])
   const [form,setForm]=useState<any>(empty)
   const [editId,setEditId]=useState<string|null>(null)
@@ -135,7 +138,7 @@ export function ClientesModule(){
 
   return <div className="p-4 md:p-8 space-y-6">
     <div><h1 className="text-2xl font-bold">Clientes</h1><p className="text-slate-500">Cadastre e gerencie clientes da Cintia Paula.</p></div>
-    <form onSubmit={save} className="card space-y-5 p-4">
+    {podeGerenciar ? <form onSubmit={save} className="card space-y-5 p-4">
       <div>
         <h2 className="font-semibold text-slate-900">{editId ? 'Editar cliente' : 'Novo cliente'}</h2>
         <p className="text-sm text-slate-500">Dados de contato, documentos e endereço completo.</p>
@@ -162,13 +165,13 @@ export function ClientesModule(){
         <button className="btn-primary">{editId?'Salvar edição':'Cadastrar cliente'}</button>
         {editId && <button type="button" className="btn-secondary" onClick={()=>{setEditId(null);setForm(empty);setMsg('')}}>Cancelar</button>}
       </div>
-      {msg && <p className="text-sm text-red-600">{msg}</p>}
-    </form>
+    </form> : <div className="card border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">Seu perfil possui acesso de consulta aos clientes. Inclusões e alterações são realizadas pelo Comercial.</div>}
+    {msg && <p className="text-sm text-red-600">{msg}</p>}
     <input className="input" placeholder="Buscar cliente..." value={busca} onChange={e=>setBusca(e.target.value)}/>
     <div className="grid gap-3">
       {filtered.map(c=><div key={c.id} className="card p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div className="space-y-1"><p className="font-semibold">{c.nome}</p><p className="text-sm text-slate-500">CPF: {formatarCpf(c.cpf) || '-'} • RG: {c.rg || '-'} • Celular: {formatarCelular(c.whatsapp) || '-'}</p><p className="text-sm text-slate-500">{c.email || 'Sem e-mail'}{c.instagram ? ` • ${c.instagram}` : ''}</p><p className="text-sm text-slate-500">{[c.endereco, c.numero, c.complemento, c.bairro, c.cidade, c.estado].filter(Boolean).join(', ') || 'Endereço não informado'}</p>{c.observacoes && <p className="text-sm text-slate-600"><strong>Observações:</strong> {c.observacoes}</p>}</div>
-        <div className="flex flex-wrap gap-2"><button className="btn-secondary" onClick={()=>edit(c)}>Editar</button><button className="btn-secondary" onClick={()=>wa(c.whatsapp)}>WhatsApp</button><button className="btn-secondary" onClick={()=>insta(c.instagram)}>Instagram</button></div>
+        <div className="flex flex-wrap gap-2">{podeGerenciar && <button className="btn-secondary" onClick={()=>edit(c)}>Editar</button>}<button className="btn-secondary" onClick={()=>wa(c.whatsapp)}>WhatsApp</button><button className="btn-secondary" onClick={()=>insta(c.instagram)}>Instagram</button></div>
       </div>)}
     </div>
   </div>

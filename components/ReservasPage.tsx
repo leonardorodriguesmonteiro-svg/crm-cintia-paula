@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
+import { useAcesso } from '@/components/auth/AcessoContext'
 
 type Cliente = { id: string; nome: string; whatsapp: string | null }
 type Kit = { id: string; nome: string; codigo: string | null; valor: number | null }
@@ -73,6 +74,8 @@ function moeda(valor: number) {
 }
 
 export function ReservasPage() {
+  const { acesso } = useAcesso()
+  const podeGerenciar = acesso?.perfil === 'Administrador' || acesso?.perfil === 'Comercial'
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [kits, setKits] = useState<Kit[]>([])
   const [composicoes, setComposicoes] = useState<Composicao[]>([])
@@ -356,7 +359,7 @@ export function ReservasPage() {
         <p className="text-slate-500">Cadastre e acompanhe as reservas dos kits.</p>
       </div>
 
-      <Card>
+      {podeGerenciar ? <Card>
         <form onSubmit={salvar} className="space-y-6">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">
@@ -468,7 +471,7 @@ export function ReservasPage() {
             )}
           </div>
         </form>
-      </Card>
+      </Card> : <Card><div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">Seu perfil possui acesso de consulta às reservas. A criação, edição e exclusão ficam sob responsabilidade do Comercial.</div>{erro && <p className="mt-3 text-sm text-red-700">{erro}</p>}</Card>}
 
       <Card>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
@@ -509,13 +512,13 @@ export function ReservasPage() {
                     <Button>Abrir</Button>
                   </Link>
 
-                  <Button variant="secondary" onClick={() => editar(reserva)}>
+                  {podeGerenciar && <Button variant="secondary" onClick={() => editar(reserva)}>
                     Editar
-                  </Button>
+                  </Button>}
 
-                  <Button variant="danger" onClick={() => excluir(reserva.id)}>
+                  {podeGerenciar && <Button variant="danger" onClick={() => excluir(reserva.id)}>
                     Excluir
-                  </Button>
+                  </Button>}
                 </div>
               </div>
             </div>

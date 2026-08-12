@@ -1,35 +1,16 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { confirmarReserva } from '@/lib/domain/reserva.service'
-import { supabaseServer } from '@/lib/supabaseServer'
+import { exigirPerfis, respostaErroAdministrativo } from '@/lib/server/adminAuth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function POST(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authorization = request.headers.get('authorization')
-    const token = authorization?.startsWith('Bearer ')
-      ? authorization.slice('Bearer '.length)
-      : ''
-
-    if (!token) {
-      return NextResponse.json(
-        { sucesso: false, erro: 'Sessão não autenticada.' },
-        { status: 401 }
-      )
-    }
-
-    const { error: authError } = await supabaseServer.auth.getUser(token)
-
-    if (authError) {
-      return NextResponse.json(
-        { sucesso: false, erro: 'Sessão inválida ou expirada.' },
-        { status: 401 }
-      )
-    }
+    await exigirPerfis(request, ['Comercial'])
 
     const { id } = await params
     const reserva = await confirmarReserva(id)
@@ -39,12 +20,13 @@ export async function POST(
       reserva
     })
   } catch (error: any) {
+    const resposta = respostaErroAdministrativo(error)
     return NextResponse.json(
       {
         sucesso: false,
-        erro: error?.message || 'Erro ao confirmar reserva.'
+        erro: resposta.mensagem || 'Erro ao confirmar reserva.'
       },
-      { status: 500 }
+      { status: resposta.status }
     )
   }
 }

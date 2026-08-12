@@ -728,20 +728,38 @@ export function OrcamentosPage() {
       ?? dataVencimentoSinalInicial()
   }
 
+  async function executarFormalizacao(
+    orcamentoId: string,
+    acao: 'formalizar' | 'confirmar_assinatura' | 'confirmar_sinal',
+    dados: Record<string, unknown> = {}
+  ) {
+    const { data: sessao } = await supabase.auth.getSession()
+    const token = sessao.session?.access_token
+    if (!token) throw new Error('Sua sessão expirou. Entre novamente no ERP.')
+
+    const resposta = await fetch(`/api/orcamentos/${orcamentoId}/formalizacao`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ acao, ...dados })
+    })
+    const corpo = await resposta.json()
+    if (!resposta.ok) throw new Error(corpo.error || 'Não foi possível concluir a formalização.')
+    return corpo
+  }
+
   async function formalizarVenda(orcamento: Orcamento) {
     setErro('')
     setSucesso('')
     setFormalizandoId(orcamento.id)
 
-    const { data, error } = await supabase.rpc('formalizar_orcamento_aprovado', {
-      p_orcamento_id: orcamento.id,
-      p_valor_sinal: Number(valorSinalDo(orcamento)),
-      p_vencimento: vencimentoSinalDo(orcamento)
-    })
-
-    if (error) {
-      setErro(error.message)
-    } else {
+    try {
+      const data = await executarFormalizacao(orcamento.id, 'formalizar', {
+        valor_sinal: Number(valorSinalDo(orcamento)),
+        vencimento: vencimentoSinalDo(orcamento)
+      })
       let mensagem = data?.mensagem || 'Venda formalizada com sucesso.'
 
       if (mercadoPagoPronto) {
@@ -773,6 +791,8 @@ export function OrcamentosPage() {
 
       setSucesso(mensagem)
       await carregar()
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível formalizar a venda.')
     }
 
     setFormalizandoId(null)
@@ -819,14 +839,12 @@ export function OrcamentosPage() {
     setSucesso('')
     setAssinandoId(orcamento.id)
 
-    const { data, error } = await supabase.rpc('confirmar_assinatura_formalizacao', {
-      p_orcamento_id: orcamento.id
-    })
-
-    if (error) setErro(error.message)
-    else {
+    try {
+      const data = await executarFormalizacao(orcamento.id, 'confirmar_assinatura')
       setSucesso(data?.mensagem || 'Assinatura confirmada.')
       await carregar()
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível confirmar a assinatura.')
     }
 
     setAssinandoId(null)
@@ -839,15 +857,14 @@ export function OrcamentosPage() {
     setSucesso('')
     setRecebendoSinalId(orcamento.id)
 
-    const { data, error } = await supabase.rpc('confirmar_pagamento_sinal_formalizacao', {
-      p_orcamento_id: orcamento.id,
-      p_forma_pagamento: formasSinal[orcamento.id] || 'Pix'
-    })
-
-    if (error) setErro(error.message)
-    else {
+    try {
+      const data = await executarFormalizacao(orcamento.id, 'confirmar_sinal', {
+        forma_pagamento: formasSinal[orcamento.id] || 'Pix'
+      })
       setSucesso(data?.mensagem || 'Pagamento do sinal confirmado.')
       await carregar()
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível confirmar o sinal.')
     }
 
     setRecebendoSinalId(null)
