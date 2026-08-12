@@ -30,14 +30,12 @@ export async function POST(
       return NextResponse.json({ error: 'Ação de formalização inválida.' }, { status: 400 })
     }
 
-    await exigirPerfis(
+    const acesso = await exigirPerfis(
       request,
       acao === 'confirmar_sinal' ? ['Comercial', 'Financeiro'] : ['Comercial']
     )
 
     const { id } = await contexto.params
-    let resultado
-
     if (acao === 'formalizar') {
       const valorSinal = Number(corpo.valor_sinal || 0)
       if (valorSinal <= 0 || !corpo.vencimento) {
@@ -47,21 +45,16 @@ export async function POST(
         )
       }
 
-      resultado = await supabaseServer.rpc('formalizar_orcamento_aprovado', {
-        p_orcamento_id: id,
-        p_valor_sinal: valorSinal,
-        p_vencimento: corpo.vencimento
-      })
-    } else if (acao === 'confirmar_assinatura') {
-      resultado = await supabaseServer.rpc('confirmar_assinatura_formalizacao', {
-        p_orcamento_id: id
-      })
-    } else {
-      resultado = await supabaseServer.rpc('confirmar_pagamento_sinal_formalizacao', {
-        p_orcamento_id: id,
-        p_forma_pagamento: corpo.forma_pagamento || 'Pix'
-      })
     }
+
+    const resultado = await supabaseServer.rpc('executar_formalizacao_servidor', {
+      p_usuario_id: acesso.usuario.id,
+      p_orcamento_id: id,
+      p_acao: acao,
+      p_valor_sinal: acao === 'formalizar' ? Number(corpo.valor_sinal || 0) : null,
+      p_vencimento: acao === 'formalizar' ? corpo.vencimento : null,
+      p_forma_pagamento: acao === 'confirmar_sinal' ? corpo.forma_pagamento || 'Pix' : null
+    })
 
     if (resultado.error) {
       return NextResponse.json({ error: resultado.error.message }, { status: 400 })

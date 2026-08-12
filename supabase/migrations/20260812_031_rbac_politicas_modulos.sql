@@ -337,13 +337,82 @@ grant execute on function public.composicao_reserva(uuid) to authenticated;
 -- A formalizacao cruza Comercial e Financeiro e, por isso, permanece elevada,
 -- mas deixa de ser executavel diretamente pelo navegador. As rotas do servidor
 -- validam o perfil antes de usar a service role.
-revoke execute on function public.formalizar_orcamento_aprovado(uuid, numeric, date) from authenticated;
-revoke execute on function public.confirmar_assinatura_formalizacao(uuid) from authenticated;
-revoke execute on function public.confirmar_pagamento_sinal_formalizacao(uuid, text) from authenticated;
+revoke execute on function public.formalizar_orcamento_aprovado(uuid, numeric, date) from authenticated, service_role;
+revoke execute on function public.confirmar_assinatura_formalizacao(uuid) from authenticated, service_role;
+revoke execute on function public.confirmar_pagamento_sinal_formalizacao(uuid, text) from authenticated, service_role;
 
-grant execute on function public.formalizar_orcamento_aprovado(uuid, numeric, date) to service_role;
-grant execute on function public.confirmar_assinatura_formalizacao(uuid) to service_role;
-grant execute on function public.confirmar_pagamento_sinal_formalizacao(uuid, text) to service_role;
+create or replace function public.executar_formalizacao_servidor(
+  p_usuario_id uuid,
+  p_orcamento_id uuid,
+  p_acao text,
+  p_valor_sinal numeric default null,
+  p_vencimento date default null,
+  p_forma_pagamento text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_perfil text;
+begin
+  if auth.role() <> 'service_role' then
+    raise exception 'Esta operação só pode ser executada pelo servidor do ERP.';
+  end if;
+
+  select vinculo.perfil
+  into v_perfil
+  from public.usuarios_empresa vinculo
+  where vinculo.usuario_id = p_usuario_id
+    and vinculo.ativo = true
+  order by case when vinculo.perfil = 'Administrador' then 0 else 1 end
+  limit 1;
+
+  if v_perfil is null then
+    raise exception 'Usuário sem vínculo ativo com a empresa.';
+  end if;
+
+  if p_acao in ('formalizar', 'confirmar_assinatura')
+    and v_perfil not in ('Administrador', 'Comercial') then
+    raise exception 'Seu perfil não possui permissão para formalizar esta venda.';
+  end if;
+
+  if p_acao = 'confirmar_sinal'
+    and v_perfil not in ('Administrador', 'Comercial', 'Financeiro') then
+    raise exception 'Seu perfil não possui permissão para confirmar o sinal.';
+  end if;
+
+  perform set_config(
+    'request.jwt.claims',
+    jsonb_build_object('sub', p_usuario_id, 'role', 'authenticated')::text,
+    true
+  );
+
+  if p_acao = 'formalizar' then
+    return public.formalizar_orcamento_aprovado(
+      p_orcamento_id,
+      p_valor_sinal,
+      p_vencimento
+    );
+  elsif p_acao = 'confirmar_assinatura' then
+    return public.confirmar_assinatura_formalizacao(p_orcamento_id);
+  elsif p_acao = 'confirmar_sinal' then
+    return public.confirmar_pagamento_sinal_formalizacao(
+      p_orcamento_id,
+      p_forma_pagamento
+    );
+  end if;
+
+  raise exception 'Ação de formalização inválida.';
+end;
+$$;
+
+revoke all on function public.executar_formalizacao_servidor(uuid, uuid, text, numeric, date, text)
+from public, authenticated;
+
+grant execute on function public.executar_formalizacao_servidor(uuid, uuid, text, numeric, date, text)
+to service_role;
 
 -- O bootstrap do primeiro administrador ja foi concluido neste projeto.
 -- Retirar a execucao do cliente elimina uma superficie de escalada futura.
