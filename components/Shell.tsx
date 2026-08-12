@@ -18,60 +18,72 @@ import {
   ClipboardList,
   MessageSquareText,
   Briefcase,
-  ReceiptText
+  ReceiptText,
+  UserCog
 } from 'lucide-react'
+import { useAcesso } from '@/components/auth/AcessoContext'
+import type { ModuloAcesso } from '@/lib/access'
 
-const grupos = [
+type ItemMenu = {
+  label: string
+  href: string
+  icon: typeof LayoutDashboard
+  modulo: ModuloAcesso
+}
+
+const grupos: Array<{ titulo: string; items: ItemMenu[] }> = [
   {
     titulo: 'Dashboard',
     items: [
-      { label: 'Início', href: '/dashboard', icon: LayoutDashboard }
+      { label: 'Início', href: '/dashboard', icon: LayoutDashboard, modulo: 'dashboard' }
     ]
   },
   {
     titulo: 'Comercial',
     items: [
-      { label: 'Funil Comercial', href: '/comercial', icon: Briefcase },
-      { label: 'Orçamentos', href: '/orcamentos', icon: ReceiptText },
-      { label: 'Clientes', href: '/clientes', icon: Users },
-      { label: 'Reservas', href: '/reservas', icon: ClipboardList },
-      { label: 'Agenda', href: '/agenda', icon: CalendarDays },
-      { label: 'Contratos', href: '/contratos', icon: FileText }
+      { label: 'Funil Comercial', href: '/comercial', icon: Briefcase, modulo: 'comercial' },
+      { label: 'Orçamentos', href: '/orcamentos', icon: ReceiptText, modulo: 'orcamentos' },
+      { label: 'Clientes', href: '/clientes', icon: Users, modulo: 'clientes' },
+      { label: 'Reservas', href: '/reservas', icon: ClipboardList, modulo: 'reservas' },
+      { label: 'Agenda', href: '/agenda', icon: CalendarDays, modulo: 'agenda' },
+      { label: 'Contratos', href: '/contratos', icon: FileText, modulo: 'contratos' }
     ]
   },
   {
     titulo: 'Operação',
     items: [
-      { label: 'Kits', href: '/kits', icon: Package },
-      { label: 'Composição', href: '/kits/composicao', icon: Layers3 },
-      { label: 'Estoque', href: '/estoque', icon: Boxes }
+      { label: 'Kits', href: '/kits', icon: Package, modulo: 'kits' },
+      { label: 'Composição', href: '/kits/composicao', icon: Layers3, modulo: 'kits' },
+      { label: 'Estoque', href: '/estoque', icon: Boxes, modulo: 'estoque' }
     ]
   },
   {
     titulo: 'Gestão',
     items: [
-      { label: 'Financeiro', href: '/financeiro', icon: Wallet },
-      { label: 'Feedbacks', href: '/administracao/feedbacks', icon: MessageSquareText },
-      { label: 'Configurações', href: '/configuracoes', icon: Settings }
+      { label: 'Financeiro', href: '/financeiro', icon: Wallet, modulo: 'financeiro' },
+      { label: 'Usuários', href: '/administracao/usuarios', icon: UserCog, modulo: 'usuarios' },
+      { label: 'Feedbacks', href: '/administracao/feedbacks', icon: MessageSquareText, modulo: 'feedbacks' },
+      { label: 'Configurações', href: '/configuracoes', icon: Settings, modulo: 'configuracoes' }
     ]
   }
 ]
 
-const mobileItems = [
-  { label: 'Início', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Funil', href: '/comercial', icon: Briefcase },
-  { label: 'Orçamentos', href: '/orcamentos', icon: ReceiptText },
-  { label: 'Clientes', href: '/clientes', icon: Users },
-  { label: 'Reservas', href: '/reservas', icon: ClipboardList },
-  { label: 'Agenda', href: '/agenda', icon: CalendarDays },
-  { label: 'Kits', href: '/kits', icon: Package },
-  { label: 'Estoque', href: '/estoque', icon: Boxes },
-  { label: 'Financeiro', href: '/financeiro', icon: Wallet },
-  { label: 'Config.', href: '/configuracoes', icon: Settings }
+const mobileItems: ItemMenu[] = [
+  { label: 'Início', href: '/dashboard', icon: LayoutDashboard, modulo: 'dashboard' },
+  { label: 'Funil', href: '/comercial', icon: Briefcase, modulo: 'comercial' },
+  { label: 'Orçamentos', href: '/orcamentos', icon: ReceiptText, modulo: 'orcamentos' },
+  { label: 'Clientes', href: '/clientes', icon: Users, modulo: 'clientes' },
+  { label: 'Reservas', href: '/reservas', icon: ClipboardList, modulo: 'reservas' },
+  { label: 'Agenda', href: '/agenda', icon: CalendarDays, modulo: 'agenda' },
+  { label: 'Kits', href: '/kits', icon: Package, modulo: 'kits' },
+  { label: 'Estoque', href: '/estoque', icon: Boxes, modulo: 'estoque' },
+  { label: 'Financeiro', href: '/financeiro', icon: Wallet, modulo: 'financeiro' },
+  { label: 'Config.', href: '/configuracoes', icon: Settings, modulo: 'configuracoes' }
 ]
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { acesso, pode, limpar } = useAcesso()
   const [saindo, setSaindo] = useState(false)
 
   function limparSessaoLocal() {
@@ -92,6 +104,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   async function logout() {
     setSaindo(true)
     const redirecionar = () => {
+      limpar()
       limparSessaoLocal()
       window.location.replace('/login')
     }
@@ -123,7 +136,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </Link>
 
         <div className="flex items-center gap-2">
-          <Link
+          {pode('feedbacks') && <Link
             href="/administracao/feedbacks"
             aria-label="Abrir Central de Feedback"
             className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border transition ${
@@ -133,7 +146,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             }`}
           >
             <MessageSquareText size={18} />
-          </Link>
+          </Link>}
 
           <button
             type="button"
@@ -153,12 +166,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-pink-100 text-pink-700 font-bold">
             CP
           </div>
-          <h1 className="mt-3 text-xl font-bold text-slate-900">Cintia Paula</h1>
-          <p className="text-sm text-slate-500">Festas e Decorações</p>
+          <h1 className="mt-3 text-xl font-bold text-slate-900">{acesso?.empresa_nome || 'Cintia Paula'}</h1>
+          <p className="text-sm text-slate-500">{acesso?.nome} · {acesso?.perfil}</p>
         </div>
 
         <nav className="flex-1 space-y-6">
-          {grupos.map((grupo) => (
+          {grupos.map((grupo) => ({ ...grupo, items: grupo.items.filter(item => pode(item.modulo)) })).filter(grupo => grupo.items.length > 0).map((grupo) => (
             <div key={grupo.titulo}>
               <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
                 {grupo.titulo}
@@ -204,7 +217,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-5 gap-1 border-t bg-white px-2 py-2 shadow-lg md:hidden">
-        {mobileItems.map((item) => {
+        {mobileItems.filter(item => pode(item.modulo)).slice(0, 5).map((item) => {
           const Icon = item.icon
           const active = isActive(item.href)
 
