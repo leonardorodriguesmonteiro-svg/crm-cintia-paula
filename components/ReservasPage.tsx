@@ -11,17 +11,28 @@ import { Textarea } from '@/components/ui/Textarea'
 
 type Cliente = { id: string; nome: string; whatsapp: string | null }
 type Kit = { id: string; nome: string; codigo: string | null; valor: number | null }
+type Composicao = {
+  id: string
+  kit_id: string
+  valor_ajuste: number
+  estoque_itens: { nome: string; codigo: string | null } | null
+}
 type ReservaItem = {
   id?: string
   kit_id: string | null
+  kit_composicao_id?: string | null
   descricao: string
   quantidade: number
   valor_unitario: number
   subtotal?: number
   kits?: Kit | null
+  kit_composicao?: { kit_id: string } | null
 }
 
-type LinhaForm = ReservaItem & { chave: string }
+type LinhaForm = ReservaItem & {
+  chave: string
+  composicao_kit_id?: string | null
+}
 
 type Reserva = {
   id: string
@@ -64,6 +75,7 @@ function moeda(valor: number) {
 export function ReservasPage() {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [kits, setKits] = useState<Kit[]>([])
+  const [composicoes, setComposicoes] = useState<Composicao[]>([])
   const [reservas, setReservas] = useState<Reserva[]>([])
   const [form, setForm] = useState(vazio)
   const [linhas, setLinhas] = useState<LinhaForm[]>([])
@@ -80,7 +92,7 @@ export function ReservasPage() {
     const [clientesRes, kitsRes, ajustesRes] = await Promise.all([
       supabase.from('clientes').select('id,nome,whatsapp').order('nome'),
       supabase.from('kits').select('id,nome,codigo,valor').order('nome'),
-      supabase.from('kit_composicao').select('kit_id,valor_ajuste')
+      supabase.from('kit_composicao').select('id,kit_id,valor_ajuste,estoque_itens(nome,codigo)')
     ])
 
     if (clientesRes.error) setErro(clientesRes.error.message)
@@ -91,6 +103,7 @@ export function ReservasPage() {
 
     if (ajustesRes.error) setErro(ajustesRes.error.message)
     else {
+      setComposicoes((ajustesRes.data as any) || [])
       setAjustesPorKit((ajustesRes.data || []).reduce<Record<string, number>>((mapa, item) => {
         mapa[item.kit_id] = (mapa[item.kit_id] || 0) + Number(item.valor_ajuste || 0)
         return mapa
@@ -101,7 +114,7 @@ export function ReservasPage() {
   async function carregarReservas() {
     const { data, error } = await supabase
       .from('reservas')
-      .select('id,data_evento,horario_evento,endereco_evento,valor_total,valor_sinal,status,observacoes,clientes(id,nome,whatsapp),kits(id,nome,codigo,valor),reserva_itens(id,kit_id,descricao,quantidade,valor_unitario,subtotal,kits(id,nome,codigo,valor))')
+      .select('id,data_evento,horario_evento,endereco_evento,valor_total,valor_sinal,status,observacoes,clientes(id,nome,whatsapp),kits(id,nome,codigo,valor),reserva_itens(id,kit_id,kit_composicao_id,descricao,quantidade,valor_unitario,subtotal,kits(id,nome,codigo,valor),kit_composicao(kit_id))')
       .order('data_evento', { ascending: true })
 
     if (error) return setErro(error.message)
@@ -161,6 +174,7 @@ export function ReservasPage() {
       p_observacoes: form.observacoes || null,
       p_itens: linhas.map(linha => ({
         kit_id: linha.kit_id,
+        kit_composicao_id: linha.kit_composicao_id || null,
         descricao: linha.descricao,
         quantidade: linha.kit_id ? 1 : Number(linha.quantidade) || 1,
         valor_unitario: Number(linha.valor_unitario) || 0
@@ -205,6 +219,8 @@ export function ReservasPage() {
     setLinhas(itens.map(item => ({
       chave: chaveLinha(),
       kit_id: item.kit_id,
+      kit_composicao_id: item.kit_composicao_id || null,
+      composicao_kit_id: item.kit_composicao?.kit_id || null,
       descricao: item.descricao,
       quantidade: Number(item.quantidade || 1),
       valor_unitario: Number(item.valor_unitario || 0)
@@ -224,13 +240,26 @@ export function ReservasPage() {
     if (!kit) return setErro('Selecione o kit que deseja adicionar.')
     if (linhas.some(linha => linha.kit_id === kit.id)) return setErro('Este kit já foi adicionado à reserva.')
 
+    const linhasComposicao = composicoes
+      .filter(item => item.kit_id === kit.id && Number(item.valor_ajuste || 0) !== 0)
+      .map(item => ({
+        chave: chaveLinha(),
+        kit_id: null,
+        kit_composicao_id: item.id,
+        composicao_kit_id: item.kit_id,
+        descricao: item.estoque_itens?.nome || 'Composição do kit',
+        quantidade: 1,
+        valor_unitario: Number(item.valor_ajuste || 0)
+      }))
+
     setLinhas(atuais => [...atuais, {
       chave: chaveLinha(),
       kit_id: kit.id,
+      kit_composicao_id: null,
       descricao: kit.nome,
       quantidade: 1,
-      valor_unitario: Math.max(Number(kit.valor || 0) + Number(ajustesPorKit[kit.id] || 0), 0)
-    }])
+      valor_unitario: Number(kit.valor || 0)
+    }, ...linhasComposicao])
     setKitAdicionar('')
     setErro('')
   }
@@ -240,6 +269,7 @@ export function ReservasPage() {
     setLinhas(atuais => [...atuais, {
       chave: chaveLinha(),
       kit_id: null,
+      kit_composicao_id: null,
       descricao: descricaoAdicional.trim(),
       quantidade: 1,
       valor_unitario: Number(valorAdicional) || 0
@@ -253,8 +283,65 @@ export function ReservasPage() {
     setLinhas(atuais => atuais.map(linha => linha.chave === chave ? { ...linha, ...alteracoes } : linha))
   }
 
-  function removerLinha(chave: string) {
-    setLinhas(atuais => atuais.filter(linha => linha.chave !== chave))
+  function removerLinha(linhaRemovida: LinhaForm) {
+    setLinhas(atuais => atuais.filter(linha =>
+      linha.chave !== linhaRemovida.chave &&
+      (!linhaRemovida.kit_id || linha.composicao_kit_id !== linhaRemovida.kit_id)
+    ))
+  }
+
+  const composicoesSelecionadas = composicoes.filter(composicao =>
+    Number(composicao.valor_ajuste || 0) !== 0 &&
+    linhas.some(linha => linha.kit_id === composicao.kit_id)
+  )
+  const composicoesPorId = new Map(composicoesSelecionadas.map(item => [item.id, item]))
+  const composicoesAusentes = composicoesSelecionadas.filter(composicao =>
+    !linhas.some(linha => linha.kit_composicao_id === composicao.id)
+  )
+  const composicoesDesatualizadas = linhas.filter(linha => {
+    if (!linha.kit_composicao_id) return false
+    const atual = composicoesPorId.get(linha.kit_composicao_id)
+    return !atual || Math.abs(Number(linha.valor_unitario || 0) - Number(atual.valor_ajuste || 0)) > 0.005
+  })
+  const precisaSincronizarComposicoes = Boolean(
+    editando && (composicoesAusentes.length || composicoesDesatualizadas.length)
+  )
+
+  function sincronizarComposicoes() {
+    setLinhas(atuais => {
+      const kitsAtuais = new Set(atuais.map(linha => linha.kit_id).filter(Boolean))
+      const esperadas = composicoes.filter(composicao =>
+        kitsAtuais.has(composicao.kit_id) && Number(composicao.valor_ajuste || 0) !== 0
+      )
+      const esperadasPorId = new Map(esperadas.map(item => [item.id, item]))
+      const atualizadas = atuais
+        .filter(linha => !linha.kit_composicao_id || esperadasPorId.has(linha.kit_composicao_id))
+        .map(linha => {
+          if (!linha.kit_composicao_id) return linha
+          const composicao = esperadasPorId.get(linha.kit_composicao_id)!
+          return {
+            ...linha,
+            composicao_kit_id: composicao.kit_id,
+            descricao: composicao.estoque_itens?.nome || linha.descricao,
+            quantidade: 1,
+            valor_unitario: Number(composicao.valor_ajuste || 0)
+          }
+        })
+      const idsAtuais = new Set(atualizadas.map(linha => linha.kit_composicao_id).filter(Boolean))
+      const novas = esperadas
+        .filter(composicao => !idsAtuais.has(composicao.id))
+        .map(composicao => ({
+          chave: chaveLinha(),
+          kit_id: null,
+          kit_composicao_id: composicao.id,
+          composicao_kit_id: composicao.kit_id,
+          descricao: composicao.estoque_itens?.nome || 'Composição do kit',
+          quantidade: 1,
+          valor_unitario: Number(composicao.valor_ajuste || 0)
+        }))
+      return [...atualizadas, ...novas]
+    })
+    setErro('')
   }
 
   const valorTotalCalculado = Math.max(linhas.reduce(
@@ -322,12 +409,21 @@ export function ReservasPage() {
             </div>
 
             <div className="space-y-2">
+              {precisaSincronizarComposicoes && (
+                <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="font-semibold">As composições deste kit mudaram após a reserva.</p>
+                    <p>Revise e aplique os valores atuais antes de salvar. Nada será alterado sem sua confirmação.</p>
+                  </div>
+                  <Button type="button" variant="secondary" onClick={sincronizarComposicoes}>Atualizar composições</Button>
+                </div>
+              )}
               {linhas.map(linha => (
                 <div key={linha.chave} className="grid gap-3 rounded-xl border bg-white p-3 md:grid-cols-[1fr_110px_150px_auto] md:items-end">
-                  <Input label={linha.kit_id ? 'Kit' : 'Descrição'} disabled={Boolean(linha.kit_id)} value={linha.descricao} onChange={e => atualizarLinha(linha.chave, { descricao: e.target.value })} />
-                  <Input label="Quantidade" type="number" min="0.01" step="0.01" disabled={Boolean(linha.kit_id)} value={linha.quantidade} onChange={e => atualizarLinha(linha.chave, { quantidade: Number(e.target.value) })} />
+                  <Input label={linha.kit_id ? 'Kit' : linha.kit_composicao_id ? 'Composição' : 'Descrição'} disabled={Boolean(linha.kit_id || linha.kit_composicao_id)} value={linha.descricao} onChange={e => atualizarLinha(linha.chave, { descricao: e.target.value })} />
+                  <Input label="Quantidade" type="number" min="0.01" step="0.01" disabled={Boolean(linha.kit_id || linha.kit_composicao_id)} value={linha.quantidade} onChange={e => atualizarLinha(linha.chave, { quantidade: Number(e.target.value) })} />
                   <Input label="Valor unitário (R$)" type="number" step="0.01" value={linha.valor_unitario} onChange={e => atualizarLinha(linha.chave, { valor_unitario: Number(e.target.value) })} />
-                  <Button type="button" variant="danger" onClick={() => removerLinha(linha.chave)}>Remover</Button>
+                  <Button type="button" variant="danger" onClick={() => removerLinha(linha)}>Remover</Button>
                 </div>
               ))}
               {linhas.length === 0 && <p className="rounded-xl border border-dashed bg-white p-5 text-center text-sm text-slate-500">Adicione os kits e ajustes que fazem parte desta reserva.</p>}

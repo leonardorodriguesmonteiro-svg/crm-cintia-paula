@@ -55,6 +55,13 @@ const vazio = {
   status: 'Disponível'
 }
 
+function moeda(valor: number) {
+  return Number(valor || 0).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  })
+}
+
 export function EstoqueClient() {
   const [itens, setItens] = useState<Item[]>([])
   const [movimentos, setMovimentos] = useState<Movimento[]>([])
@@ -194,7 +201,7 @@ export function EstoqueClient() {
         <Card><p className="text-xs font-semibold uppercase text-slate-500">Unidades totais</p><p className="mt-1 text-2xl font-bold">{totalUnidades}</p></Card>
         <Card><p className="text-xs font-semibold uppercase text-slate-500">Disponíveis</p><p className="mt-1 text-2xl font-bold">{totalDisponivel}</p></Card>
         <Card><p className="text-xs font-semibold uppercase text-slate-500">Em manutenção</p><p className="mt-1 text-2xl font-bold">{totalManutencao}</p></Card>
-        <Card><p className="text-xs font-semibold uppercase text-slate-500">Patrimônio estimado</p><p className="mt-1 text-2xl font-bold">R$ {valorPatrimonio.toFixed(2)}</p></Card>
+        <Card><p className="text-xs font-semibold uppercase text-slate-500">Patrimônio estimado</p><p className="mt-1 text-2xl font-bold">{moeda(valorPatrimonio)}</p></Card>
       </div>
 
       <Card>
