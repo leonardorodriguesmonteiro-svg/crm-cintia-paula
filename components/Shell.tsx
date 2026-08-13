@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -21,7 +21,9 @@ import {
   ReceiptText,
   UserCog,
   Building2,
-  FileClock
+  FileClock,
+  Menu,
+  X
 } from 'lucide-react'
 import { useAcesso } from '@/components/auth/AcessoContext'
 import type { ModuloAcesso } from '@/lib/access'
@@ -89,6 +91,37 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { acesso, pode, limpar } = useAcesso()
   const [saindo, setSaindo] = useState(false)
+  const [menuMobileAberto, setMenuMobileAberto] = useState(false)
+
+  const atalhosMobile = mobileItems.filter(item => pode(item.modulo)).slice(0, 4)
+  const gruposMobile = grupos
+    .map(grupo => ({ ...grupo, items: grupo.items.filter(item => pode(item.modulo)) }))
+    .filter(grupo => grupo.items.length > 0)
+  const rotaForaDosAtalhos = gruposMobile
+    .flatMap(grupo => grupo.items)
+    .some(item => isActive(item.href) && !atalhosMobile.some(atalho => atalho.href === item.href))
+
+  useEffect(() => {
+    setMenuMobileAberto(false)
+  }, [pathname])
+
+  useEffect(() => {
+    if (!menuMobileAberto) return
+
+    const overflowAnterior = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    function fecharComEscape(evento: KeyboardEvent) {
+      if (evento.key === 'Escape') setMenuMobileAberto(false)
+    }
+
+    window.addEventListener('keydown', fecharComEscape)
+
+    return () => {
+      document.body.style.overflow = overflowAnterior
+      window.removeEventListener('keydown', fecharComEscape)
+    }
+  }, [menuMobileAberto])
 
   function limparSessaoLocal() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -220,8 +253,67 @@ export function Shell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
+      {menuMobileAberto && (
+        <div className="fixed inset-0 z-[70] md:hidden" role="dialog" aria-modal="true" aria-label="Todas as funcionalidades">
+          <button
+            type="button"
+            aria-label="Fechar menu"
+            className="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px]"
+            onClick={() => setMenuMobileAberto(false)}
+          />
+
+          <section className="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-[2rem] bg-white px-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-4 shadow-2xl">
+            <div className="sticky top-0 z-10 -mx-1 mb-5 flex items-center justify-between bg-white/95 px-1 pb-2 backdrop-blur">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-pink-600">Menu completo</p>
+                <h2 className="text-xl font-bold text-slate-900">Todas as funcionalidades</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMenuMobileAberto(false)}
+                aria-label="Fechar menu"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <nav className="space-y-6" aria-label="Funcionalidades do sistema">
+              {gruposMobile.map(grupo => (
+                <div key={grupo.titulo}>
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">{grupo.titulo}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {grupo.items.map(item => {
+                      const Icon = item.icon
+                      const active = isActive(item.href)
+
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={`flex min-h-16 items-center gap-3 rounded-2xl border px-3 py-3 text-sm font-semibold transition ${
+                            active
+                              ? 'border-pink-200 bg-pink-50 text-pink-700'
+                              : 'border-slate-200 bg-white text-slate-700 active:bg-slate-50'
+                          }`}
+                        >
+                          <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${active ? 'bg-white' : 'bg-slate-50'}`}>
+                            <Icon size={19} />
+                          </span>
+                          <span className="leading-tight">{item.label}</span>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </nav>
+          </section>
+        </div>
+      )}
+
       <nav className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-5 gap-1 border-t bg-white px-2 py-2 shadow-lg md:hidden">
-        {mobileItems.filter(item => pode(item.modulo)).slice(0, 5).map((item) => {
+        {atalhosMobile.map((item) => {
           const Icon = item.icon
           const active = isActive(item.href)
 
@@ -238,6 +330,19 @@ export function Shell({ children }: { children: React.ReactNode }) {
             </Link>
           )
         })}
+
+        <button
+          type="button"
+          onClick={() => setMenuMobileAberto(true)}
+          aria-label="Abrir todas as funcionalidades"
+          aria-expanded={menuMobileAberto}
+          className={`flex flex-col items-center gap-1 rounded-xl py-2 text-[11px] font-medium ${
+            menuMobileAberto || rotaForaDosAtalhos ? 'bg-pink-50 text-pink-700' : 'text-slate-500'
+          }`}
+        >
+          <Menu size={18} />
+          Mais
+        </button>
       </nav>
     </div>
   )
