@@ -33,6 +33,16 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     .select('id,descricao,quantidade,valor_unitario,subtotal,kit_id')
     .eq('reserva_id', contrato.reserva_id)
     .order('ordem', { ascending: true })
+  const { data: empresa } = await supabaseServer
+    .from('empresas')
+    .select('nome,nome_fantasia,razao_social,cnpj,email,telefone,whatsapp,site,logradouro,numero,complemento,bairro,cidade,estado,logo_url,contrato_padrao')
+    .limit(1)
+    .maybeSingle()
+  const nomeEmpresa = empresa?.nome_fantasia || empresa?.nome || 'Cintia Paula'
+  const termosEmpresa = empresa?.contrato_padrao
+    ?.split(/\n\s*\n/)
+    .map(item => item.trim())
+    .filter(Boolean) || termosGeraisContrato
 
   const box = {
     border: '1px solid #e5e7eb',
@@ -46,7 +56,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       <PrintContractButton />
       <section style={{ maxWidth: 820, margin: '0 auto', background: '#fff', padding: 40, borderRadius: 18 }}>
         <header style={{ borderBottom: '3px solid #db2777', paddingBottom: 18, marginBottom: 24 }}>
-          <h1 style={{ margin: 0, color: '#be185d', fontSize: 28 }}>Cintia Paula</h1>
+          {empresa?.logo_url && <img src={empresa.logo_url} alt={`Logo ${nomeEmpresa}`} style={{ maxWidth: 110, maxHeight: 72, objectFit: 'contain', marginBottom: 12 }} />}
+          <h1 style={{ margin: 0, color: '#be185d', fontSize: 28 }}>{nomeEmpresa}</h1>
           <p style={{ margin: '4px 0 0', color: '#64748b' }}>Festas e Decorações</p>
           <h2 style={{ textAlign: 'center', marginTop: 24 }}>CONTRATO DE LOCAÇÃO</h2>
           <p style={{ textAlign: 'center' }}><strong>Nº {contrato.numero_contrato}</strong></p>
@@ -83,7 +94,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
         <div style={box}>
           <h3>5. Termos e condições</h3>
-          <ol>{termosGeraisContrato.map(termo => <li key={termo} style={{ marginBottom: 8 }}>{termo}</li>)}</ol>
+          <ol>{termosEmpresa.map(termo => <li key={termo} style={{ marginBottom: 8 }}>{termo}</li>)}</ol>
         </div>
 
         <div style={box}>
@@ -99,7 +110,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           </div>
           <div>
             <p>____________________________________</p>
-            <p>Cintia Paula Festas e Decorações</p>
+            <p>{nomeEmpresa}</p>
           </div>
         </div>
 

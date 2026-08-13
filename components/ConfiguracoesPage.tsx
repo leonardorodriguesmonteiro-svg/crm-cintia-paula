@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { CreditCard, ExternalLink, MessageSquareText, Save, ShieldCheck, UserCog, Webhook } from 'lucide-react'
+import { Building2, CreditCard, ExternalLink, MessageSquareText, Save, ShieldCheck, UserCog, Webhook } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -122,7 +122,16 @@ export function ConfiguracoesPage() {
         <p className="mt-2 text-slate-500">Administração e preferências do ERP.</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Link
+          href="/configuracoes/empresa"
+          className="rounded-3xl border bg-white p-6 transition hover:border-pink-200 hover:shadow-sm"
+        >
+          <p className="text-sm font-semibold text-pink-700">ADMINISTRAÇÃO</p>
+          <h2 className="mt-2 flex items-center gap-2 text-lg font-bold text-slate-900"><Building2 size={19} /> Dados da empresa</h2>
+          <p className="mt-1 text-sm text-slate-500">Logo, cadastro fiscal, endereço e contrato padrão.</p>
+        </Link>
+
         <Link
           href="/administracao/usuarios"
           className="rounded-3xl border bg-white p-6 transition hover:border-pink-200 hover:shadow-sm"

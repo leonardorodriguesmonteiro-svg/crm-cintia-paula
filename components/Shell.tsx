@@ -19,7 +19,8 @@ import {
   MessageSquareText,
   Briefcase,
   ReceiptText,
-  UserCog
+  UserCog,
+  Building2
 } from 'lucide-react'
 import { useAcesso } from '@/components/auth/AcessoContext'
 import type { ModuloAcesso } from '@/lib/access'
@@ -61,6 +62,7 @@ const grupos: Array<{ titulo: string; items: ItemMenu[] }> = [
     titulo: 'Gestão',
     items: [
       { label: 'Financeiro', href: '/financeiro', icon: Wallet, modulo: 'financeiro' },
+      { label: 'Empresa', href: '/configuracoes/empresa', icon: Building2, modulo: 'configuracoes' },
       { label: 'Usuários', href: '/administracao/usuarios', icon: UserCog, modulo: 'usuarios' },
       { label: 'Feedbacks', href: '/administracao/feedbacks', icon: MessageSquareText, modulo: 'feedbacks' },
       { label: 'Configurações', href: '/configuracoes', icon: Settings, modulo: 'configuracoes' }

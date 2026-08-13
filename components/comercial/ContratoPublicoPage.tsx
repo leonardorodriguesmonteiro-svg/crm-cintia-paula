@@ -7,6 +7,18 @@ import { Input } from '@/components/ui/Input'
 import { clausulasLocacaoContrato, declaracaoAceiteContrato, termosGeraisContrato } from '@/lib/contratoTermos'
 
 type ContratoPublico = {
+  empresa: {
+    nome: string
+    razao_social: string | null
+    cnpj: string | null
+    email: string | null
+    telefone: string | null
+    whatsapp: string | null
+    site: string | null
+    endereco: string | null
+    logo_url: string | null
+    contrato_padrao: string | null
+  }
   numero: string
   status: string
   criado_em: string | null
@@ -187,14 +199,18 @@ export function ContratoPublicoPage({ token }: { token: string }) {
 
   const assinado = contrato.status === 'Assinado'
   const pagamento = contrato.pagamento
+  const termosEmpresa = contrato.empresa.contrato_padrao
+    ?.split(/\n\s*\n/)
+    .map(item => item.trim())
+    .filter(Boolean) || termosGeraisContrato
 
   return (
     <main className="min-h-screen bg-slate-50 pb-12">
       <header className="bg-gradient-to-br from-pink-700 via-pink-600 to-rose-500 px-5 py-9 text-white">
         <div className="mx-auto flex max-w-4xl items-start justify-between gap-5">
           <div className="flex items-center gap-4">
-            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white text-lg font-black text-pink-700">CP</span>
-            <div><p className="text-xl font-bold">Cintia Paula</p><p className="text-sm text-pink-100">Festas e Decorações</p></div>
+            {contrato.empresa.logo_url ? <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white"><img src={contrato.empresa.logo_url} alt={`Logo ${contrato.empresa.nome}`} className="h-full w-full object-contain p-1" /></span> : <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white text-lg font-black text-pink-700">CP</span>}
+            <div><p className="text-xl font-bold">{contrato.empresa.nome}</p><p className="text-sm text-pink-100">Festas e Decorações</p></div>
           </div>
           <div className="text-right"><p className="text-xs font-bold uppercase tracking-wider text-pink-100">Contrato digital</p><p className="mt-1 text-base font-bold sm:text-lg">{contrato.numero}</p></div>
         </div>
@@ -228,7 +244,7 @@ export function ContratoPublicoPage({ token }: { token: string }) {
               </div>
             </div>
             <div><h3 className="font-bold text-slate-900">3. Valor</h3><p>O valor total contratado é de <strong>{moeda(contrato.valor_total)}</strong>, com sinal de <strong>{moeda(pagamento.valor_sinal)}</strong>.</p></div>
-            <div><h3 className="font-bold text-slate-900">4. Termos e condições</h3><ol className="mt-2 list-decimal space-y-2 pl-5">{termosGeraisContrato.map(termo => <li key={termo}>{termo}</li>)}</ol></div>
+            <div><h3 className="font-bold text-slate-900">4. Termos e condições</h3><ol className="mt-2 list-decimal space-y-2 pl-5">{termosEmpresa.map(termo => <li key={termo}>{termo}</li>)}</ol></div>
             <div><h3 className="font-bold text-slate-900">5. Cláusulas para locação</h3><ol className="mt-2 list-decimal space-y-2 pl-5">{clausulasLocacaoContrato.map(clausula => <li key={clausula.titulo}><strong>{clausula.titulo}:</strong> {clausula.texto}</li>)}</ol></div>
             <div className="rounded-xl bg-slate-50 p-4 font-semibold text-slate-800">{declaracaoAceiteContrato}</div>
           </div>
@@ -288,7 +304,7 @@ export function ContratoPublicoPage({ token }: { token: string }) {
           </section>
         )}
 
-        <footer className="px-4 pt-4 text-center text-xs text-slate-400">Cintia Paula Festas e Decorações · {contrato.numero}</footer>
+        <footer className="px-4 pt-4 text-center text-xs text-slate-400">{contrato.empresa.nome} · {contrato.numero}</footer>
       </div>
     </main>
   )

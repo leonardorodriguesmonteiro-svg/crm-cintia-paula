@@ -47,7 +47,7 @@ async function buscarContrato(token: string) {
   if (reservaError) throw reservaError
   if (!reserva) return null
 
-  const [clienteRes, kitRes, itensRes, orcamentoRes, configuracaoRes] = await Promise.all([
+  const [clienteRes, kitRes, itensRes, orcamentoRes, configuracaoRes, empresaRes] = await Promise.all([
     supabaseServer.from('clientes').select('nome').eq('id', reserva.cliente_id).maybeSingle(),
     supabaseServer.from('kits').select('nome,codigo').eq('id', reserva.kit_id).maybeSingle(),
     supabaseServer
@@ -64,10 +64,15 @@ async function buscarContrato(token: string) {
       .from('configuracoes_pagamento')
       .select('pix_chave,pix_beneficiario,pix_cidade,link_pagamento,instrucoes')
       .eq('id', true)
+      .maybeSingle(),
+    supabaseServer
+      .from('empresas')
+      .select('nome,nome_fantasia,razao_social,cnpj,email,telefone,whatsapp,site,logradouro,numero,complemento,bairro,cidade,estado,logo_url,contrato_padrao')
+      .limit(1)
       .maybeSingle()
   ])
 
-  const primeiroErro = clienteRes.error || kitRes.error || itensRes.error || orcamentoRes.error || configuracaoRes.error
+  const primeiroErro = clienteRes.error || kitRes.error || itensRes.error || orcamentoRes.error || configuracaoRes.error || empresaRes.error
   if (primeiroErro) throw primeiroErro
 
   const orcamento = orcamentoRes.data
@@ -96,6 +101,18 @@ async function buscarContrato(token: string) {
     : null
 
   return {
+    empresa: {
+      nome: empresaRes.data?.nome_fantasia || empresaRes.data?.nome || 'Cintia Paula',
+      razao_social: empresaRes.data?.razao_social || null,
+      cnpj: empresaRes.data?.cnpj || null,
+      email: empresaRes.data?.email || null,
+      telefone: empresaRes.data?.telefone || null,
+      whatsapp: empresaRes.data?.whatsapp || null,
+      site: empresaRes.data?.site || null,
+      endereco: [empresaRes.data?.logradouro, empresaRes.data?.numero, empresaRes.data?.complemento, empresaRes.data?.bairro, empresaRes.data?.cidade, empresaRes.data?.estado].filter(Boolean).join(', ') || null,
+      logo_url: empresaRes.data?.logo_url || null,
+      contrato_padrao: empresaRes.data?.contrato_padrao || null
+    },
     numero: contrato.numero_contrato,
     status: contrato.status || 'Gerado',
     criado_em: contrato.created_at,
