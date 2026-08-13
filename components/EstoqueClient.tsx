@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
+import { FotoCatalogoField } from '@/components/catalogo/FotoCatalogoField'
+import { enviarFotoCatalogo, excluirFotoCatalogo } from '@/lib/catalogoFotos'
 
 type Item = {
   id: string
@@ -21,6 +23,7 @@ type Item = {
   localizacao: string | null
   observacoes: string | null
   status: string | null
+  foto_url: string | null
 }
 
 type Movimento = {
@@ -52,7 +55,8 @@ const vazio = {
   valor_reposicao: 0,
   localizacao: '',
   observacoes: '',
-  status: 'Disponível'
+  status: 'Disponível',
+  foto_url: ''
 }
 
 function moeda(valor: number) {
@@ -72,6 +76,8 @@ export function EstoqueClient() {
   const [filtroStatus, setFiltroStatus] = useState('')
   const [erro, setErro] = useState('')
   const [salvando, setSalvando] = useState(false)
+  const [fotoArquivo, setFotoArquivo] = useState<File | null>(null)
+  const [fotoRemovida, setFotoRemovida] = useState(false)
 
   async function carregar() {
     const [itensRes, movimentosRes] = await Promise.all([
@@ -138,14 +144,16 @@ export function EstoqueClient() {
       ...form,
       codigo: form.codigo.trim() || null,
       nome: form.nome.trim(),
+      foto_url: fotoRemovida ? null : form.foto_url || null,
       quantidade_total: Number(form.quantidade_total) || 0,
       quantidade_manutencao: Number(form.quantidade_manutencao) || 0,
       valor_reposicao: Number(form.valor_reposicao) || 0
     }
 
+    const fotoAnterior = form.foto_url || null
     const resposta = editando
-      ? await supabase.from('estoque_itens').update(payload).eq('id', editando)
-      : await supabase.from('estoque_itens').insert(payload)
+      ? await supabase.from('estoque_itens').update(payload).eq('id', editando).select('id').single()
+      : await supabase.from('estoque_itens').insert(payload).select('id').single()
 
     if (resposta.error) {
       setErro(resposta.error.message)
@@ -153,8 +161,39 @@ export function EstoqueClient() {
       return
     }
 
+    const registroId = resposta.data.id
+
+    try {
+      if (fotoArquivo) {
+        const novaFoto = await enviarFotoCatalogo(fotoArquivo, 'estoque', registroId)
+        const { error: fotoError } = await supabase
+          .from('estoque_itens')
+          .update({ foto_url: novaFoto.url })
+          .eq('id', registroId)
+
+        if (fotoError) {
+          await excluirFotoCatalogo(novaFoto.url)
+          throw fotoError
+        }
+
+        if (fotoAnterior && fotoAnterior !== novaFoto.url) {
+          await excluirFotoCatalogo(fotoAnterior)
+        }
+      } else if (fotoRemovida && fotoAnterior) {
+        await supabase.from('estoque_itens').update({ foto_url: null }).eq('id', registroId)
+        await excluirFotoCatalogo(fotoAnterior)
+      }
+    } catch (error) {
+      setErro(`Os dados foram salvos, mas a foto não foi atualizada: ${error instanceof Error ? error.message : 'erro no envio'}`)
+      setSalvando(false)
+      await carregar()
+      return
+    }
+
     setForm(vazio)
     setEditando(null)
+    setFotoArquivo(null)
+    setFotoRemovida(false)
     setSalvando(false)
     carregar()
   }
@@ -172,8 +211,11 @@ export function EstoqueClient() {
       valor_reposicao: item.valor_reposicao || 0,
       localizacao: item.localizacao || '',
       observacoes: item.observacoes || '',
-      status: item.status || 'Disponível'
+      status: item.status || 'Disponível',
+      foto_url: item.foto_url || ''
     })
+    setFotoArquivo(null)
+    setFotoRemovida(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -190,8 +232,14 @@ export function EstoqueClient() {
     }
 
     if (!confirm('Deseja excluir este item do estoque?')) return
+    const item = itens.find(registro => registro.id === id)
     const { error } = await supabase.from('estoque_itens').delete().eq('id', id)
     if (error) return setErro(error.message)
+    try {
+      await excluirFotoCatalogo(item?.foto_url)
+    } catch {
+      // O registro já foi excluído; uma eventual limpeza do arquivo pode ser refeita depois.
+    }
     carregar()
   }
 
@@ -273,13 +321,22 @@ export function EstoqueClient() {
 
           <Textarea label="Observações" placeholder="Detalhes importantes sobre o item..." value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} />
 
+          <FotoCatalogoField
+            fotoAtual={form.foto_url}
+            arquivo={fotoArquivo}
+            removida={fotoRemovida}
+            desabilitado={salvando}
+            onArquivo={arquivo => { setFotoArquivo(arquivo); setFotoRemovida(false) }}
+            onRemover={() => { setFotoArquivo(null); setFotoRemovida(true) }}
+          />
+
           <div className="flex flex-col sm:flex-row gap-2">
             <Button type="submit" disabled={salvando}>
               {salvando ? 'Salvando...' : editando ? 'Salvar edição' : 'Cadastrar item'}
             </Button>
 
             {editando && (
-              <Button variant="secondary" onClick={() => { setEditando(null); setForm(vazio) }}>
+              <Button variant="secondary" onClick={() => { setEditando(null); setForm(vazio); setFotoArquivo(null); setFotoRemovida(false) }}>
                 Cancelar
               </Button>
             )}
@@ -310,6 +367,13 @@ export function EstoqueClient() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtrados.map((item) => (
             <div key={item.id} className="rounded-2xl border p-4 space-y-3 bg-white">
+              <div className="aspect-[4/3] overflow-hidden rounded-xl bg-slate-100">
+                {item.foto_url ? (
+                  <img src={item.foto_url} alt={item.nome} className="h-full w-full object-cover" loading="lazy" />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-slate-400">Sem foto</div>
+                )}
+              </div>
               <div className="flex justify-between gap-3">
                 <div>
                   <p className="font-semibold text-slate-900">{item.nome}</p>
