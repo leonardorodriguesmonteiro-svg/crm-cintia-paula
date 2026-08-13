@@ -58,8 +58,21 @@ export function FotoCatalogoField({
 
           <div className="mt-4 flex flex-wrap gap-2">
             <label className={`inline-flex cursor-pointer items-center gap-2 rounded-xl bg-pink-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-pink-700 ${desabilitado ? 'pointer-events-none opacity-50' : ''}`}>
+              <Camera size={17} />
+              Tirar foto
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="sr-only"
+                disabled={desabilitado}
+                onChange={evento => onArquivo(evento.target.files?.[0] || null)}
+              />
+            </label>
+
+            <label className={`inline-flex cursor-pointer items-center gap-2 rounded-xl border bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 ${desabilitado ? 'pointer-events-none opacity-50' : ''}`}>
               <ImagePlus size={17} />
-              {preview ? 'Trocar foto' : 'Selecionar foto'}
+              {preview ? 'Trocar pela galeria' : 'Escolher da galeria'}
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
