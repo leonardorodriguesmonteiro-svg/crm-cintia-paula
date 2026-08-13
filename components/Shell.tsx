@@ -20,7 +20,8 @@ import {
   Briefcase,
   ReceiptText,
   UserCog,
-  Building2
+  Building2,
+  FileClock
 } from 'lucide-react'
 import { useAcesso } from '@/components/auth/AcessoContext'
 import type { ModuloAcesso } from '@/lib/access'
@@ -65,6 +66,7 @@ const grupos: Array<{ titulo: string; items: ItemMenu[] }> = [
       { label: 'Empresa', href: '/configuracoes/empresa', icon: Building2, modulo: 'configuracoes' },
       { label: 'Usuários', href: '/administracao/usuarios', icon: UserCog, modulo: 'usuarios' },
       { label: 'Feedbacks', href: '/administracao/feedbacks', icon: MessageSquareText, modulo: 'feedbacks' },
+      { label: 'Auditoria', href: '/administracao/auditoria', icon: FileClock, modulo: 'auditoria' },
       { label: 'Configurações', href: '/configuracoes', icon: Settings, modulo: 'configuracoes' }
     ]
   }
