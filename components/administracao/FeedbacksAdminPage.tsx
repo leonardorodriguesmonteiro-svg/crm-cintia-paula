@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
+import { useAcesso } from '@/components/auth/AcessoContext'
 
 type Feedback = {
   id: string
@@ -44,6 +45,7 @@ function protocolo(id: string) {
 }
 
 export function FeedbacksAdminPage() {
+  const { acesso } = useAcesso()
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([])
   const [busca, setBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState('Todos')
@@ -57,18 +59,7 @@ export function FeedbacksAdminPage() {
     setErro('')
     setCarregando(true)
 
-    const {
-      data: administrador,
-      error: administradorError
-    } = await supabase.rpc('garantir_administrador_inicial')
-
-    if (administradorError) {
-      setErro(administradorError.message)
-      setCarregando(false)
-      return
-    }
-
-    if (!administrador) {
+    if (acesso?.perfil !== 'Administrador') {
       setErro(
         'A Central de Feedback é restrita aos administradores da empresa.'
       )
@@ -106,8 +97,8 @@ export function FeedbacksAdminPage() {
   }
 
   useEffect(() => {
-    carregar()
-  }, [])
+    if (acesso) carregar()
+  }, [acesso?.usuario_id, acesso?.perfil])
 
   const feedbacksFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase()
