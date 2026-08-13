@@ -68,6 +68,8 @@ export function EstoqueClient() {
   const [form, setForm] = useState(vazio)
   const [editando, setEditando] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
+  const [filtroCategoria, setFiltroCategoria] = useState('')
+  const [filtroStatus, setFiltroStatus] = useState('')
   const [erro, setErro] = useState('')
   const [salvando, setSalvando] = useState(false)
 
@@ -76,7 +78,7 @@ export function EstoqueClient() {
       supabase
         .from('estoque_itens')
         .select('*')
-        .order('created_at', { ascending: false }),
+        .order('nome', { ascending: true }),
       supabase
         .from('movimentos_estoque')
         .select('id,tipo,quantidade,saldo_total_depois,saldo_manutencao_depois,criado_em,estoque_itens!movimentos_estoque_item_id_fkey(codigo,nome),conferencias(reservas(numero))')
@@ -96,13 +98,24 @@ export function EstoqueClient() {
 
   const filtrados = useMemo(() => {
     const termo = busca.toLowerCase()
-    return itens.filter((item) =>
-      [item.nome, item.codigo, item.categoria, item.cor, item.status]
+    return itens.filter((item) => {
+      const correspondeBusca = [item.nome, item.codigo, item.categoria, item.cor, item.status]
         .join(' ')
         .toLowerCase()
         .includes(termo)
-    )
-  }, [itens, busca])
+      const correspondeCategoria = !filtroCategoria || item.categoria === filtroCategoria
+      const correspondeStatus = !filtroStatus || item.status === filtroStatus
+      return correspondeBusca && correspondeCategoria && correspondeStatus
+    })
+  }, [itens, busca, filtroCategoria, filtroStatus])
+
+  const categorias = useMemo(() => Array.from(new Set(
+    itens.map(item => item.categoria).filter((valor): valor is string => Boolean(valor))
+  )).sort((a, b) => a.localeCompare(b, 'pt-BR')), [itens])
+
+  const statusDisponiveis = useMemo(() => Array.from(new Set(
+    itens.map(item => item.status).filter((valor): valor is string => Boolean(valor))
+  )).sort((a, b) => a.localeCompare(b, 'pt-BR')), [itens])
 
   async function salvar(e: React.FormEvent) {
     e.preventDefault()
@@ -123,7 +136,7 @@ export function EstoqueClient() {
 
     const payload = {
       ...form,
-      codigo: form.codigo.trim(),
+      codigo: form.codigo.trim() || null,
       nome: form.nome.trim(),
       quantidade_total: Number(form.quantidade_total) || 0,
       quantidade_manutencao: Number(form.quantidade_manutencao) || 0,
@@ -222,7 +235,10 @@ export function EstoqueClient() {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            <Input label="Código interno" placeholder="Ex.: EST-001" value={form.codigo} onChange={e => setForm({ ...form, codigo: e.target.value })} />
+            <div>
+              <Input label="Código interno (opcional)" placeholder="Gerado automaticamente" value={form.codigo} onChange={e => setForm({ ...form, codigo: e.target.value })} />
+              <p className="mt-1 text-xs text-slate-500">Em branco, o sistema gera o próximo código EST-0001.</p>
+            </div>
             <Input label="Nome do item *" placeholder="Ex.: Painel redondo Safari" value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} />
             <Input label="Categoria" placeholder="Ex.: Painéis" value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })} />
             <Input label="Cor" placeholder="Ex.: Branco" value={form.cor} onChange={e => setForm({ ...form, cor: e.target.value })} />
@@ -272,13 +288,23 @@ export function EstoqueClient() {
       </Card>
 
       <Card>
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
+        <div className="mb-5 space-y-4">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Itens cadastrados</h2>
             <p className="text-sm text-slate-500">{filtrados.length} item(ns) encontrado(s)</p>
           </div>
 
-          <Input placeholder="Buscar item..." value={busca} onChange={e => setBusca(e.target.value)} />
+          <div className="grid gap-3 md:grid-cols-3">
+            <Input placeholder="Buscar por nome, código, cor..." value={busca} onChange={e => setBusca(e.target.value)} />
+            <Select aria-label="Filtrar por categoria" value={filtroCategoria} onChange={e => setFiltroCategoria(e.target.value)}>
+              <option value="">Todas as categorias</option>
+              {categorias.map(categoria => <option key={categoria}>{categoria}</option>)}
+            </Select>
+            <Select aria-label="Filtrar por status" value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)}>
+              <option value="">Todos os status</option>
+              {statusDisponiveis.map(status => <option key={status}>{status}</option>)}
+            </Select>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

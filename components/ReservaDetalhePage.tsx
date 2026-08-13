@@ -22,6 +22,13 @@ function dataCurta(valor: string | null | undefined) {
   return new Date(`${valor}T12:00:00`).toLocaleDateString('pt-BR')
 }
 
+function moeda(valor: number) {
+  return Number(valor || 0).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  })
+}
+
 export function ReservaDetalhePage({ id }: { id: string }) {
   const { acesso } = useAcesso()
   const [aba, setAba] = useState('Resumo')
@@ -178,7 +185,7 @@ export function ReservaDetalhePage({ id }: { id: string }) {
 
     await registrarTimeline(
       'Recebimento registrado',
-      `Recebimento de R$ ${valorRecebido.toFixed(2)} via ${formaPagamento}.`,
+      `Recebimento de ${moeda(valorRecebido)} via ${formaPagamento}.`,
       'Financeiro'
     )
 
@@ -258,9 +265,9 @@ export function ReservaDetalhePage({ id }: { id: string }) {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card><p className="text-sm text-slate-500">Valor contratado</p><p className="mt-2 text-3xl font-bold">R$ {valorTotal.toFixed(2)}</p></Card>
-        <Card><p className="text-sm text-slate-500">Recebido</p><p className="mt-2 text-3xl font-bold text-green-700">R$ {recebido.toFixed(2)}</p></Card>
-        <Card><p className="text-sm text-slate-500">Saldo</p><p className="mt-2 text-3xl font-bold text-yellow-700">R$ {saldo.toFixed(2)}</p></Card>
+        <Card><p className="text-sm text-slate-500">Valor contratado</p><p className="mt-2 text-3xl font-bold">{moeda(valorTotal)}</p></Card>
+        <Card><p className="text-sm text-slate-500">Recebido</p><p className="mt-2 text-3xl font-bold text-green-700">{moeda(recebido)}</p></Card>
+        <Card><p className="text-sm text-slate-500">Saldo</p><p className="mt-2 text-3xl font-bold text-yellow-700">{moeda(saldo)}</p></Card>
       </div>
 
       <Card>
@@ -338,7 +345,7 @@ export function ReservaDetalhePage({ id }: { id: string }) {
           <div className="mt-4 space-y-3">
             {recebimentos.map(item => (
               <div key={item.id} className="rounded-xl border p-3 text-sm">
-                <p className="font-semibold">R$ {Number(item.valor || 0).toFixed(2)}</p>
+                <p className="font-semibold">{moeda(Number(item.valor || 0))}</p>
                 <p className="text-slate-500">{item.forma_pagamento || '-'} • {item.data_recebimento || '-'}</p>
               </div>
             ))}
@@ -352,8 +359,8 @@ export function ReservaDetalhePage({ id }: { id: string }) {
           <div className="mt-4 space-y-2">
             {itensReserva.map(item => (
               <div key={item.id} className="flex flex-col justify-between gap-2 rounded-xl border p-3 text-sm sm:flex-row sm:items-center">
-                <div><p className="font-semibold">{item.descricao}</p><p className="text-slate-500">{item.quantidade} × R$ {Number(item.valor_unitario || 0).toFixed(2)}</p></div>
-                <strong className={Number(item.subtotal || 0) < 0 ? 'text-amber-700' : 'text-slate-900'}>R$ {Number(item.subtotal || 0).toFixed(2)}</strong>
+                <div><p className="font-semibold">{item.descricao}</p><p className="text-slate-500">{item.quantidade} × {moeda(Number(item.valor_unitario || 0))}</p></div>
+                <strong className={Number(item.subtotal || 0) < 0 ? 'text-amber-700' : 'text-slate-900'}>{moeda(Number(item.subtotal || 0))}</strong>
               </div>
             ))}
           </div>
@@ -363,6 +370,9 @@ export function ReservaDetalhePage({ id }: { id: string }) {
               <div key={index} className="rounded-xl border p-3 text-sm">
                 <p className="font-semibold">{item.estoque_itens?.nome || 'Item'} <span className="font-normal text-slate-400">· {item.kits?.nome || 'Kit'}</span></p>
                 <p className="text-slate-500">Quantidade no kit: {item.quantidade} • Disponível: {item.estoque_itens?.quantidade_disponivel ?? 0}</p>
+                <p className={`mt-1 font-medium ${Number(item.valor_ajuste || 0) < 0 ? 'text-amber-700' : 'text-green-700'}`}>
+                  Ajuste no valor: {Number(item.valor_ajuste || 0) > 0 ? '+' : ''}{moeda(Number(item.valor_ajuste || 0))}
+                </p>
               </div>
             ))}
             {composicao.length === 0 && <p className="text-sm text-slate-500">Este kit ainda não possui composição cadastrada.</p>}

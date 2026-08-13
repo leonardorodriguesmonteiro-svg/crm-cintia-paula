@@ -30,6 +30,26 @@ type Kit = {
   valor: number | null
 }
 
+type ComposicaoKit = {
+  id: string
+  kit_id: string
+  quantidade: number
+  valor_ajuste: number | null
+  estoque_itens: {
+    nome: string
+    codigo: string | null
+    categoria: string | null
+  } | null
+}
+
+type AcessorioEstoque = {
+  id: string
+  nome: string
+  codigo: string | null
+  categoria: string | null
+  quantidade_disponivel: number | null
+}
+
 type ItemForm = {
   chave: string
   kit_id: string
@@ -195,6 +215,9 @@ function corFormalizacao(status: string | null) {
 export function OrcamentosPage() {
   const [oportunidades, setOportunidades] = useState<Oportunidade[]>([])
   const [kits, setKits] = useState<Kit[]>([])
+  const [composicoesKit, setComposicoesKit] = useState<ComposicaoKit[]>([])
+  const [acessorios, setAcessorios] = useState<AcessorioEstoque[]>([])
+  const [buscaAcessorio, setBuscaAcessorio] = useState('')
   const [orcamentos, setOrcamentos] = useState<Orcamento[]>([])
   const [form, setForm] = useState<FormOrcamento>(formVazio)
   const [itens, setItens] = useState<ItemForm[]>([novoItem()])
@@ -220,7 +243,7 @@ export function OrcamentosPage() {
     setCarregando(true)
     setErro('')
 
-    const [oportunidadesRes, kitsRes, orcamentosRes] = await Promise.all([
+    const [oportunidadesRes, kitsRes, composicoesRes, acessoriosRes, orcamentosRes] = await Promise.all([
       supabase
         .from('oportunidades')
         .select('id,numero,cliente_id,nome_contato,celular,email,interesse,data_evento,etapa')
@@ -228,18 +251,28 @@ export function OrcamentosPage() {
         .order('updated_at', { ascending: false }),
       supabase.from('kits').select('id,codigo,nome,valor').order('nome'),
       supabase
+        .from('kit_composicao')
+        .select('id,kit_id,quantidade,valor_ajuste,estoque_itens(nome,codigo,categoria)'),
+      supabase
+        .from('estoque_itens')
+        .select('id,nome,codigo,categoria,quantidade_disponivel')
+        .or('status.is.null,status.neq.Inativo')
+        .order('nome'),
+      supabase
         .from('orcamentos')
         .select('*,oportunidades(numero,nome_contato,celular,email),contratos(public_token),lancamentos_financeiros(provedor_pagamento,link_pagamento,status_provedor)')
         .order('created_at', { ascending: false })
     ])
 
-    const primeiroErro = oportunidadesRes.error || kitsRes.error || orcamentosRes.error
+    const primeiroErro = oportunidadesRes.error || kitsRes.error || composicoesRes.error || acessoriosRes.error || orcamentosRes.error
 
     if (primeiroErro) {
       setErro(primeiroErro.message)
     } else {
       setOportunidades(oportunidadesRes.data || [])
       setKits(kitsRes.data || [])
+      setComposicoesKit((composicoesRes.data as unknown as ComposicaoKit[]) || [])
+      setAcessorios(acessoriosRes.data || [])
       setOrcamentos((orcamentosRes.data as unknown as Orcamento[]) || [])
     }
 
@@ -284,6 +317,17 @@ export function OrcamentosPage() {
     [itens]
   )
 
+  const acessoriosFiltrados = useMemo(() => {
+    const termo = buscaAcessorio.trim().toLocaleLowerCase('pt-BR')
+    return acessorios.filter(item =>
+      [item.codigo, item.nome, item.categoria]
+        .filter(Boolean)
+        .join(' ')
+        .toLocaleLowerCase('pt-BR')
+        .includes(termo)
+    )
+  }, [acessorios, buscaAcessorio])
+
   const total = Math.max(
     subtotal - Number(form.desconto || 0) + Number(form.acrescimos || 0) + Number(form.frete || 0),
     0
@@ -327,6 +371,14 @@ export function OrcamentosPage() {
       descricao: kit ? `${kit.codigo ? `${kit.codigo} - ` : ''}${kit.nome}` : '',
       valor_unitario: Number(kit?.valor || 0)
     })
+  }
+
+  function adicionarAcessorio(acessorio: AcessorioEstoque) {
+    setItens(atuais => [...atuais, {
+      ...novoItem(),
+      descricao: `${acessorio.codigo ? `${acessorio.codigo} - ` : ''}${acessorio.nome}`
+    }])
+    setBuscaAcessorio('')
   }
 
   async function verificarDisponibilidade(item: ItemForm) {
@@ -947,23 +999,67 @@ export function OrcamentosPage() {
 
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
-                <div><h3 className="font-bold text-slate-900">Itens da proposta</h3><p className="text-sm text-slate-500">Selecione um kit ou descreva um adicional.</p></div>
+                <div><h3 className="font-bold text-slate-900">Itens da proposta</h3><p className="text-sm text-slate-500">Selecione um kit principal ou inclua acessórios decorativos do estoque.</p></div>
                 <Button variant="secondary" onClick={() => setItens(atuais => [...atuais, novoItem()])}><Plus size={16} className="inline" /> Adicionar item</Button>
+              </div>
+
+              <div className="rounded-2xl border border-pink-100 bg-pink-50/50 p-4">
+                <div className="mb-3">
+                  <h4 className="font-semibold text-slate-900">Acessórios decorativos disponíveis</h4>
+                  <p className="text-xs text-slate-500">Pesquise tapetes, vasos, flores, bandejas, cilindros e outros itens para adicionar à proposta.</p>
+                </div>
+                <Input
+                  aria-label="Buscar acessório decorativo"
+                  placeholder="Buscar por nome, código ou categoria..."
+                  value={buscaAcessorio}
+                  onChange={evento => setBuscaAcessorio(evento.target.value)}
+                />
+                <div className="mt-3 max-h-48 space-y-1 overflow-y-auto rounded-xl border bg-white p-2">
+                  {acessoriosFiltrados.map(acessorio => (
+                    <button
+                      key={acessorio.id}
+                      type="button"
+                      onClick={() => adicionarAcessorio(acessorio)}
+                      className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50"
+                    >
+                      <span><strong>{acessorio.nome}</strong>{acessorio.categoria ? ` · ${acessorio.categoria}` : ''}</span>
+                      <span className="shrink-0 text-xs text-slate-500">Disponível: {acessorio.quantidade_disponivel || 0} · Adicionar +</span>
+                    </button>
+                  ))}
+                  {acessoriosFiltrados.length === 0 && <p className="px-3 py-4 text-center text-sm text-slate-500">Nenhum acessório encontrado.</p>}
+                </div>
               </div>
 
               {itens.map((item, indice) => {
                 const disponibilidade = disponibilidades[item.chave]
+                const composicaoSelecionada = composicoesKit
+                  .filter(linha => linha.kit_id === item.kit_id)
+                  .sort((a, b) => (a.estoque_itens?.nome || '').localeCompare(b.estoque_itens?.nome || '', 'pt-BR'))
                 return (
                   <div key={item.chave} className="rounded-2xl border bg-slate-50 p-4">
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-                      <Select label="Kit (opcional)" className="xl:col-span-2" value={item.kit_id} onChange={evento => selecionarKit(item.chave, evento.target.value)}>
+                      <Select label="Kit ou pacote principal (opcional)" className="xl:col-span-2" value={item.kit_id} onChange={evento => selecionarKit(item.chave, evento.target.value)}>
                         <option value="">Item adicional</option>
                         {kits.map(kit => <option key={kit.id} value={kit.id}>{kit.codigo ? `${kit.codigo} - ` : ''}{kit.nome}</option>)}
                       </Select>
-                      <Input label="Descrição *" className="xl:col-span-2" value={item.descricao} onChange={evento => atualizarItem(item.chave, { descricao: evento.target.value })} />
+                      <Input label="Descrição do item / acessório *" className="xl:col-span-2" value={item.descricao} onChange={evento => atualizarItem(item.chave, { descricao: evento.target.value })} />
                       <Input label="Quantidade" type="number" min="0.01" step="0.01" value={item.quantidade} onChange={evento => atualizarItem(item.chave, { quantidade: evento.target.value })} />
                       <Input label="Valor unitário" type="number" min="0" step="0.01" value={item.valor_unitario} onChange={evento => atualizarItem(item.chave, { valor_unitario: evento.target.value })} />
                     </div>
+                    {item.kit_id && (
+                      <div className="mt-3 rounded-xl border bg-white p-3">
+                        <p className="text-xs font-bold uppercase text-slate-500">Composição incluída neste kit</p>
+                        <div className="mt-2 max-h-32 space-y-1 overflow-y-auto text-sm">
+                          {composicaoSelecionada.map(linha => (
+                            <p key={linha.id} className="flex justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2">
+                              <span>{linha.estoque_itens?.nome || 'Item'}{linha.estoque_itens?.codigo ? ` · ${linha.estoque_itens.codigo}` : ''}</span>
+                              <span className="shrink-0 text-slate-500">Qtd.: {linha.quantidade}{Number(linha.valor_ajuste || 0) !== 0 ? ` · ${Number(linha.valor_ajuste || 0) > 0 ? '+' : ''}${moeda(linha.valor_ajuste || 0)}` : ''}</span>
+                            </p>
+                          ))}
+                          {composicaoSelecionada.length === 0 && <p className="text-slate-500">Este kit ainda não possui itens de composição cadastrados.</p>}
+                        </div>
+                      </div>
+                    )}
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
                       <span className="font-semibold">Subtotal: {moeda(Number(item.quantidade || 0) * Number(item.valor_unitario || 0))}</span>
                       <div className="flex flex-wrap items-center gap-2">

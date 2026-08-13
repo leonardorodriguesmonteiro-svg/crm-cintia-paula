@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -30,6 +30,14 @@ export function KitComposicaoClient() {
   const [composicao, setComposicao] = useState<Composicao[]>([])
   const [erro, setErro] = useState('')
   const [editando, setEditando] = useState<string | null>(null)
+  const [buscaItem, setBuscaItem] = useState('')
+
+  function moeda(valor: number) {
+    return Number(valor || 0).toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    })
+  }
 
   async function carregarBase() {
     const kitsRes = await supabase.from('kits').select('id,nome,codigo,valor').order('nome')
@@ -59,7 +67,10 @@ export function KitComposicaoClient() {
       return
     }
 
-    setComposicao((data as any) || [])
+    const linhas = ((data as any) || []) as Composicao[]
+    setComposicao(linhas.sort((a, b) =>
+      (a.estoque_itens?.nome || '').localeCompare(b.estoque_itens?.nome || '', 'pt-BR')
+    ))
   }
 
   useEffect(() => {
@@ -106,6 +117,7 @@ export function KitComposicaoClient() {
     setValorAjuste(0)
     setObservacoes('')
     setEditando(null)
+    setBuscaItem('')
     carregarComposicao(kitId)
   }
 
@@ -124,6 +136,7 @@ export function KitComposicaoClient() {
     setQuantidade(1)
     setValorAjuste(0)
     setObservacoes('')
+    setBuscaItem('')
   }
 
   async function remover(id: string) {
@@ -138,6 +151,19 @@ export function KitComposicaoClient() {
   const valorBase = Number(kitSelecionado?.valor || 0)
   const totalAjustes = composicao.reduce((total, linha) => total + Number(linha.valor_ajuste || 0), 0)
   const valorCalculado = Math.max(valorBase + totalAjustes, 0)
+  const itensDisponiveis = useMemo(() => {
+    const vinculados = new Set(composicao.filter(linha => linha.id !== editando).map(linha => linha.item_id))
+    const termo = buscaItem.trim().toLocaleLowerCase('pt-BR')
+
+    return itens.filter(item => {
+      if (vinculados.has(item.id)) return false
+      return [item.codigo, item.nome]
+        .filter(Boolean)
+        .join(' ')
+        .toLocaleLowerCase('pt-BR')
+        .includes(termo)
+    })
+  }, [buscaItem, composicao, editando, itens])
 
   return (
     <div className="space-y-6 p-4 md:p-8 pb-28">
@@ -183,14 +209,30 @@ export function KitComposicaoClient() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Select label="Item do estoque" value={itemId} onChange={(e) => setItemId(e.target.value)}>
-                <option value="">Selecione um item...</option>
-                {itens.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.codigo ? `${item.codigo} - ` : ''}{item.nome} | Disp: {item.quantidade_disponivel || 0}
-                  </option>
-                ))}
-              </Select>
+              <div className="space-y-2 md:col-span-2">
+                <Input
+                  label="Buscar item do estoque"
+                  placeholder="Digite o nome ou código..."
+                  value={buscaItem}
+                  onChange={(e) => setBuscaItem(e.target.value)}
+                />
+                <div className="max-h-52 space-y-1 overflow-y-auto rounded-xl border bg-white p-2">
+                  {itensDisponiveis.map(item => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setItemId(item.id)}
+                      className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${itemId === item.id ? 'bg-pink-100 text-pink-900' : 'hover:bg-slate-50'}`}
+                    >
+                      <span><strong>{item.nome}</strong>{item.codigo ? ` · ${item.codigo}` : ''}</span>
+                      <span className="text-xs text-slate-500">Disp.: {item.quantidade_disponivel || 0}</span>
+                    </button>
+                  ))}
+                  {itensDisponiveis.length === 0 && (
+                    <p className="px-3 py-4 text-center text-sm text-slate-500">Nenhum item disponível para este filtro.</p>
+                  )}
+                </div>
+              </div>
 
               <Input
                 label="Quantidade usada no kit"
@@ -233,9 +275,9 @@ export function KitComposicaoClient() {
               {composicao.length} item(ns) vinculados à composição.
             </p>
             <div className="mt-3 grid gap-2 rounded-2xl bg-pink-50 p-4 text-sm text-pink-900 sm:grid-cols-3">
-              <p>Valor base: <strong>R$ {valorBase.toFixed(2)}</strong></p>
-              <p>Ajustes da composição: <strong>R$ {totalAjustes.toFixed(2)}</strong></p>
-              <p>Valor sugerido: <strong>R$ {valorCalculado.toFixed(2)}</strong></p>
+              <p>Valor base: <strong>{moeda(valorBase)}</strong></p>
+              <p>Ajustes da composição: <strong>{moeda(totalAjustes)}</strong></p>
+              <p>Valor sugerido: <strong>{moeda(valorCalculado)}</strong></p>
             </div>
           </div>
 
@@ -248,7 +290,7 @@ export function KitComposicaoClient() {
                     {linha.estoque_itens?.codigo || 'Sem código'} • Quantidade no kit: {linha.quantidade}
                   </p>
                   <p className={`text-sm font-medium ${Number(linha.valor_ajuste || 0) < 0 ? 'text-amber-700' : 'text-green-700'}`}>
-                    Ajuste no preço: {Number(linha.valor_ajuste || 0) >= 0 ? '+' : ''}R$ {Number(linha.valor_ajuste || 0).toFixed(2)}
+                    Ajuste no preço: {Number(linha.valor_ajuste || 0) > 0 ? '+' : ''}{moeda(Number(linha.valor_ajuste || 0))}
                   </p>
                   {linha.observacoes && (
                     <p className="text-sm text-slate-600 mt-1">{linha.observacoes}</p>
