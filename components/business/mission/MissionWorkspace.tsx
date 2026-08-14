@@ -10,6 +10,8 @@ import { MissionProgress } from './MissionProgress'
 import { MissionChecklist } from './MissionChecklist'
 import { MissionTeam } from './MissionTeam'
 import { MissionTimeline } from './MissionTimeline'
+import { MissionEvidenceGallery } from './MissionEvidenceGallery'
+import { obterTokenSessao } from '@/lib/sessionToken'
 
 export function MissionWorkspace({
   missaoId
@@ -29,9 +31,13 @@ export function MissionWorkspace({
     setErro('')
 
     try {
+      const token = await obterTokenSessao()
       const resposta = await fetch(
         `/api/missoes/${missaoId}`,
-        { cache: 'no-store' }
+        {
+          cache: 'no-store',
+          headers: { Authorization: `Bearer ${token}` }
+        }
       )
 
       const resultado = await resposta.json()
@@ -61,12 +67,14 @@ export function MissionWorkspace({
     setErro('')
 
     try {
+      const token = await obterTokenSessao()
       const resposta = await fetch(
         `/api/missoes/${missaoId}/tarefas/${tarefaId}`,
         {
           method: 'PATCH',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
           },
           body: JSON.stringify({
             concluido: !concluidoAtual
@@ -149,6 +157,12 @@ export function MissionWorkspace({
           checklist={missao.checklist}
           atualizandoTarefa={atualizandoTarefa}
           onAlternar={alternarTarefa}
+        />
+
+        <MissionEvidenceGallery
+          missaoId={missao.id}
+          evidencias={missao.evidencias}
+          onAtualizar={carregar}
         />
 
         <MissionTeam equipe={missao.equipe} />

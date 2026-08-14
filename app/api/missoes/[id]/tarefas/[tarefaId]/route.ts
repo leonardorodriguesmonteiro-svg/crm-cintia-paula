@@ -1,13 +1,14 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabaseServer'
 import { publicarEvento } from '@/lib/events/eventBus'
 import { ERPEvents } from '@/lib/events/catalog'
+import { exigirPerfis, respostaErroAdministrativo } from '@/lib/server/adminAuth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   {
     params
   }: {
@@ -15,6 +16,7 @@ export async function PATCH(
   }
 ) {
   try {
+    const { usuario } = await exigirPerfis(request, ['Operação'])
     const { id: missaoId, tarefaId } = await params
     const corpo = await request.json()
     const concluido = Boolean(corpo.concluido)
@@ -88,6 +90,7 @@ export async function PATCH(
       entidadeId: missaoId,
       modulo: 'Operação',
       origem: 'MissionWorkspace',
+      usuarioId: usuario.id,
       metadados: {
         tarefa_id: tarefa.id,
         concluido,
@@ -102,13 +105,14 @@ export async function PATCH(
       progresso,
       status
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const falha = respostaErroAdministrativo(error)
     return NextResponse.json(
       {
         sucesso: false,
-        erro: error?.message || 'Erro ao atualizar tarefa.'
+        erro: falha.mensagem || 'Erro ao atualizar tarefa.'
       },
-      { status: 500 }
+      { status: falha.status === 400 ? 500 : falha.status }
     )
   }
 }

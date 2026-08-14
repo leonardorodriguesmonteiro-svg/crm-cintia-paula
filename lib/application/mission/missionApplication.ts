@@ -32,8 +32,10 @@ export async function obterMissao(
     ) ||
     tarefas.find((item: any) => !item.concluido)
 
-  const timeline =
-    await missionRepository.buscarTimeline(ordem.reserva_id)
+  const [timeline, evidencias] = await Promise.all([
+    missionRepository.buscarTimeline(ordem.reserva_id),
+    missionRepository.buscarEvidencias(ordem.id)
+  ])
 
   return {
     id: ordem.id,
@@ -92,6 +94,19 @@ export async function obterMissao(
       descricao: item.descricao,
       modulo: item.modulo,
       data: item.created_at
+    })),
+
+    evidencias: evidencias.map((item: any) => ({
+      id: item.id,
+      tipo: item.tipo,
+      etapa: item.etapa,
+      titulo: item.titulo,
+      descricao: item.descricao,
+      url: item.signed_url,
+      mimeType: item.mime_type,
+      tamanhoBytes: Number(item.tamanho_bytes || 0),
+      capturadaEm: item.capturada_em,
+      autor: item.autor
     }))
   }
 }

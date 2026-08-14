@@ -43,4 +43,17 @@ export type MissionViewModel = {
     modulo: string
     data: string
   }[]
+
+  evidencias: {
+    id: string
+    tipo: 'foto'
+    etapa: 'preparacao' | 'entrega' | 'evento' | 'retirada' | 'devolucao'
+    titulo: string | null
+    descricao: string | null
+    url: string
+    mimeType: string
+    tamanhoBytes: number
+    capturadaEm: string
+    autor: string
+  }[]
 }
