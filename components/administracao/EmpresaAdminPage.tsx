@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Building2, FileText, ImagePlus, Landmark, MapPin, Save, Upload } from 'lucide-react'
+import { Building2, CreditCard, FileText, ImagePlus, Landmark, MapPin, MessageSquareText, Save, Upload } from 'lucide-react'
 import { useAcesso } from '@/components/auth/AcessoContext'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -31,11 +31,27 @@ type EmpresaFormulario = {
   contrato_padrao: string
 }
 
+type PagamentoFormulario = {
+  pix_chave: string
+  pix_beneficiario: string
+  pix_cidade: string
+  link_pagamento: string
+  instrucoes: string
+}
+
 const inicial: EmpresaFormulario = {
   nome_fantasia: '', razao_social: '', cnpj: '', inscricao_estadual: '', inscricao_municipal: '',
   email: '', telefone: '', whatsapp: '', site: '', cep: '', logradouro: '', numero: '',
   complemento: '', bairro: '', cidade: '', estado: '', logo_url: '',
   contrato_padrao: termosGeraisContrato.join('\n\n')
+}
+
+const pagamentoInicial: PagamentoFormulario = {
+  pix_chave: '',
+  pix_beneficiario: 'Cintia Paula',
+  pix_cidade: 'Rio de Janeiro',
+  link_pagamento: '',
+  instrucoes: 'Após o pagamento, envie o comprovante para a equipe Cintia Paula.'
 }
 
 function somenteDigitos(valor: string) {
@@ -45,6 +61,7 @@ function somenteDigitos(valor: string) {
 export function EmpresaAdminPage() {
   const { acesso } = useAcesso()
   const [formulario, setFormulario] = useState<EmpresaFormulario>(inicial)
+  const [pagamento, setPagamento] = useState<PagamentoFormulario>(pagamentoInicial)
   const [arquivoLogo, setArquivoLogo] = useState<File | null>(null)
   const [previewLogo, setPreviewLogo] = useState('')
   const [carregando, setCarregando] = useState(true)
@@ -58,14 +75,25 @@ export function EmpresaAdminPage() {
     async function carregar() {
       setCarregando(true)
       setErro('')
-      const { data, error } = await supabase
-        .from('empresas')
-        .select('nome,nome_fantasia,razao_social,cnpj,inscricao_estadual,inscricao_municipal,email,telefone,whatsapp,site,cep,logradouro,numero,complemento,bairro,cidade,estado,logo_url,contrato_padrao')
-        .eq('id', acesso!.empresa_id)
-        .maybeSingle()
+      const [empresaResposta, pagamentoResposta] = await Promise.all([
+        supabase
+          .from('empresas')
+          .select('nome,nome_fantasia,razao_social,cnpj,inscricao_estadual,inscricao_municipal,email,telefone,whatsapp,site,cep,logradouro,numero,complemento,bairro,cidade,estado,logo_url,contrato_padrao')
+          .eq('id', acesso!.empresa_id)
+          .maybeSingle(),
+        supabase
+          .from('configuracoes_pagamento')
+          .select('pix_chave,pix_beneficiario,pix_cidade,link_pagamento,instrucoes')
+          .eq('id', true)
+          .maybeSingle()
+      ])
 
-      if (error) setErro(error.message)
-      else if (data) {
+      if (empresaResposta.error || pagamentoResposta.error) {
+        setErro(empresaResposta.error?.message || pagamentoResposta.error?.message || 'Não foi possível carregar os dados da empresa.')
+      }
+
+      const data = empresaResposta.data
+      if (data) {
         setFormulario({
           nome_fantasia: data.nome_fantasia || data.nome || '',
           razao_social: data.razao_social || data.nome || '',
@@ -76,6 +104,16 @@ export function EmpresaAdminPage() {
           complemento: data.complemento || '', bairro: data.bairro || '', cidade: data.cidade || '',
           estado: data.estado || '', logo_url: data.logo_url || '',
           contrato_padrao: data.contrato_padrao || termosGeraisContrato.join('\n\n')
+        })
+      }
+
+      if (pagamentoResposta.data) {
+        setPagamento({
+          pix_chave: pagamentoResposta.data.pix_chave || '',
+          pix_beneficiario: pagamentoResposta.data.pix_beneficiario || '',
+          pix_cidade: pagamentoResposta.data.pix_cidade || '',
+          link_pagamento: pagamentoResposta.data.link_pagamento || '',
+          instrucoes: pagamentoResposta.data.instrucoes || ''
         })
       }
       setCarregando(false)
@@ -96,6 +134,10 @@ export function EmpresaAdminPage() {
 
   function atualizar(campo: keyof EmpresaFormulario, valor: string) {
     setFormulario(atual => ({ ...atual, [campo]: valor }))
+  }
+
+  function atualizarPagamento(campo: keyof PagamentoFormulario, valor: string) {
+    setPagamento(atual => ({ ...atual, [campo]: valor }))
   }
 
   function selecionarLogo(arquivo?: File) {
@@ -138,7 +180,11 @@ export function EmpresaAdminPage() {
       if (formulario.cnpj && somenteDigitos(formulario.cnpj).length !== 14) throw new Error('Informe um CNPJ com 14 dígitos.')
       if (formulario.site) {
         const site = new URL(formulario.site)
-        if (!['http:', 'https:'].includes(site.protocol)) throw new Error()
+        if (!['http:', 'https:'].includes(site.protocol)) throw new Error('O site precisa começar com http:// ou https://.')
+      }
+      if (pagamento.link_pagamento.trim()) {
+        const linkPagamento = new URL(pagamento.link_pagamento)
+        if (linkPagamento.protocol !== 'https:') throw new Error('O link de pagamento precisa começar com https://.')
       }
 
       const logoUrl = await enviarLogo()
@@ -150,9 +196,20 @@ export function EmpresaAdminPage() {
       const { error } = await supabase.from('empresas').update(payload).eq('id', acesso.empresa_id)
       if (error) throw error
 
+      const { error: erroPagamento } = await supabase.from('configuracoes_pagamento').upsert({
+        id: true,
+        pix_chave: pagamento.pix_chave.trim() || null,
+        pix_beneficiario: pagamento.pix_beneficiario.trim() || formulario.nome_fantasia.trim() || 'Cintia Paula',
+        pix_cidade: pagamento.pix_cidade.trim() || formulario.cidade.trim() || 'Rio de Janeiro',
+        link_pagamento: pagamento.link_pagamento.trim() || null,
+        instrucoes: pagamento.instrucoes.trim() || null,
+        updated_at: new Date().toISOString()
+      })
+      if (erroPagamento) throw erroPagamento
+
       setFormulario(atual => ({ ...atual, logo_url: logoUrl }))
       setArquivoLogo(null)
-      setSucesso('Dados da empresa salvos. Os próximos contratos já usarão esta identidade e o texto padrão.')
+      setSucesso('Dados da empresa salvos. Identidade, contrato e formas de recebimento já serão usados nos próximos contratos.')
     } catch (error) {
       setErro(error instanceof Error ? error.message : 'Não foi possível salvar os dados da empresa.')
     } finally {
@@ -165,7 +222,7 @@ export function EmpresaAdminPage() {
   return (
     <form onSubmit={salvar} className="space-y-6 p-4 pb-28 md:p-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div><p className="text-sm font-semibold text-pink-700">ADMINISTRAÇÃO</p><h1 className="text-3xl font-bold text-slate-900">Dados da empresa</h1><p className="mt-1 text-slate-500">Identidade, dados fiscais e texto padrão dos contratos.</p></div>
+        <div><p className="text-sm font-semibold text-pink-700">ADMINISTRAÇÃO</p><h1 className="text-3xl font-bold text-slate-900">Dados da empresa</h1><p className="mt-1 text-slate-500">Identidade, dados fiscais, recebimentos e texto padrão dos contratos.</p></div>
         <Button type="submit" disabled={salvando} className="flex items-center justify-center gap-2"><Save size={17} />{salvando ? 'Salvando...' : 'Salvar alterações'}</Button>
       </div>
 
@@ -216,6 +273,24 @@ export function EmpresaAdminPage() {
           </div>
         </Card>
       </div>
+
+      <Card>
+        <div className="flex items-start gap-3">
+          <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700"><CreditCard size={22} /></div>
+          <div><h2 className="text-xl font-bold text-slate-900">PIX e recebimento do sinal</h2><p className="text-sm text-slate-500">Dados apresentados ao cliente após a assinatura. O valor exato do Pix Copia e Cola é gerado automaticamente para cada contrato.</p></div>
+        </div>
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+          <Input label="Chave Pix" placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória" maxLength={77} value={pagamento.pix_chave} onChange={evento => atualizarPagamento('pix_chave', evento.target.value)} />
+          <Input label="Link externo de pagamento (opcional)" type="url" placeholder="https://..." value={pagamento.link_pagamento} onChange={evento => atualizarPagamento('link_pagamento', evento.target.value)} />
+          <Input label="Beneficiário do Pix" maxLength={25} value={pagamento.pix_beneficiario} onChange={evento => atualizarPagamento('pix_beneficiario', evento.target.value)} />
+          <Input label="Cidade do beneficiário" maxLength={15} value={pagamento.pix_cidade} onChange={evento => atualizarPagamento('pix_cidade', evento.target.value)} />
+        </div>
+        <Textarea label="Orientação ao cliente" className="mt-4" rows={3} maxLength={500} value={pagamento.instrucoes} onChange={evento => atualizarPagamento('instrucoes', evento.target.value)} />
+        <div className="mt-4 flex items-start gap-2 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
+          <MessageSquareText className="mt-0.5 shrink-0 text-pink-600" size={17} />
+          <p>O Mercado Pago continua confirmando automaticamente as cobranças integradas. Para pagamentos Pix manuais, a baixa deve ser confirmada no Financeiro.</p>
+        </div>
+      </Card>
 
       <Card>
         <div className="flex items-start gap-3"><div className="rounded-2xl bg-violet-50 p-3 text-violet-700"><FileText size={22} /></div><div><h2 className="text-xl font-bold text-slate-900">Contrato padrão</h2><p className="text-sm text-slate-500">Separe cada cláusula por uma linha em branco. O texto será aplicado aos próximos contratos.</p></div></div>

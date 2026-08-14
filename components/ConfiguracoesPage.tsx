@@ -129,7 +129,7 @@ export function ConfiguracoesPage() {
         >
           <p className="text-sm font-semibold text-pink-700">ADMINISTRAÇÃO</p>
           <h2 className="mt-2 flex items-center gap-2 text-lg font-bold text-slate-900"><Building2 size={19} /> Dados da empresa</h2>
-          <p className="mt-1 text-sm text-slate-500">Logo, cadastro fiscal, endereço e contrato padrão.</p>
+          <p className="mt-1 text-sm text-slate-500">Logo, cadastro fiscal, endereço, PIX e contrato padrão.</p>
         </Link>
 
         <Link
