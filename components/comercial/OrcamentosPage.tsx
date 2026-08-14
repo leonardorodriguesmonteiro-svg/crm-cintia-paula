@@ -835,7 +835,9 @@ export function OrcamentosPage() {
           })
           const emailCorpo = await emailRes.json()
           if (!emailRes.ok) throw new Error(emailCorpo.error || 'E-mail não enviado.')
-          mensagem += ' Carta de boas-vindas e contrato enviados por e-mail.'
+          mensagem += emailCorpo.ignorado
+            ? ' A carta de boas-vindas e o contrato já haviam sido enviados por e-mail.'
+            : ' Carta de boas-vindas e contrato enviados por e-mail.'
         } catch (error) {
           mensagem += ` ${error instanceof Error ? error.message : 'O envio automático do e-mail ficou pendente.'}`
         }

@@ -224,7 +224,17 @@ export function ReservaDetalhePage({ id }: { id: string }) {
 
       await carregar()
       setAba('Operação')
-      alert('Reserva confirmada. Contrato e Ordem de Serviço processados automaticamente.')
+      let mensagem = 'Reserva confirmada. Contrato e Ordem de Serviço processados automaticamente.'
+
+      if (resultado.email?.enviado) {
+        mensagem += resultado.email.ignorado
+          ? ` O e-mail do contrato já havia sido enviado${resultado.email.destino ? ` para ${resultado.email.destino}` : ''}.`
+          : ` E-mail de boas-vindas e contrato enviado${resultado.email.destino ? ` para ${resultado.email.destino}` : ''}.`
+      } else {
+        mensagem += ` O envio do e-mail ficou pendente${resultado.email?.erro ? `: ${resultado.email.erro}` : '.'}`
+      }
+
+      alert(mensagem)
     } catch (error: any) {
       setErro(error.message || 'Erro ao confirmar reserva.')
     } finally {

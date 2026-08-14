@@ -9,8 +9,15 @@ export async function POST(request: NextRequest, contexto: { params: Promise<{ i
   try {
     await exigirPerfis(request, ['Comercial', 'Financeiro'])
     const { id } = await contexto.params
-    const resultado = await enviarContratoPorEmail(id, request.nextUrl.origin)
-    return NextResponse.json({ ...resultado, mensagem: `Contrato enviado para ${resultado.destino}.` })
+    const corpo = await request.json().catch(() => ({}))
+    const resultado = await enviarContratoPorEmail(id, request.nextUrl.origin, {
+      reenviar: corpo?.reenviar === true
+    })
+    const mensagem = resultado.ignorado
+      ? `O contrato já havia sido enviado para ${resultado.destino || 'o cliente'}.`
+      : `Contrato enviado para ${resultado.destino}.`
+
+    return NextResponse.json({ ...resultado, mensagem })
   } catch (error) {
     if (error instanceof EmailContratoNaoConfiguradoError) {
       return NextResponse.json({ error: error.message }, { status: 503 })

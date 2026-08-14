@@ -16,21 +16,38 @@ function escaparHtml(valor: string) {
     .replace(/'/g, '&#039;')
 }
 
-export async function enviarContratoPorEmail(contratoId: string, origem: string) {
+type OpcoesEnvioContrato = {
+  reenviar?: boolean
+}
+
+export async function enviarContratoPorEmail(
+  contratoId: string,
+  origem: string,
+  opcoes: OpcoesEnvioContrato = {}
+) {
   const apiKey = String(process.env.RESEND_API_KEY || '').trim()
   const remetente = String(process.env.EMAIL_REMETENTE || '').trim()
   const respostaPara = String(process.env.EMAIL_RESPOSTA || '').trim()
 
-  if (!apiKey || !remetente) throw new EmailContratoNaoConfiguradoError()
-
   const { data: contrato, error: contratoError } = await supabaseServer
     .from('contratos')
-    .select('id,numero_contrato,public_token,status,reserva_id')
+    .select('id,numero_contrato,public_token,status,reserva_id,email_enviado_em,email_destino')
     .eq('id', contratoId)
     .maybeSingle()
 
   if (contratoError) throw contratoError
   if (!contrato?.public_token || !contrato.reserva_id) throw new Error('Contrato não encontrado ou sem link público.')
+
+  if (contrato.email_enviado_em && !opcoes.reenviar) {
+    return {
+      sucesso: true,
+      destino: contrato.email_destino,
+      email_id: null,
+      ignorado: true
+    }
+  }
+
+  if (!apiKey || !remetente) throw new EmailContratoNaoConfiguradoError()
 
   const { data: reserva, error: reservaError } = await supabaseServer
     .from('reservas')
@@ -104,5 +121,10 @@ export async function enviarContratoPorEmail(contratoId: string, origem: string)
     })
     .eq('id', contrato.id)
 
-  return { sucesso: true, destino: cliente.email, email_id: corpo.id || null }
+  return {
+    sucesso: true,
+    destino: cliente.email,
+    email_id: corpo.id || null,
+    ignorado: false
+  }
 }
