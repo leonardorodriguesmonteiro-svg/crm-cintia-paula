@@ -20,6 +20,13 @@ type ItemConferencia = {
   observacoes: string
 }
 
+type ItemContratado = {
+  id: string
+  descricao: string
+  quantidade: number
+  tipo: 'Kit' | 'Composição' | 'Adicional'
+}
+
 type Historico = {
   id: string
   tipo: TipoConferencia
@@ -55,6 +62,7 @@ export function ReservaConferencia({
   const [responsavel, setResponsavel] = useState('')
   const [observacoes, setObservacoes] = useState('')
   const [itens, setItens] = useState<ItemConferencia[]>([])
+  const [itensContratados, setItensContratados] = useState<ItemContratado[]>([])
   const [historico, setHistorico] = useState<Historico[]>([])
   const [erro, setErro] = useState('')
   const [sucesso, setSucesso] = useState('')
@@ -88,7 +96,7 @@ export function ReservaConferencia({
     setKitIds(kits)
     setStatusReserva(reservaRes.data.status || '')
 
-    const [composicaoRes, historicoRes] = await Promise.all([
+    const [composicaoRes, historicoRes, itensContratadosRes] = await Promise.all([
       kits.length
         ? supabase
             .from('kit_composicao')
@@ -100,7 +108,12 @@ export function ReservaConferencia({
         .from('conferencias')
         .select('id,tipo,responsavel,observacoes,status,conferido_em,conferencia_itens(id,item_id,quantidade_prevista,quantidade_conferida,quantidade_danificada,quantidade_faltante,observacoes,estoque_itens!conferencia_itens_item_id_fkey(codigo,nome))')
         .eq('reserva_id', reservaId)
-        .order('conferido_em', { ascending: false })
+        .order('conferido_em', { ascending: false }),
+      supabase
+        .from('reserva_itens')
+        .select('id,descricao,quantidade,kit_id,kit_composicao_id')
+        .eq('reserva_id', reservaId)
+        .order('ordem', { ascending: true })
     ])
 
     if (composicaoRes.error) {
@@ -111,6 +124,17 @@ export function ReservaConferencia({
       setErro(historicoRes.error.message)
       return
     }
+    if (itensContratadosRes.error) {
+      setErro(itensContratadosRes.error.message)
+      return
+    }
+
+    setItensContratados((itensContratadosRes.data || []).map(item => ({
+      id: item.id,
+      descricao: item.descricao,
+      quantidade: Number(item.quantidade || 0),
+      tipo: item.kit_id ? 'Kit' : item.kit_composicao_id ? 'Composição' : 'Adicional'
+    })))
 
     const listaHistorico = (historicoRes.data as any as Historico[]) || []
     setHistorico(listaHistorico)
@@ -127,7 +151,7 @@ export function ReservaConferencia({
         quantidadeConferida: Number(item.quantidade_conferida || 0),
         quantidadeDanificada: Number(item.quantidade_danificada || 0),
         observacoes: item.observacoes || ''
-      })))
+      })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' })))
       return
     }
 
@@ -146,7 +170,9 @@ export function ReservaConferencia({
       }
       return mapa
     }, {})
-    setItens(Object.values(composicaoAgrupada))
+    setItens(Object.values(composicaoAgrupada).sort((a, b) =>
+      a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' })
+    ))
   }
 
   useEffect(() => {
@@ -263,6 +289,27 @@ export function ReservaConferencia({
         {erro && <div className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
         {sucesso && <div className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">{sucesso}</div>}
 
+        {itensContratados.length > 0 && (
+          <div className="mt-5 rounded-2xl border border-pink-100 bg-pink-50/50 p-4">
+            <div>
+              <h3 className="font-semibold text-slate-900">Lista completa da reserva</h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Kits, composições precificadas e adicionais incluídos na contratação, prontos para conferência.
+              </p>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {itensContratados.map(item => (
+                <div key={item.id} className="flex min-w-0 items-start gap-3 rounded-xl border bg-white px-3 py-2.5">
+                  <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600">{item.tipo}</span>
+                  <p className="min-w-0 whitespace-normal break-words text-sm text-slate-800">
+                    <strong>{item.quantidade}×</strong> {item.descricao}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <form onSubmit={salvar} className="mt-5 space-y-5">
           <div className="grid gap-4 md:grid-cols-2">
             <Select label="Etapa" value={tipo} onChange={event => trocarTipo(event.target.value as TipoConferencia)}>
@@ -301,7 +348,7 @@ export function ReservaConferencia({
             <>
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-4">
                 <div>
-                  <p className="font-semibold text-slate-900">{itens.length} item(ns) na composição</p>
+                  <p className="font-semibold text-slate-900">{itens.length} item(ns) físicos na composição</p>
                   <p className="text-sm text-slate-500">
                     {resumo.danificados} danificado(s) · {resumo.faltantes} faltante(s)
                   </p>

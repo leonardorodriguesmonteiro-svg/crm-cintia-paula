@@ -14,6 +14,7 @@ import { ReservaContrato } from '@/components/reserva/ReservaContrato'
 import { ReservaCentroOperacional } from '@/components/reserva/ReservaCentroOperacional'
 import { ReservaConferencia } from '@/components/reserva/ReservaConferencia'
 import { useAcesso } from '@/components/auth/AcessoContext'
+import { formatarEnderecoCompleto } from '@/lib/endereco'
 
 const abas = ['Resumo', 'Operação', 'Conferência', 'Timeline', 'Financeiro', 'Kit', 'Checklist', 'Logística', 'Contrato']
 
@@ -304,7 +305,7 @@ export function ReservaDetalhePage({ id }: { id: string }) {
 
       {aba === 'Resumo' && (
         <div className="grid gap-4 xl:grid-cols-2">
-          <Card><h2 className="text-lg font-semibold">Cliente</h2><div className="mt-4 space-y-2 text-sm text-slate-600"><p><strong>Nome:</strong> {reserva.clientes?.nome || '-'}</p><p><strong>WhatsApp:</strong> {reserva.clientes?.whatsapp || '-'}</p><p><strong>Instagram:</strong> {reserva.clientes?.instagram || '-'}</p><p><strong>Email:</strong> {reserva.clientes?.email || '-'}</p><p><strong>CPF:</strong> {reserva.clientes?.cpf || '-'} • <strong>RG:</strong> {reserva.clientes?.rg || '-'}</p><p><strong>Endereço:</strong> {[reserva.clientes?.endereco, reserva.clientes?.numero, reserva.clientes?.complemento, reserva.clientes?.bairro, reserva.clientes?.cidade, reserva.clientes?.estado].filter(Boolean).join(', ') || '-'}</p>{reserva.clientes?.observacoes && <p><strong>Observações:</strong> {reserva.clientes.observacoes}</p>}</div></Card>
+          <Card><h2 className="text-lg font-semibold">Cliente</h2><div className="mt-4 space-y-2 text-sm text-slate-600"><p><strong>Nome:</strong> {reserva.clientes?.nome || '-'}</p><p><strong>WhatsApp:</strong> {reserva.clientes?.whatsapp || '-'}</p><p><strong>Instagram:</strong> {reserva.clientes?.instagram || '-'}</p><p><strong>Email:</strong> {reserva.clientes?.email || '-'}</p><p><strong>CPF:</strong> {reserva.clientes?.cpf || '-'} • <strong>RG:</strong> {reserva.clientes?.rg || '-'}</p><p><strong>Endereço:</strong> {formatarEnderecoCompleto([reserva.clientes?.endereco, reserva.clientes?.numero, reserva.clientes?.complemento, reserva.clientes?.bairro, reserva.clientes?.cidade, reserva.clientes?.estado], reserva.clientes?.cep) || '-'}</p>{reserva.clientes?.observacoes && <p><strong>Observações:</strong> {reserva.clientes.observacoes}</p>}</div></Card>
           <Card><h2 className="text-lg font-semibold">Evento</h2><div className="mt-4 space-y-2 text-sm text-slate-600"><p><strong>Data:</strong> {dataCurta(reserva.data_evento)}</p><p><strong>Horário:</strong> {reserva.horario_evento || '-'}</p><p><strong>Status:</strong> {reserva.status || '-'}</p><p><strong>Endereço:</strong> {reserva.endereco_evento || '-'}</p><p><strong>Observações:</strong> {reserva.observacoes || '-'}</p></div></Card>
         </div>
       )}

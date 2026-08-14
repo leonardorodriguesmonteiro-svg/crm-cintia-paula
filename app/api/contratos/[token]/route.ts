@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { criarOuObterPreferenciaMercadoPago, MercadoPagoNaoConfiguradoError } from '@/lib/mercadoPago'
 import { gerarPixCopiaECola } from '@/lib/pix'
 import { supabaseServer } from '@/lib/supabaseServer'
+import { formatarEnderecoCompleto } from '@/lib/endereco'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,7 +49,7 @@ async function buscarContrato(token: string) {
   if (!reserva) return null
 
   const [clienteRes, kitRes, itensRes, orcamentoRes, configuracaoRes, empresaRes] = await Promise.all([
-    supabaseServer.from('clientes').select('nome').eq('id', reserva.cliente_id).maybeSingle(),
+    supabaseServer.from('clientes').select('nome,cpf,rg,whatsapp,email,cep,endereco,numero,complemento,bairro,cidade,estado').eq('id', reserva.cliente_id).maybeSingle(),
     supabaseServer.from('kits').select('nome,codigo').eq('id', reserva.kit_id).maybeSingle(),
     supabaseServer
       .from('reserva_itens')
@@ -109,7 +110,7 @@ async function buscarContrato(token: string) {
       telefone: empresaRes.data?.telefone || null,
       whatsapp: empresaRes.data?.whatsapp || null,
       site: empresaRes.data?.site || null,
-      endereco: [empresaRes.data?.logradouro, empresaRes.data?.numero, empresaRes.data?.complemento, empresaRes.data?.bairro, empresaRes.data?.cidade, empresaRes.data?.estado].filter(Boolean).join(', ') || null,
+      endereco: formatarEnderecoCompleto([empresaRes.data?.logradouro, empresaRes.data?.numero, empresaRes.data?.complemento, empresaRes.data?.bairro, empresaRes.data?.cidade, empresaRes.data?.estado]) || null,
       logo_url: empresaRes.data?.logo_url || null,
       contrato_padrao: empresaRes.data?.contrato_padrao || null
     },
@@ -117,6 +118,21 @@ async function buscarContrato(token: string) {
     status: contrato.status || 'Gerado',
     criado_em: contrato.created_at,
     cliente: clienteRes.data?.nome || 'Cliente',
+    contratante: {
+      nome: clienteRes.data?.nome || 'Cliente',
+      cpf: clienteRes.data?.cpf || null,
+      rg: clienteRes.data?.rg || null,
+      whatsapp: clienteRes.data?.whatsapp || null,
+      email: clienteRes.data?.email || null,
+      endereco: formatarEnderecoCompleto([
+        clienteRes.data?.endereco,
+        clienteRes.data?.numero,
+        clienteRes.data?.complemento,
+        clienteRes.data?.bairro,
+        clienteRes.data?.cidade,
+        clienteRes.data?.estado
+      ], clienteRes.data?.cep) || null
+    },
     evento: {
       data: reserva.data_evento,
       horario: reserva.horario_evento,

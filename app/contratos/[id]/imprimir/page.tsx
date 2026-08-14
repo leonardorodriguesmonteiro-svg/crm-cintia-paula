@@ -1,6 +1,7 @@
 import { supabaseServer } from '@/lib/supabaseServer'
 import { PrintContractButton } from '@/components/PrintContractButton'
 import { clausulasLocacaoContrato, declaracaoAceiteContrato, termosGeraisContrato } from '@/lib/contratoTermos'
+import { formatarEnderecoCompleto } from '@/lib/endereco'
 
 export const dynamic = 'force-dynamic'
 
@@ -70,7 +71,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           <p><strong>RG:</strong> {cliente?.rg || '-'}</p>
           <p><strong>WhatsApp:</strong> {cliente?.whatsapp || '-'}</p>
           <p><strong>E-mail:</strong> {cliente?.email || '-'}</p>
-          <p><strong>Endereço:</strong> {[cliente?.endereco, cliente?.numero, cliente?.complemento, cliente?.bairro, cliente?.cidade, cliente?.estado].filter(Boolean).join(', ') || '-'}</p>
+          <p><strong>Endereço:</strong> {formatarEnderecoCompleto([cliente?.endereco, cliente?.numero, cliente?.complemento, cliente?.bairro, cliente?.cidade, cliente?.estado], cliente?.cep) || '-'}</p>
         </div>
 
         <div style={box}>

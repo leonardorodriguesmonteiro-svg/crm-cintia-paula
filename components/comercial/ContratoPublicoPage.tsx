@@ -23,6 +23,14 @@ type ContratoPublico = {
   status: string
   criado_em: string | null
   cliente: string
+  contratante: {
+    nome: string
+    cpf: string | null
+    rg: string | null
+    whatsapp: string | null
+    email: string | null
+    endereco: string | null
+  }
   evento: { data: string | null; horario: string | null; endereco: string | null }
   kit: { nome: string; codigo: string | null }
   itens: Array<{ descricao: string; quantidade: number; valor_unitario: number; subtotal: number; kit: boolean }>
@@ -221,6 +229,16 @@ export function ContratoPublicoPage({ token }: { token: string }) {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div><p className="text-sm font-semibold text-pink-700">Olá, {contrato.cliente}</p><h1 className="mt-1 text-2xl font-bold text-slate-900 md:text-3xl">Contrato de locação</h1><p className="mt-2 text-slate-500">Revise os dados e as condições antes de registrar seu aceite.</p></div>
             <span className={`w-fit rounded-full px-4 py-2 text-xs font-bold ${assinado ? 'bg-green-100 text-green-800' : contrato.status === 'Cancelado' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'}`}>{assinado ? 'Assinado' : contrato.status}</span>
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Dados do contratante</p>
+            <p className="mt-2 font-semibold text-slate-900">{contrato.contratante.nome}</p>
+            <div className="mt-1 space-y-1 text-sm text-slate-600">
+              <p>CPF/CNPJ: {contrato.contratante.cpf || 'Não informado'}{contrato.contratante.rg ? ` · RG: ${contrato.contratante.rg}` : ''}</p>
+              <p>Contato: {contrato.contratante.whatsapp || 'Não informado'}{contrato.contratante.email ? ` · ${contrato.contratante.email}` : ''}</p>
+              <p className="break-words">Endereço completo: {contrato.contratante.endereco || 'Não informado'}</p>
+            </div>
           </div>
 
           <div className="mt-6 grid gap-3 sm:grid-cols-2">

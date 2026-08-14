@@ -85,7 +85,6 @@ export function ReservasPage() {
   const [kitAdicionar, setKitAdicionar] = useState('')
   const [descricaoAdicional, setDescricaoAdicional] = useState('')
   const [valorAdicional, setValorAdicional] = useState(0)
-  const [ajustesPorKit, setAjustesPorKit] = useState<Record<string, number>>({})
   const [editando, setEditando] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
   const [erro, setErro] = useState('')
@@ -102,15 +101,13 @@ export function ReservasPage() {
     else setClientes(clientesRes.data || [])
 
     if (kitsRes.error) setErro(kitsRes.error.message)
-    else setKits(kitsRes.data || [])
+    else setKits([...(kitsRes.data || [])].sort((a, b) =>
+      a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' })
+    ))
 
     if (ajustesRes.error) setErro(ajustesRes.error.message)
     else {
       setComposicoes((ajustesRes.data as any) || [])
-      setAjustesPorKit((ajustesRes.data || []).reduce<Record<string, number>>((mapa, item) => {
-        mapa[item.kit_id] = (mapa[item.kit_id] || 0) + Number(item.valor_ajuste || 0)
-        return mapa
-      }, {}))
     }
   }
 
@@ -390,7 +387,7 @@ export function ReservasPage() {
           <div className="space-y-4 rounded-2xl border bg-slate-50 p-4">
             <div>
               <h3 className="font-semibold text-slate-900">Kits e itens da reserva</h3>
-              <p className="text-sm text-slate-500">O preço sugerido do kit já considera os ajustes cadastrados em sua composição.</p>
+              <p className="text-sm text-slate-500">Selecione o kit pelo nome. Valores e variações são definidos nas linhas da reserva.</p>
             </div>
 
             <div className="grid gap-3 md:grid-cols-[1fr_auto]">
@@ -398,7 +395,7 @@ export function ReservasPage() {
                 <option value="">Selecione um kit...</option>
                 {kits.map(kit => (
                   <option key={kit.id} value={kit.id}>
-                    {kit.codigo ? `${kit.codigo} - ` : ''}{kit.nome} — {moeda(Math.max(Number(kit.valor || 0) + Number(ajustesPorKit[kit.id] || 0), 0))}
+                    {kit.codigo ? `${kit.codigo} - ` : ''}{kit.nome}
                   </option>
                 ))}
               </Select>
@@ -423,7 +420,16 @@ export function ReservasPage() {
               )}
               {linhas.map(linha => (
                 <div key={linha.chave} className="grid gap-3 rounded-xl border bg-white p-3 md:grid-cols-[1fr_110px_150px_auto] md:items-end">
-                  <Input label={linha.kit_id ? 'Kit' : linha.kit_composicao_id ? 'Composição' : 'Descrição'} disabled={Boolean(linha.kit_id || linha.kit_composicao_id)} value={linha.descricao} onChange={e => atualizarLinha(linha.chave, { descricao: e.target.value })} />
+                  {linha.kit_id || linha.kit_composicao_id ? (
+                    <div className="min-w-0">
+                      <p className="mb-1 text-sm font-medium text-slate-700">{linha.kit_id ? 'Kit' : 'Composição'}</p>
+                      <div className="min-h-11 whitespace-normal break-words rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm leading-5 text-slate-800" title={linha.descricao}>
+                        {linha.descricao}
+                      </div>
+                    </div>
+                  ) : (
+                    <Input label="Descrição" value={linha.descricao} onChange={e => atualizarLinha(linha.chave, { descricao: e.target.value })} />
+                  )}
                   <Input label="Quantidade" type="number" min="0.01" step="0.01" disabled={Boolean(linha.kit_id || linha.kit_composicao_id)} value={linha.quantidade} onChange={e => atualizarLinha(linha.chave, { quantidade: Number(e.target.value) })} />
                   <Input label="Valor unitário (R$)" type="number" step="0.01" value={linha.valor_unitario} onChange={e => atualizarLinha(linha.chave, { valor_unitario: Number(e.target.value) })} />
                   <Button type="button" variant="danger" onClick={() => removerLinha(linha)}>Remover</Button>

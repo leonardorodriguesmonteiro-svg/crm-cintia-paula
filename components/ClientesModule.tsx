@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAcesso } from '@/components/auth/AcessoContext'
+import { formatarEnderecoCompleto, limparParteEndereco } from '@/lib/endereco'
 
 type Cliente = {
   id: string
@@ -111,11 +112,11 @@ export function ClientesModule(){
       instagram: String(form.instagram || '').trim() || null,
       email: String(form.email || '').trim().toLowerCase() || null,
       cep: somenteDigitos(form.cep) || null,
-      endereco: String(form.endereco || '').trim() || null,
-      numero: String(form.numero || '').trim() || null,
-      complemento: String(form.complemento || '').trim() || null,
-      bairro: String(form.bairro || '').trim() || null,
-      cidade: String(form.cidade || '').trim() || null,
+      endereco: limparParteEndereco(form.endereco) || null,
+      numero: limparParteEndereco(form.numero) || null,
+      complemento: limparParteEndereco(form.complemento) || null,
+      bairro: limparParteEndereco(form.bairro) || null,
+      cidade: limparParteEndereco(form.cidade) || null,
       estado: String(form.estado || '').trim().toUpperCase().slice(0, 2) || null,
       observacoes: String(form.observacoes || '').trim() || null
     }
@@ -170,7 +171,7 @@ export function ClientesModule(){
     <input className="input" placeholder="Buscar cliente..." value={busca} onChange={e=>setBusca(e.target.value)}/>
     <div className="grid gap-3">
       {filtered.map(c=><div key={c.id} className="card p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div className="space-y-1"><p className="font-semibold">{c.nome}</p><p className="text-sm text-slate-500">CPF: {formatarCpf(c.cpf) || '-'} • RG: {c.rg || '-'} • Celular: {formatarCelular(c.whatsapp) || '-'}</p><p className="text-sm text-slate-500">{c.email || 'Sem e-mail'}{c.instagram ? ` • ${c.instagram}` : ''}</p><p className="text-sm text-slate-500">{[c.endereco, c.numero, c.complemento, c.bairro, c.cidade, c.estado].filter(Boolean).join(', ') || 'Endereço não informado'}</p>{c.observacoes && <p className="text-sm text-slate-600"><strong>Observações:</strong> {c.observacoes}</p>}</div>
+        <div className="space-y-1"><p className="font-semibold">{c.nome}</p><p className="text-sm text-slate-500">CPF: {formatarCpf(c.cpf) || '-'} • RG: {c.rg || '-'} • Celular: {formatarCelular(c.whatsapp) || '-'}</p><p className="text-sm text-slate-500">{c.email || 'Sem e-mail'}{c.instagram ? ` • ${c.instagram}` : ''}</p><p className="text-sm text-slate-500">{formatarEnderecoCompleto([c.endereco, c.numero, c.complemento, c.bairro, c.cidade, c.estado], c.cep) || 'Endereço não informado'}</p>{c.observacoes && <p className="text-sm text-slate-600"><strong>Observações:</strong> {c.observacoes}</p>}</div>
         <div className="flex flex-wrap gap-2">{podeGerenciar && <button className="btn-secondary" onClick={()=>edit(c)}>Editar</button>}<button className="btn-secondary" onClick={()=>wa(c.whatsapp)}>WhatsApp</button><button className="btn-secondary" onClick={()=>insta(c.instagram)}>Instagram</button></div>
       </div>)}
     </div>
