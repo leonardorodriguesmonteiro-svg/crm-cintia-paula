@@ -2,28 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Building2, CreditCard, ExternalLink, FileClock, MessageSquareText, Save, ShieldCheck, UserCog, Webhook } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
-import { Button } from '@/components/ui/Button'
+import { Building2, CreditCard, ExternalLink, FileClock, ShieldCheck, UserCog, Webhook } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
-import { Input } from '@/components/ui/Input'
-import { Textarea } from '@/components/ui/Textarea'
-
-type ConfiguracaoPagamento = {
-  pix_chave: string
-  pix_beneficiario: string
-  pix_cidade: string
-  link_pagamento: string
-  instrucoes: string
-}
-
-const configuracaoInicial: ConfiguracaoPagamento = {
-  pix_chave: '',
-  pix_beneficiario: 'Cintia Paula',
-  pix_cidade: 'Rio de Janeiro',
-  link_pagamento: '',
-  instrucoes: 'Após o pagamento, envie o comprovante para a equipe Cintia Paula.'
-}
 
 type StatusMercadoPago = {
   access_token_configurado: boolean
@@ -33,87 +13,20 @@ type StatusMercadoPago = {
 }
 
 export function ConfiguracoesPage() {
-  const [configuracao, setConfiguracao] = useState(configuracaoInicial)
-  const [carregando, setCarregando] = useState(true)
-  const [salvando, setSalvando] = useState(false)
   const [mercadoPago, setMercadoPago] = useState<StatusMercadoPago | null>(null)
-  const [erro, setErro] = useState('')
-  const [sucesso, setSucesso] = useState('')
 
   async function carregar() {
-    setCarregando(true)
-    setErro('')
-
-    const { data, error } = await supabase
-      .from('configuracoes_pagamento')
-      .select('pix_chave,pix_beneficiario,pix_cidade,link_pagamento,instrucoes')
-      .eq('id', true)
-      .maybeSingle()
-
-    if (error) setErro(error.message)
-    else if (data) setConfiguracao({
-      pix_chave: data.pix_chave || '',
-      pix_beneficiario: data.pix_beneficiario || '',
-      pix_cidade: data.pix_cidade || '',
-      link_pagamento: data.link_pagamento || '',
-      instrucoes: data.instrucoes || ''
-    })
-
     try {
       const resposta = await fetch('/api/pagamentos/mercado-pago/status', { cache: 'no-store' })
       if (resposta.ok) setMercadoPago(await resposta.json())
     } catch {
       setMercadoPago(null)
     }
-
-    setCarregando(false)
   }
 
   useEffect(() => {
     carregar()
   }, [])
-
-  function atualizar(campo: keyof ConfiguracaoPagamento, valor: string) {
-    setConfiguracao(atual => ({ ...atual, [campo]: valor }))
-  }
-
-  async function salvar(evento: React.FormEvent) {
-    evento.preventDefault()
-    setErro('')
-    setSucesso('')
-
-    if (!configuracao.pix_chave.trim() && !configuracao.link_pagamento.trim()) {
-      setErro('Informe uma chave Pix ou um link de pagamento.')
-      return
-    }
-
-    if (configuracao.link_pagamento.trim()) {
-      try {
-        const url = new URL(configuracao.link_pagamento)
-        if (url.protocol !== 'https:') throw new Error()
-      } catch {
-        setErro('O link de pagamento precisa ser uma URL segura iniciada por https://.')
-        return
-      }
-    }
-
-    setSalvando(true)
-
-    const { error } = await supabase.from('configuracoes_pagamento').upsert({
-      id: true,
-      pix_chave: configuracao.pix_chave.trim() || null,
-      pix_beneficiario: configuracao.pix_beneficiario.trim() || 'Cintia Paula',
-      pix_cidade: configuracao.pix_cidade.trim() || 'Rio de Janeiro',
-      link_pagamento: configuracao.link_pagamento.trim() || null,
-      instrucoes: configuracao.instrucoes.trim() || null,
-      updated_at: new Date().toISOString()
-    })
-
-    if (error) setErro(error.message)
-    else setSucesso('Configurações de pagamento salvas. Os próximos contratos já usarão estes dados.')
-
-    setSalvando(false)
-  }
 
   return (
     <div className="space-y-6 p-4 md:p-8">
@@ -169,33 +82,13 @@ export function ConfiguracoesPage() {
       </div>
 
       <Card>
-        <div className="flex items-start gap-3">
-          <div className="rounded-2xl bg-pink-50 p-3 text-pink-700"><CreditCard size={22} /></div>
-          <div><h2 className="text-xl font-bold text-slate-900">Recebimento do sinal</h2><p className="mt-1 text-sm text-slate-500">Configure pelo menos uma forma de pagamento. O Pix Copia e Cola é gerado com o valor exato de cada sinal.</p></div>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="rounded-2xl bg-pink-50 p-3 text-pink-700"><CreditCard size={22} /></div>
+            <div><h2 className="text-xl font-bold text-slate-900">Recebimento do sinal</h2><p className="mt-1 text-sm text-slate-500">O PIX, o link de pagamento e as orientações ao cliente agora ficam centralizados nos dados da empresa.</p></div>
+          </div>
+          <Link href="/configuracoes/empresa#pagamentos" className="shrink-0 rounded-xl bg-pink-600 px-4 py-2.5 text-center text-sm font-semibold text-white transition hover:bg-pink-700">Configurar recebimento</Link>
         </div>
-
-        {erro && <div className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
-        {sucesso && <div className="mt-5 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">{sucesso}</div>}
-
-        {carregando ? (
-          <div className="mt-6 rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-500">Carregando configurações...</div>
-        ) : (
-          <form onSubmit={salvar} className="mt-6 space-y-5">
-            <div className="grid gap-4 md:grid-cols-2">
-              <Input label="Chave Pix" placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória" maxLength={77} value={configuracao.pix_chave} onChange={evento => atualizar('pix_chave', evento.target.value)} />
-              <Input label="Link externo de pagamento (opcional)" type="url" placeholder="https://..." value={configuracao.link_pagamento} onChange={evento => atualizar('link_pagamento', evento.target.value)} />
-              <Input label="Beneficiário do Pix" maxLength={25} value={configuracao.pix_beneficiario} onChange={evento => atualizar('pix_beneficiario', evento.target.value)} />
-              <Input label="Cidade do beneficiário" maxLength={15} value={configuracao.pix_cidade} onChange={evento => atualizar('pix_cidade', evento.target.value)} />
-            </div>
-
-            <Textarea label="Orientação ao cliente" rows={3} maxLength={500} value={configuracao.instrucoes} onChange={evento => atualizar('instrucoes', evento.target.value)} />
-
-            <div className="flex flex-col gap-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
-              <p className="flex items-start gap-2"><MessageSquareText className="mt-0.5 shrink-0 text-pink-600" size={17} />O ERP não dará baixa automaticamente até que o recebimento seja confirmado no Financeiro.</p>
-              <Button type="submit" disabled={salvando} className="flex shrink-0 items-center justify-center gap-2"><Save size={17} /> {salvando ? 'Salvando...' : 'Salvar pagamento'}</Button>
-            </div>
-          </form>
-        )}
       </Card>
 
       <Card>

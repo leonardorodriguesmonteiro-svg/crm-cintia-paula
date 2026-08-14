@@ -229,7 +229,7 @@ export function EmpresaAdminPage() {
       {erro && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
       {sucesso && <div className="rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">{sucesso}</div>}
 
-      <Card>
+      <Card id="pagamentos" className="scroll-mt-6">
         <div className="flex items-start gap-3"><div className="rounded-2xl bg-pink-50 p-3 text-pink-700"><Building2 size={22} /></div><div><h2 className="text-xl font-bold text-slate-900">Identidade da empresa</h2><p className="text-sm text-slate-500">Informações exibidas no ERP e nos documentos.</p></div></div>
         <div className="mt-6 grid gap-6 lg:grid-cols-[220px,1fr]">
           <div className="space-y-3">
