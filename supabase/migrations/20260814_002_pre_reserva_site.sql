@@ -19,8 +19,11 @@ revoke all on public.site_pre_reservas from anon, authenticated;
 create index if not exists site_pre_reservas_kit_data_idx on public.site_pre_reservas (kit_id,data_festa);
 create index if not exists site_pre_reservas_status_created_idx on public.site_pre_reservas (status,created_at desc);
 
-create or replace function public.criar_pre_reserva_site(p_kit_id uuid,p_data_festa date,p_nome text,p_whatsapp text,p_email text,p_cpf text default null,p_valor_kit numeric default 0,p_caucao numeric default 0)
-returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+create schema if not exists private;
+revoke all on schema private from public;
+
+create or replace function private.criar_pre_reserva_site_impl(p_kit_id uuid,p_data_festa date,p_nome text,p_whatsapp text,p_email text,p_cpf text default null,p_valor_kit numeric default 0,p_caucao numeric default 0)
+returns jsonb language plpgsql security definer set search_path=public,private,pg_temp as $$
 declare v_codigo text; v_kit public.kits%rowtype; v_disp jsonb; v_valor numeric;
 begin
  if p_data_festa<current_date then raise exception 'Escolha uma data futura.' using errcode='22007'; end if;
@@ -35,5 +38,14 @@ begin
  insert into public.site_pre_reservas(codigo,kit_id,data_festa,nome,whatsapp,email,cpf,valor_kit,caucao) values(v_codigo,p_kit_id,p_data_festa,trim(p_nome),regexp_replace(p_whatsapp,'\D','','g'),lower(trim(p_email)),nullif(regexp_replace(coalesce(p_cpf,''),'\D','','g'),''),v_valor,greatest(p_caucao,0));
  return jsonb_build_object('codigo',v_codigo,'mensagem','Pedido recebido. A equipe confirmará a disponibilidade antes do pagamento.');
 end $$;
+
+revoke all on function private.criar_pre_reserva_site_impl(uuid,date,text,text,text,text,numeric,numeric) from public;
+grant usage on schema private to anon;
+grant execute on function private.criar_pre_reserva_site_impl(uuid,date,text,text,text,text,numeric,numeric) to anon;
+
+create or replace function public.criar_pre_reserva_site(p_kit_id uuid,p_data_festa date,p_nome text,p_whatsapp text,p_email text,p_cpf text default null,p_valor_kit numeric default 0,p_caucao numeric default 0)
+returns jsonb language sql security invoker set search_path=public,private,pg_temp as $$
+ select private.criar_pre_reserva_site_impl(p_kit_id,p_data_festa,p_nome,p_whatsapp,p_email,p_cpf,p_valor_kit,p_caucao);
+$$;
 revoke all on function public.criar_pre_reserva_site(uuid,date,text,text,text,text,numeric,numeric) from public;
 grant execute on function public.criar_pre_reserva_site(uuid,date,text,text,text,text,numeric,numeric) to anon;
