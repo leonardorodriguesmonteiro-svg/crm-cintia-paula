@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { CalendarCheck, CheckCircle2, CircleAlert, Copy, Download, ExternalLink, FileSignature, HandCoins, Plus, Send, Share2, Trash2 } from 'lucide-react'
+import { Ban, CalendarCheck, CheckCircle2, CircleAlert, Copy, Download, ExternalLink, FileSignature, HandCoins, Mail, Plus, Send, Share2, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { criarDocumentoOrcamento, mensagemWhatsAppOrcamento, telefoneWhatsApp } from '@/lib/orcamentoPdf'
 import { Button } from '@/components/ui/Button'
@@ -99,6 +99,8 @@ type Orcamento = {
   } | null
   contratos: {
     public_token: string | null
+    email_enviado_em: string | null
+    email_destino: string | null
   } | null
   lancamentos_financeiros: {
     provedor_pagamento: string | null
@@ -236,6 +238,8 @@ export function OrcamentosPage() {
   const [vencimentosSinal, setVencimentosSinal] = useState<Record<string, string>>({})
   const [formasSinal, setFormasSinal] = useState<Record<string, string>>({})
   const [gerandoCobrancaId, setGerandoCobrancaId] = useState<string | null>(null)
+  const [enviandoContratoId, setEnviandoContratoId] = useState<string | null>(null)
+  const [cancelandoEnvioId, setCancelandoEnvioId] = useState<string | null>(null)
   const [mercadoPagoPronto, setMercadoPagoPronto] = useState(false)
   const [carregando, setCarregando] = useState(true)
 
@@ -260,7 +264,7 @@ export function OrcamentosPage() {
         .order('nome'),
       supabase
         .from('orcamentos')
-        .select('*,oportunidades(numero,nome_contato,celular,email),contratos(public_token),lancamentos_financeiros(provedor_pagamento,link_pagamento,status_provedor)')
+        .select('*,oportunidades(numero,nome_contato,celular,email),contratos(public_token,email_enviado_em,email_destino),lancamentos_financeiros(provedor_pagamento,link_pagamento,status_provedor)')
         .order('created_at', { ascending: false })
     ])
 
@@ -769,6 +773,67 @@ export function OrcamentosPage() {
     }
   }
 
+  async function enviarContratoPorEmail(orcamento: Orcamento) {
+    if (!orcamento.contrato_id) return
+
+    setErro('')
+    setSucesso('')
+    setEnviandoContratoId(orcamento.id)
+
+    try {
+      const { data: sessao } = await supabase.auth.getSession()
+      const token = sessao.session?.access_token
+      if (!token) throw new Error('Sua sessão expirou. Entre novamente no ERP.')
+
+      const resposta = await fetch(`/api/contratos/${orcamento.contrato_id}/enviar-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ reenviar: true })
+      })
+      const corpo = await resposta.json()
+      if (!resposta.ok) throw new Error(corpo.error || 'Não foi possível enviar o contrato.')
+
+      setSucesso(corpo.mensagem || 'Boas-vindas e contrato enviados por e-mail.')
+      await carregar()
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível enviar o contrato.')
+    } finally {
+      setEnviandoContratoId(null)
+    }
+  }
+
+  async function cancelarEnvioContrato(orcamento: Orcamento) {
+    if (!orcamento.contrato_id) return
+    if (!confirm('Cancelar este envio? O e-mail continuará na caixa do cliente, mas o link de assinatura será invalidado.')) return
+
+    setErro('')
+    setSucesso('')
+    setCancelandoEnvioId(orcamento.id)
+
+    try {
+      const { data: sessao } = await supabase.auth.getSession()
+      const token = sessao.session?.access_token
+      if (!token) throw new Error('Sua sessão expirou. Entre novamente no ERP.')
+
+      const resposta = await fetch(`/api/contratos/${orcamento.contrato_id}/cancelar-envio`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const corpo = await resposta.json()
+      if (!resposta.ok) throw new Error(corpo.error || 'Não foi possível cancelar o envio.')
+
+      setSucesso(corpo.mensagem)
+      await carregar()
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível cancelar o envio.')
+    } finally {
+      setCancelandoEnvioId(null)
+    }
+  }
+
   function valorSinalDo(orcamento: Orcamento) {
     return valoresSinal[orcamento.id]
       ?? String(orcamento.valor_sinal_formalizacao || Math.max(orcamento.total * 0.3, 1).toFixed(2))
@@ -823,25 +888,7 @@ export function OrcamentosPage() {
         }
       }
 
-      if (data?.contrato_id) {
-        try {
-          const { data: sessao } = await supabase.auth.getSession()
-          const token = sessao.session?.access_token
-          if (!token) throw new Error('Sessão expirada.')
-
-          const emailRes = await fetch(`/api/contratos/${data.contrato_id}/enviar-email`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}` }
-          })
-          const emailCorpo = await emailRes.json()
-          if (!emailRes.ok) throw new Error(emailCorpo.error || 'E-mail não enviado.')
-          mensagem += emailCorpo.ignorado
-            ? ' A carta de boas-vindas e o contrato já haviam sido enviados por e-mail.'
-            : ' Carta de boas-vindas e contrato enviados por e-mail.'
-        } catch (error) {
-          mensagem += ` ${error instanceof Error ? error.message : 'O envio automático do e-mail ficou pendente.'}`
-        }
-      }
+      if (data?.contrato_id) mensagem += ' Revise os dados e use o botão de envio quando estiver pronto.'
 
       setSucesso(mensagem)
       await carregar()
@@ -1178,7 +1225,30 @@ export function OrcamentosPage() {
                     </div>
 
                     {orcamento.contratos?.public_token && !orcamento.contrato_assinado_em && (
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <Button
+                          className="flex items-center justify-center gap-1 px-2 text-xs"
+                          disabled={enviandoContratoId === orcamento.id}
+                          onClick={() => enviarContratoPorEmail(orcamento)}
+                        >
+                          <Mail size={15} />
+                          {enviandoContratoId === orcamento.id
+                            ? 'Enviando...'
+                            : orcamento.contratos.email_enviado_em
+                              ? 'Reenviar e-mail e contrato'
+                              : 'Enviar e-mail e contrato'}
+                        </Button>
+                        {orcamento.contratos.email_enviado_em && (
+                          <Button
+                            variant="secondary"
+                            className="flex items-center justify-center gap-1 border-red-200 px-2 text-xs text-red-700"
+                            disabled={cancelandoEnvioId === orcamento.id}
+                            onClick={() => cancelarEnvioContrato(orcamento)}
+                          >
+                            <Ban size={15} />
+                            {cancelandoEnvioId === orcamento.id ? 'Cancelando...' : 'Cancelar envio e link'}
+                          </Button>
+                        )}
                         <Button variant="secondary" className="flex items-center justify-center gap-1 px-2 text-xs" onClick={() => copiarLinkContrato(orcamento)}><Copy size={15} /> Copiar link de assinatura</Button>
                         <a href={`/contrato/${orcamento.contratos.public_token}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1 rounded-xl border border-pink-200 bg-pink-50 px-2 py-2 text-xs font-semibold text-pink-700 hover:bg-pink-100"><ExternalLink size={15} /> Página do cliente</a>
                       </div>

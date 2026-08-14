@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Check, Copy, ExternalLink, FileSignature, Mail } from 'lucide-react'
+import { Ban, Check, Copy, ExternalLink, FileSignature, Mail } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
 
@@ -42,6 +42,7 @@ export function ContratosPage() {
   const [erro, setErro] = useState('')
   const [copiadoId, setCopiadoId] = useState<string | null>(null)
   const [enviandoId, setEnviandoId] = useState<string | null>(null)
+  const [cancelandoId, setCancelandoId] = useState<string | null>(null)
 
   async function carregar() {
     setCarregando(true)
@@ -122,6 +123,33 @@ export function ContratosPage() {
     }
   }
 
+  async function cancelarEnvio(contrato: Contrato) {
+    if (!confirm('Cancelar este envio? O e-mail continuará na caixa do cliente, mas o link de assinatura será invalidado.')) return
+
+    setErro('')
+    setCancelandoId(contrato.id)
+
+    try {
+      const { data: sessao } = await supabase.auth.getSession()
+      const token = sessao.session?.access_token
+      if (!token) throw new Error('Sua sessão expirou. Entre novamente no ERP.')
+
+      const resposta = await fetch(`/api/contratos/${contrato.id}/cancelar-envio`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const corpo = await resposta.json()
+      if (!resposta.ok) throw new Error(corpo.error || 'Não foi possível cancelar o envio.')
+
+      await carregar()
+      alert(corpo.mensagem)
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível cancelar o envio.')
+    } finally {
+      setCancelandoId(null)
+    }
+  }
+
   return (
     <div className="space-y-6 p-4 pb-28 md:p-8">
       <div>
@@ -154,6 +182,7 @@ export function ContratosPage() {
             <div className="mt-4 grid gap-2">
               {contrato.public_token && contrato.status !== 'Assinado' && <button type="button" onClick={() => copiarLink(contrato)} className="flex items-center justify-center gap-2 rounded-xl bg-pink-600 px-4 py-2 text-sm font-semibold text-white hover:bg-pink-700">{copiadoId === contrato.id ? <Check size={16} /> : <Copy size={16} />} {copiadoId === contrato.id ? 'Link copiado' : 'Copiar link de assinatura'}</button>}
               {contrato.public_token && <button type="button" disabled={enviandoId === contrato.id || !contrato.reservas?.clientes?.email} onClick={() => enviarEmail(contrato)} className="flex items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"><Mail size={16} /> {enviandoId === contrato.id ? 'Enviando...' : contrato.reservas?.clientes?.email ? contrato.email_enviado_em ? 'Reenviar boas-vindas e contrato' : 'Enviar boas-vindas e contrato' : 'Cliente sem e-mail'}</button>}
+              {contrato.email_enviado_em && contrato.status !== 'Assinado' && <button type="button" disabled={cancelandoId === contrato.id} onClick={() => cancelarEnvio(contrato)} className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"><Ban size={16} /> {cancelandoId === contrato.id ? 'Cancelando...' : 'Cancelar envio e invalidar link'}</button>}
               {contrato.public_token && <a href={`/contrato/${contrato.public_token}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-xl border border-pink-200 bg-pink-50 px-4 py-2 text-sm font-semibold text-pink-700 hover:bg-pink-100"><FileSignature size={16} /> Abrir página do cliente</a>}
               <a href={`/contratos/${contrato.id}/imprimir`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-xl border bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"><FileSignature size={16} /> Abrir versão para impressão</a>
               {contrato.reserva_id && <Link href={`/reservas/${contrato.reserva_id}`} className="flex items-center justify-center gap-2 rounded-xl border bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"><ExternalLink size={16} /> Abrir reserva</Link>}
