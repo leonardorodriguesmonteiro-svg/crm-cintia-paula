@@ -32,9 +32,10 @@ export async function obterMissao(
     ) ||
     tarefas.find((item: any) => !item.concluido)
 
-  const [timeline, evidencias] = await Promise.all([
+  const [timeline, evidencias, assinaturas] = await Promise.all([
     missionRepository.buscarTimeline(ordem.reserva_id),
-    missionRepository.buscarEvidencias(ordem.id)
+    missionRepository.buscarEvidencias(ordem.id),
+    missionRepository.buscarAssinaturas(ordem.id)
   ])
 
   return {
@@ -107,6 +108,15 @@ export async function obterMissao(
       tamanhoBytes: Number(item.tamanho_bytes || 0),
       capturadaEm: item.capturada_em,
       autor: item.autor
+    })),
+
+    assinaturas: assinaturas.map((item: any) => ({
+      id: item.id,
+      etapa: item.etapa,
+      nomeAssinante: item.nome_assinante,
+      assinadaEm: item.assinada_em,
+      url: item.signed_url,
+      registradaPor: item.autor
     }))
   }
 }

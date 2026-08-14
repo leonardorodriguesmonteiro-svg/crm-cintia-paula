@@ -100,5 +100,49 @@ export const missionRepository = {
       signed_url: urlPorCaminho.get(item.storage_path) || '',
       autor: item.criada_por ? autorPorId.get(item.criada_por) || 'Equipe operacional' : 'Sistema'
     }))
+  },
+
+  async buscarAssinaturas(ordemServicoId: string) {
+    const { data, error } = await supabaseServer
+      .from('assinaturas_missao')
+      .select('id,etapa,nome_assinante,storage_path,assinada_em,registrada_por')
+      .eq('ordem_servico_id', ordemServicoId)
+      .order('assinada_em', { ascending: true })
+
+    if (error) throw error
+    if (!data?.length) return []
+
+    const caminhos = data.map(item => item.storage_path)
+    const usuarios = Array.from(new Set(data.map(item => item.registrada_por).filter(Boolean))) as string[]
+
+    const [{ data: urls, error: urlsError }, autoresResposta] = await Promise.all([
+      supabaseServer.storage
+        .from('assinaturas-missao')
+        .createSignedUrls(caminhos, 60 * 60),
+      usuarios.length
+        ? supabaseServer
+            .from('usuarios_empresa')
+            .select('usuario_id,nome')
+            .in('usuario_id', usuarios)
+        : Promise.resolve({ data: [], error: null })
+    ])
+
+    if (urlsError) throw urlsError
+    if (autoresResposta.error) throw autoresResposta.error
+
+    const urlPorCaminho = new Map(
+      (urls || []).map(item => [item.path, item.signedUrl])
+    )
+    const autorPorId = new Map(
+      (autoresResposta.data || []).map(item => [item.usuario_id, item.nome])
+    )
+
+    return data.map(item => ({
+      ...item,
+      signed_url: urlPorCaminho.get(item.storage_path) || '',
+      autor: item.registrada_por
+        ? autorPorId.get(item.registrada_por) || 'Equipe operacional'
+        : 'Sistema'
+    }))
   }
 }

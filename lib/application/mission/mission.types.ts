@@ -56,4 +56,13 @@ export type MissionViewModel = {
     capturadaEm: string
     autor: string
   }[]
+
+  assinaturas: {
+    id: string
+    etapa: 'entrega' | 'retirada'
+    nomeAssinante: string
+    assinadaEm: string
+    url: string
+    registradaPor: string
+  }[]
 }

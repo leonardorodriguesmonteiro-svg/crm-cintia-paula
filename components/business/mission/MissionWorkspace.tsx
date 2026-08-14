@@ -11,6 +11,7 @@ import { MissionChecklist } from './MissionChecklist'
 import { MissionTeam } from './MissionTeam'
 import { MissionTimeline } from './MissionTimeline'
 import { MissionEvidenceGallery } from './MissionEvidenceGallery'
+import { MissionOperationalSignatures } from './MissionOperationalSignatures'
 import { obterTokenSessao } from '@/lib/sessionToken'
 
 export function MissionWorkspace({
@@ -162,6 +163,13 @@ export function MissionWorkspace({
         <MissionEvidenceGallery
           missaoId={missao.id}
           evidencias={missao.evidencias}
+          onAtualizar={carregar}
+        />
+
+        <MissionOperationalSignatures
+          missaoId={missao.id}
+          cliente={missao.evento.cliente}
+          assinaturas={missao.assinaturas}
           onAtualizar={carregar}
         />
 
