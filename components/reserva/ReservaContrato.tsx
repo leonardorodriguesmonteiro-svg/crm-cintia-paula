@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { clausulasLocacaoContrato, declaracaoAceiteContrato, termosGeraisContrato } from '@/lib/contratoTermos'
+import { formatarEnderecoCompleto } from '@/lib/endereco'
 
 type Contrato = {
   id: string
@@ -108,6 +109,14 @@ export function ReservaContrato({ reservaId, somenteLeitura = false }: { reserva
   const valorTotal = Number(reserva?.valor_total || 0)
   const recebido = recebimentos.reduce((t, r) => t + Number(r.valor || 0), 0)
   const saldo = Math.max(valorTotal - recebido, 0)
+  const enderecoContratante = formatarEnderecoCompleto([
+    reserva?.clientes?.endereco,
+    reserva?.clientes?.numero,
+    reserva?.clientes?.complemento,
+    reserva?.clientes?.bairro,
+    reserva?.clientes?.cidade,
+    reserva?.clientes?.estado
+  ], reserva?.clientes?.cep)
 
   return (
     <Card>
@@ -166,7 +175,7 @@ export function ReservaContrato({ reservaId, somenteLeitura = false }: { reserva
             <div className="mt-4 space-y-4 text-sm leading-6 text-slate-700">
               <p>
                 <strong>CONTRATANTE:</strong> {reserva?.clientes?.nome || 'Cliente não informado'}, 
-                CPF/CNPJ {reserva?.clientes?.cpf || 'não informado'}, residente/endereço em {reserva?.clientes?.endereco || 'não informado'}.
+                CPF/CNPJ {reserva?.clientes?.cpf || 'não informado'}, residente/endereço em {enderecoContratante || 'não informado'}.
               </p>
 
               <p>
