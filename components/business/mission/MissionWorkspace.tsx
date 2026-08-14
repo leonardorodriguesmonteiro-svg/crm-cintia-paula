@@ -12,6 +12,7 @@ import { MissionTeam } from './MissionTeam'
 import { MissionTimeline } from './MissionTimeline'
 import { MissionEvidenceGallery } from './MissionEvidenceGallery'
 import { MissionOperationalSignatures } from './MissionOperationalSignatures'
+import { MissionOccurrences } from './MissionOccurrences'
 import { obterTokenSessao } from '@/lib/sessionToken'
 
 export function MissionWorkspace({
@@ -170,6 +171,13 @@ export function MissionWorkspace({
           missaoId={missao.id}
           cliente={missao.evento.cliente}
           assinaturas={missao.assinaturas}
+          onAtualizar={carregar}
+        />
+
+        <MissionOccurrences
+          missaoId={missao.id}
+          ocorrencias={missao.ocorrencias}
+          responsaveis={missao.responsaveisDisponiveis}
           onAtualizar={carregar}
         />
 

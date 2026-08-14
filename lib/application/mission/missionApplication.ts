@@ -2,7 +2,8 @@ import { missionRepository } from '@/lib/repositories/missionRepository'
 import type { MissionViewModel } from './mission.types'
 
 export async function obterMissao(
-  ordemServicoId: string
+  ordemServicoId: string,
+  empresaId: string
 ): Promise<MissionViewModel> {
   const ordem: any =
     await missionRepository.buscarOrdemCompleta(ordemServicoId)
@@ -32,10 +33,12 @@ export async function obterMissao(
     ) ||
     tarefas.find((item: any) => !item.concluido)
 
-  const [timeline, evidencias, assinaturas] = await Promise.all([
+  const [timeline, evidencias, assinaturas, ocorrencias, responsaveis] = await Promise.all([
     missionRepository.buscarTimeline(ordem.reserva_id),
     missionRepository.buscarEvidencias(ordem.id),
-    missionRepository.buscarAssinaturas(ordem.id)
+    missionRepository.buscarAssinaturas(ordem.id),
+    missionRepository.buscarOcorrencias(ordem.id),
+    missionRepository.buscarResponsaveisOperacionais(empresaId)
   ])
 
   return {
@@ -117,6 +120,36 @@ export async function obterMissao(
       assinadaEm: item.assinada_em,
       url: item.signed_url,
       registradaPor: item.autor
+    })),
+
+    responsaveisDisponiveis: responsaveis.map((item: any) => ({
+      id: item.usuario_id,
+      nome: item.nome,
+      perfil: item.perfil
+    })),
+
+    ocorrencias: ocorrencias.map((item: any) => ({
+      id: item.id,
+      tipo: item.tipo,
+      etapa: item.etapa,
+      prioridade: item.prioridade,
+      status: item.status,
+      titulo: item.titulo,
+      descricao: item.descricao,
+      responsavelId: item.responsavel_usuario_id,
+      responsavelNome: item.responsavel_nome,
+      resolucao: item.resolucao,
+      resolvidaEm: item.resolvida_em,
+      resolvidaPor: item.resolvida_por_nome,
+      criadaEm: item.created_at,
+      criadaPor: item.criada_por_nome,
+      atualizadaEm: item.updated_at,
+      fotos: (item.fotos || []).map((foto: any) => ({
+        id: foto.id,
+        url: foto.signed_url,
+        mimeType: foto.mime_type,
+        tamanhoBytes: Number(foto.tamanho_bytes || 0)
+      }))
     }))
   }
 }

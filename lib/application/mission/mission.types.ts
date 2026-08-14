@@ -65,4 +65,34 @@ export type MissionViewModel = {
     url: string
     registradaPor: string
   }[]
+
+  responsaveisDisponiveis: {
+    id: string
+    nome: string
+    perfil: 'Administrador' | 'Operação' | 'Estoque'
+  }[]
+
+  ocorrencias: {
+    id: string
+    tipo: 'dano' | 'item_faltante' | 'atraso' | 'outro'
+    etapa: 'preparacao' | 'entrega' | 'evento' | 'retirada' | 'devolucao'
+    prioridade: 'baixa' | 'media' | 'alta' | 'critica'
+    status: 'aberta' | 'em_acompanhamento' | 'resolvida'
+    titulo: string
+    descricao: string
+    responsavelId: string | null
+    responsavelNome: string
+    resolucao: string | null
+    resolvidaEm: string | null
+    resolvidaPor: string | null
+    criadaEm: string
+    criadaPor: string
+    atualizadaEm: string
+    fotos: {
+      id: string
+      url: string
+      mimeType: string
+      tamanhoBytes: number
+    }[]
+  }[]
 }

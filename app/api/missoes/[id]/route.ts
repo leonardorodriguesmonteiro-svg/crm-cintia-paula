@@ -10,9 +10,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await exigirPerfis(request, ['Operação', 'Estoque'])
+    const { vinculo } = await exigirPerfis(request, ['Operação', 'Estoque'])
     const { id } = await params
-    const missao = await obterMissao(id)
+    const missao = await obterMissao(id, vinculo.empresa_id)
 
     return NextResponse.json({
       sucesso: true,
