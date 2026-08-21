@@ -20,16 +20,84 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 
-const etapas = [
-  'Novo contato',
-  'Em atendimento',
-  'Orçamento enviado',
-  'Negociação',
-  'Fechado',
+const jornadas = [
+  'Pré-reserva',
+  'Em análise',
+  'Ajuste solicitado',
+  'Proposta disponível',
+  'Proposta aceita',
+  'Cadastro pendente',
+  'Contrato pendente',
+  'Assinatura pendente',
+  'Pagamento pendente',
+  'Reserva confirmada',
+  'Em operação',
+  'Concluído',
   'Perdido'
 ] as const
 
+type JornadaStatus = (typeof jornadas)[number]
+
+type ColunaJornada = {
+  titulo: string
+  descricao: string
+  status: JornadaStatus[]
+  classe: string
+}
+
+const colunas: ColunaJornada[] = [
+  {
+    titulo: 'Solicitações',
+    descricao: 'Pré-reserva e análise',
+    status: ['Pré-reserva', 'Em análise', 'Ajuste solicitado'],
+    classe: 'border-blue-200 bg-blue-50 text-blue-800'
+  },
+  {
+    titulo: 'Proposta',
+    descricao: 'Orçamento disponível',
+    status: ['Proposta disponível'],
+    classe: 'border-violet-200 bg-violet-50 text-violet-800'
+  },
+  {
+    titulo: 'Cadastro',
+    descricao: 'Aceite e dados contratuais',
+    status: ['Proposta aceita', 'Cadastro pendente'],
+    classe: 'border-amber-200 bg-amber-50 text-amber-800'
+  },
+  {
+    titulo: 'Contrato',
+    descricao: 'Geração e assinatura',
+    status: ['Contrato pendente', 'Assinatura pendente'],
+    classe: 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-800'
+  },
+  {
+    titulo: 'Pagamento',
+    descricao: 'Sinal pendente',
+    status: ['Pagamento pendente'],
+    classe: 'border-orange-200 bg-orange-50 text-orange-800'
+  },
+  {
+    titulo: 'Confirmadas',
+    descricao: 'Reserva efetivada',
+    status: ['Reserva confirmada'],
+    classe: 'border-green-200 bg-green-50 text-green-800'
+  },
+  {
+    titulo: 'Operação',
+    descricao: 'Execução e conclusão',
+    status: ['Em operação', 'Concluído'],
+    classe: 'border-teal-200 bg-teal-50 text-teal-800'
+  },
+  {
+    titulo: 'Perdidas',
+    descricao: 'Não convertidas',
+    status: ['Perdido'],
+    classe: 'border-slate-300 bg-slate-100 text-slate-700'
+  }
+]
+
 const origens = [
+  'Site',
   'WhatsApp',
   'Instagram',
   'Indicação',
@@ -37,8 +105,6 @@ const origens = [
   'Cliente recorrente',
   'Não informada'
 ]
-
-type Etapa = (typeof etapas)[number]
 
 type Cliente = {
   id: string
@@ -60,7 +126,8 @@ type Oportunidade = {
   data_evento: string | null
   quantidade_convidados: number | null
   valor_estimado: number
-  etapa: Etapa
+  etapa: string
+  jornada_status: JornadaStatus
   proximo_contato: string | null
   motivo_perda: string | null
   observacoes: string | null
@@ -86,7 +153,6 @@ type FormOportunidade = {
   data_evento: string
   quantidade_convidados: string
   valor_estimado: number | string
-  etapa: Etapa
   proximo_contato: string
   observacoes: string
 }
@@ -101,7 +167,6 @@ const formVazio: FormOportunidade = {
   data_evento: '',
   quantidade_convidados: '',
   valor_estimado: 0,
-  etapa: 'Novo contato',
   proximo_contato: '',
   observacoes: ''
 }
@@ -130,16 +195,15 @@ function dataCurta(valor: string | null) {
   return new Date(`${valor}T12:00:00`).toLocaleDateString('pt-BR')
 }
 
-function corEtapa(etapa: Etapa) {
-  const cores: Record<Etapa, string> = {
-    'Novo contato': 'border-blue-200 bg-blue-50 text-blue-800',
-    'Em atendimento': 'border-cyan-200 bg-cyan-50 text-cyan-800',
-    'Orçamento enviado': 'border-violet-200 bg-violet-50 text-violet-800',
-    Negociação: 'border-amber-200 bg-amber-50 text-amber-800',
-    Fechado: 'border-green-200 bg-green-50 text-green-800',
-    Perdido: 'border-slate-300 bg-slate-100 text-slate-700'
-  }
-  return cores[etapa]
+function corStatus(status: JornadaStatus) {
+  if (status === 'Perdido') return 'bg-slate-100 text-slate-700'
+  if (status === 'Reserva confirmada' || status === 'Concluído') return 'bg-green-100 text-green-800'
+  if (status === 'Em operação') return 'bg-teal-100 text-teal-800'
+  if (status === 'Pagamento pendente') return 'bg-orange-100 text-orange-800'
+  if (status === 'Contrato pendente' || status === 'Assinatura pendente') return 'bg-fuchsia-100 text-fuchsia-800'
+  if (status === 'Proposta disponível') return 'bg-violet-100 text-violet-800'
+  if (status === 'Proposta aceita' || status === 'Cadastro pendente') return 'bg-amber-100 text-amber-800'
+  return 'bg-blue-100 text-blue-800'
 }
 
 export function FunilComercialPage() {
@@ -195,7 +259,7 @@ export function FunilComercialPage() {
         item.celular,
         item.origem,
         item.interesse,
-        item.etapa,
+        item.jornada_status,
         `OP-${String(item.numero).padStart(4, '0')}`
       ]
         .filter(Boolean)
@@ -206,18 +270,18 @@ export function FunilComercialPage() {
   }, [busca, oportunidades])
 
   const resumo = useMemo(() => {
-    const abertas = oportunidades.filter(item => !['Fechado', 'Perdido'].includes(item.etapa))
-    const fechadas = oportunidades.filter(item => item.etapa === 'Fechado')
+    const abertas = oportunidades.filter(item => !['Reserva confirmada', 'Em operação', 'Concluído', 'Perdido'].includes(item.jornada_status))
+    const convertidas = oportunidades.filter(item => ['Reserva confirmada', 'Em operação', 'Concluído'].includes(item.jornada_status))
     const potencial = abertas.reduce((total, item) => total + Number(item.valor_estimado || 0), 0)
     const hoje = new Date().toISOString().slice(0, 10)
     const retornos = abertas.filter(item => item.proximo_contato && item.proximo_contato <= hoje).length
-    const totalDecididas = oportunidades.filter(item => ['Fechado', 'Perdido'].includes(item.etapa)).length
+    const totalDecididas = oportunidades.filter(item => ['Reserva confirmada', 'Em operação', 'Concluído', 'Perdido'].includes(item.jornada_status)).length
 
     return {
       abertas: abertas.length,
       potencial,
       retornos,
-      conversao: totalDecididas ? Math.round((fechadas.length / totalDecididas) * 100) : 0
+      conversao: totalDecididas ? Math.round((convertidas.length / totalDecididas) * 100) : 0
     }
   }, [oportunidades])
 
@@ -250,7 +314,6 @@ export function FunilComercialPage() {
       data_evento: item.data_evento || '',
       quantidade_convidados: item.quantidade_convidados?.toString() || '',
       valor_estimado: item.valor_estimado || 0,
-      etapa: item.etapa,
       proximo_contato: item.proximo_contato || '',
       observacoes: item.observacoes || ''
     })
@@ -297,11 +360,8 @@ export function FunilComercialPage() {
       origem: form.origem,
       interesse: form.interesse.trim() || null,
       data_evento: form.data_evento || null,
-      quantidade_convidados: form.quantidade_convidados
-        ? Number(form.quantidade_convidados)
-        : null,
+      quantidade_convidados: form.quantidade_convidados ? Number(form.quantidade_convidados) : null,
       valor_estimado: Number(form.valor_estimado) || 0,
-      etapa: form.etapa,
       proximo_contato: form.proximo_contato || null,
       observacoes: form.observacoes.trim() || null,
       responsavel_id: user.id
@@ -311,6 +371,8 @@ export function FunilComercialPage() {
       ? await supabase.from('oportunidades').update(payload).eq('id', editandoId)
       : await supabase.from('oportunidades').insert({
           ...payload,
+          etapa: 'Novo contato',
+          jornada_status: 'Pré-reserva',
           created_by: user.id
         })
 
@@ -325,11 +387,11 @@ export function FunilComercialPage() {
     await carregar()
   }
 
-  async function alterarEtapa(item: Oportunidade, novaEtapa: Etapa) {
-    if (novaEtapa === item.etapa) return
+  async function alterarJornada(item: Oportunidade, novaJornada: 'Em análise' | 'Ajuste solicitado' | 'Perdido') {
+    if (novaJornada === item.jornada_status) return
 
     let motivoPerda = item.motivo_perda
-    if (novaEtapa === 'Perdido') {
+    if (novaJornada === 'Perdido') {
       motivoPerda = window.prompt('Qual foi o motivo da perda desta oportunidade?')?.trim() || null
       if (!motivoPerda) return
     } else {
@@ -339,7 +401,7 @@ export function FunilComercialPage() {
     setErro('')
     const { error } = await supabase
       .from('oportunidades')
-      .update({ etapa: novaEtapa, motivo_perda: motivoPerda })
+      .update({ jornada_status: novaJornada, motivo_perda: motivoPerda })
       .eq('id', item.id)
 
     if (error) {
@@ -360,9 +422,9 @@ export function FunilComercialPage() {
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <p className="text-sm font-semibold text-pink-700">COMERCIAL</p>
-          <h1 className="text-3xl font-bold text-slate-900">Funil Comercial</h1>
-          <p className="mt-1 text-slate-500">
-            Acompanhe cada contato até o fechamento da festa.
+          <h1 className="text-3xl font-bold text-slate-900">Esteira do cliente</h1>
+          <p className="mt-1 max-w-3xl text-slate-500">
+            Da pré-reserva à confirmação. A reserva só é efetivada depois do aceite, cadastro, contrato assinado e pagamento.
           </p>
         </div>
 
@@ -374,7 +436,7 @@ export function FunilComercialPage() {
           }}
           className="flex items-center justify-center gap-2"
         >
-          <Plus size={18} /> Nova oportunidade
+          <Plus size={18} /> Nova pré-reserva
         </Button>
       </div>
 
@@ -385,10 +447,10 @@ export function FunilComercialPage() {
           <form onSubmit={salvar} className="space-y-5">
             <div>
               <h2 className="text-lg font-bold text-slate-900">
-                {editandoId ? 'Editar oportunidade' : 'Nova oportunidade'}
+                {editandoId ? 'Editar dados comerciais' : 'Nova pré-reserva'}
               </h2>
               <p className="text-sm text-slate-500">
-                Vincule um cliente existente ou registre os dados do novo interessado.
+                Nesta etapa usamos somente dados de contato e informações iniciais do evento. CPF e endereço contratual ficam para depois do aceite da proposta.
               </p>
             </div>
 
@@ -408,10 +470,6 @@ export function FunilComercialPage() {
                 {origens.map(origem => <option key={origem}>{origem}</option>)}
               </Select>
 
-              <Select label="Etapa" value={form.etapa} onChange={evento => setForm({ ...form, etapa: evento.target.value as Etapa })}>
-                {etapas.map(etapa => <option key={etapa}>{etapa}</option>)}
-              </Select>
-
               <Input label="Interesse / tema" placeholder="Ex.: Kit Safari para aniversário" value={form.interesse} onChange={evento => setForm({ ...form, interesse: evento.target.value })} />
               <Input label="Data prevista do evento" type="date" value={form.data_evento} onChange={evento => setForm({ ...form, data_evento: evento.target.value })} />
               <Input label="Quantidade de convidados" type="number" min="1" value={form.quantidade_convidados} onChange={evento => setForm({ ...form, quantidade_convidados: evento.target.value })} />
@@ -422,8 +480,8 @@ export function FunilComercialPage() {
             <Textarea label="Observações" rows={4} placeholder="Preferências, dúvidas e próximos passos..." value={form.observacoes} onChange={evento => setForm({ ...form, observacoes: evento.target.value })} />
 
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button type="submit" disabled={salvando}>{salvando ? 'Salvando...' : 'Salvar oportunidade'}</Button>
-              <Button variant="secondary" onClick={cancelarFormulario} disabled={salvando}>Cancelar</Button>
+              <Button type="submit" disabled={salvando}>{salvando ? 'Salvando...' : editandoId ? 'Salvar alterações' : 'Criar pré-reserva'}</Button>
+              <Button type="button" variant="secondary" onClick={cancelarFormulario} disabled={salvando}>Cancelar</Button>
             </div>
           </form>
         </Card>
@@ -432,7 +490,7 @@ export function FunilComercialPage() {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="flex items-center gap-4">
           <span className="rounded-2xl bg-blue-50 p-3 text-blue-700"><Target size={22} /></span>
-          <div><p className="text-sm text-slate-500">Em aberto</p><p className="text-2xl font-bold">{resumo.abertas}</p></div>
+          <div><p className="text-sm text-slate-500">Em contratação</p><p className="text-2xl font-bold">{resumo.abertas}</p></div>
         </Card>
         <Card className="flex items-center gap-4">
           <span className="rounded-2xl bg-green-50 p-3 text-green-700"><TrendingUp size={22} /></span>
@@ -444,38 +502,40 @@ export function FunilComercialPage() {
         </Card>
         <Card className="flex items-center gap-4">
           <span className="rounded-2xl bg-pink-50 p-3 text-pink-700"><TrendingUp size={22} /></span>
-          <div><p className="text-sm text-slate-500">Conversão</p><p className="text-2xl font-bold">{resumo.conversao}%</p></div>
+          <div><p className="text-sm text-slate-500">Conversão em reserva</p><p className="text-2xl font-bold">{resumo.conversao}%</p></div>
         </Card>
       </div>
 
       <div className="flex items-center gap-3 rounded-2xl border bg-white px-4 py-3">
         <Search size={18} className="text-slate-400" />
-        <input className="w-full bg-transparent text-sm outline-none" placeholder="Buscar por contato, origem, interesse ou protocolo..." value={busca} onChange={evento => setBusca(evento.target.value)} />
+        <input className="w-full bg-transparent text-sm outline-none" placeholder="Buscar por cliente, origem, status ou protocolo..." value={busca} onChange={evento => setBusca(evento.target.value)} />
       </div>
 
       {carregando ? (
-        <div className="rounded-2xl border bg-white p-10 text-center text-slate-500">Carregando oportunidades...</div>
+        <div className="rounded-2xl border bg-white p-10 text-center text-slate-500">Carregando a esteira...</div>
       ) : (
         <div className="overflow-x-auto pb-4">
-          <div className="grid min-w-[1860px] grid-cols-6 gap-4">
-            {etapas.map(etapa => {
-              const itens = filtradas.filter(item => item.etapa === etapa)
+          <div className="grid min-w-[2440px] grid-cols-8 gap-4">
+            {colunas.map(coluna => {
+              const itens = filtradas.filter(item => coluna.status.includes(item.jornada_status))
               const valorEtapa = itens.reduce((total, item) => total + Number(item.valor_estimado || 0), 0)
 
               return (
-                <section key={etapa} className="rounded-3xl bg-slate-100/80 p-3">
-                  <div className={`mb-3 rounded-2xl border px-3 py-3 ${corEtapa(etapa)}`}>
+                <section key={coluna.titulo} className="rounded-3xl bg-slate-100/80 p-3">
+                  <div className={`mb-3 rounded-2xl border px-3 py-3 ${coluna.classe}`}>
                     <div className="flex items-center justify-between gap-2">
-                      <h2 className="text-sm font-bold">{etapa}</h2>
+                      <h2 className="text-sm font-bold">{coluna.titulo}</h2>
                       <span className="rounded-full bg-white/70 px-2 py-0.5 text-xs font-bold">{itens.length}</span>
                     </div>
-                    <p className="mt-1 text-xs">{moeda(valorEtapa)}</p>
+                    <p className="mt-1 text-[11px] opacity-80">{coluna.descricao}</p>
+                    <p className="mt-1 text-xs font-semibold">{moeda(valorEtapa)}</p>
                   </div>
 
                   <div className="space-y-3">
                     {itens.map(item => {
                       const historico = historicos.filter(linha => linha.oportunidade_id === item.id)
-                      const atrasado = item.proximo_contato && item.proximo_contato <= new Date().toISOString().slice(0, 10) && !['Fechado', 'Perdido'].includes(item.etapa)
+                      const atrasado = item.proximo_contato && item.proximo_contato <= new Date().toISOString().slice(0, 10) && !['Reserva confirmada', 'Em operação', 'Concluído', 'Perdido'].includes(item.jornada_status)
+                      const podeTriar = ['Pré-reserva', 'Em análise', 'Ajuste solicitado'].includes(item.jornada_status)
 
                       return (
                         <article key={item.id} className="rounded-2xl border bg-white p-4 shadow-sm">
@@ -490,6 +550,12 @@ export function FunilComercialPage() {
                             </button>
                           </div>
 
+                          <div className="mt-3">
+                            <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${corStatus(item.jornada_status)}`}>
+                              {item.jornada_status}
+                            </span>
+                          </div>
+
                           <div className="mt-3 space-y-1 text-xs text-slate-500">
                             <p className="font-semibold text-slate-800">{moeda(item.valor_estimado)}</p>
                             <p className="flex items-center gap-1"><CalendarDays size={13} /> Evento: {dataCurta(item.data_evento)}</p>
@@ -499,24 +565,30 @@ export function FunilComercialPage() {
 
                           {item.motivo_perda && <p className="mt-3 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-600">Motivo: {item.motivo_perda}</p>}
 
-                          <div className="mt-4 space-y-2">
-                            <Select aria-label={`Alterar etapa de ${item.nome_contato}`} value={item.etapa} onChange={evento => alterarEtapa(item, evento.target.value as Etapa)}>
-                              {etapas.map(opcao => <option key={opcao}>{opcao}</option>)}
-                            </Select>
-
-                            <div className="grid grid-cols-3 gap-2">
-                              <Link
-                                href={`/orcamentos?oportunidade=${item.id}`}
-                                className="flex items-center justify-center rounded-xl border bg-white px-2 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                              >
-                                Orçamento
-                              </Link>
-                              <Button variant="secondary" className="px-3" onClick={() => editar(item)}>Editar</Button>
-                              <Button variant="secondary" className="flex items-center justify-center gap-1 px-3" onClick={() => setDetalheAberto(detalheAberto === item.id ? null : item.id)}>
-                                Histórico {detalheAberto === item.id ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-                              </Button>
+                          {podeTriar && (
+                            <div className="mt-4 grid grid-cols-2 gap-2">
+                              {item.jornada_status !== 'Em análise' && (
+                                <Button variant="secondary" className="px-2 text-xs" onClick={() => alterarJornada(item, 'Em análise')}>Em análise</Button>
+                              )}
+                              {item.jornada_status !== 'Ajuste solicitado' && (
+                                <Button variant="secondary" className="px-2 text-xs" onClick={() => alterarJornada(item, 'Ajuste solicitado')}>Pedir ajuste</Button>
+                              )}
                             </div>
+                          )}
+
+                          <div className="mt-3 grid grid-cols-3 gap-2">
+                            <Link href={`/orcamentos?oportunidade=${item.id}`} className="flex items-center justify-center rounded-xl border bg-white px-2 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">Orçamento</Link>
+                            <Button variant="secondary" className="px-2 text-xs" onClick={() => editar(item)}>Editar</Button>
+                            <Button variant="secondary" className="flex items-center justify-center gap-1 px-2 text-xs" onClick={() => setDetalheAberto(detalheAberto === item.id ? null : item.id)}>
+                              Histórico {detalheAberto === item.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                            </Button>
                           </div>
+
+                          {!['Reserva confirmada', 'Em operação', 'Concluído', 'Perdido'].includes(item.jornada_status) && (
+                            <button type="button" onClick={() => alterarJornada(item, 'Perdido')} className="mt-3 w-full text-center text-xs font-semibold text-slate-400 hover:text-red-600">
+                              Marcar como perdido
+                            </button>
+                          )}
 
                           {detalheAberto === item.id && (
                             <div className="mt-4 border-t pt-3">
@@ -536,7 +608,7 @@ export function FunilComercialPage() {
                       )
                     })}
 
-                    {itens.length === 0 && <div className="rounded-2xl border border-dashed bg-white/60 p-6 text-center text-xs text-slate-400">Nenhuma oportunidade</div>}
+                    {itens.length === 0 && <div className="rounded-2xl border border-dashed bg-white/60 p-6 text-center text-xs text-slate-400">Nenhum cliente nesta etapa</div>}
                   </div>
                 </section>
               )
