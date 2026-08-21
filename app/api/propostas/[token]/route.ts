@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabaseServer'
+import {
+  JornadaComercialError,
+  registrarRespostaProposta
+} from '@/lib/application/comercial/jornadaComercialApplication'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,6 +36,7 @@ async function buscarProposta(token: string) {
       numero,status,validade,data_evento,horario_evento,data_retirada,data_devolucao,
       endereco_evento,subtotal,desconto,acrescimos,frete,total,observacoes,
       resposta_cliente,respondido_por,respondido_em,resposta_observacao,
+      formalizacao_status,dados_cliente_completos_em,
       oportunidades(nome_contato),clientes(nome),
       orcamento_itens(descricao,quantidade,valor_unitario,subtotal,created_at)
     `)
@@ -43,13 +48,15 @@ async function buscarProposta(token: string) {
 
   const oportunidade = relacaoUnica(data.oportunidades)
   const cliente = relacaoUnica(data.clientes)
-  const expirada = data.status === 'Expirado' || Boolean(
+  const expirada = ['Expirado', 'EXPIRADA'].includes(data.status) || Boolean(
     data.validade && data.validade < dataHojeBrasil()
   )
 
   return {
     numero: data.numero,
-    status: expirada && ['Rascunho', 'Enviado'].includes(data.status) ? 'Expirado' : data.status,
+    status: expirada && ['Rascunho', 'Enviado', 'RASCUNHO', 'ENVIADA'].includes(data.status)
+      ? (data.status === data.status.toUpperCase() ? 'EXPIRADA' : 'Expirado')
+      : data.status,
     validade: data.validade,
     data_evento: data.data_evento,
     horario_evento: data.horario_evento,
@@ -75,7 +82,11 @@ async function buscarProposta(token: string) {
     respondido_por: data.respondido_por,
     respondido_em: data.respondido_em,
     resposta_observacao: data.resposta_observacao,
-    pode_responder: !expirada && ['Rascunho', 'Enviado'].includes(data.status)
+    formalizacao_status: data.formalizacao_status,
+    dados_cliente_completos: Boolean(data.dados_cliente_completos_em),
+    precisa_completar_dados:
+      data.status === 'ACEITA' && !data.dados_cliente_completos_em,
+    pode_responder: !expirada && ['Rascunho', 'Enviado', 'ENVIADA'].includes(data.status)
   }
 }
 
@@ -130,23 +141,29 @@ export async function POST(request: NextRequest, contexto: Contexto) {
     )
   }
 
-  const { data, error } = await supabaseServer.rpc('registrar_resposta_publica_orcamento', {
-    p_token: token,
-    p_decisao: decisao,
-    p_nome: nome,
-    p_observacao: observacao || null
-  })
+  try {
+    const resposta = await registrarRespostaProposta({
+      token,
+      decisao,
+      nome,
+      observacao: observacao || null
+    })
 
-  if (error) {
-    const status = error.message.includes('expirada') ? 409 : 400
-    return NextResponse.json({ error: error.message }, { status })
+    return NextResponse.json({
+      sucesso: true,
+      mensagem: decisao === 'Aprovado'
+        ? 'Proposta aceita. Complete seus dados para prepararmos o contrato.'
+        : 'Resposta registrada. A equipe Cintia Paula recebeu sua decisão.',
+      resposta
+    })
+  } catch (error) {
+    if (error instanceof JornadaComercialError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusHttp })
+    }
+    const mensagem = error instanceof Error ? error.message : ''
+    return NextResponse.json(
+      { error: mensagem.includes('expirada') ? 'Esta proposta está expirada.' : 'Não foi possível registrar sua resposta.' },
+      { status: mensagem.includes('expirada') ? 409 : 400 }
+    )
   }
-
-  return NextResponse.json({
-    sucesso: true,
-    mensagem: decisao === 'Aprovado'
-      ? 'Proposta aprovada. A equipe Cintia Paula continuará o atendimento.'
-      : 'Resposta registrada. A equipe Cintia Paula recebeu sua decisão.',
-    resposta: data
-  })
 }

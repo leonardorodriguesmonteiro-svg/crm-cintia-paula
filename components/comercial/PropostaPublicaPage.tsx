@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 
 type Decisao = 'Aprovado' | 'Recusado'
+type DecisaoRegistrada = Decisao | 'ACEITA' | 'RECUSADA'
 
 type Proposta = {
   numero: number
@@ -30,11 +31,14 @@ type Proposta = {
     valor_unitario: number
     subtotal: number
   }>
-  resposta_cliente: Decisao | null
+  resposta_cliente: DecisaoRegistrada | null
   respondido_por: string | null
   respondido_em: string | null
   resposta_observacao: string | null
   pode_responder: boolean
+  formalizacao_status: string | null
+  dados_cliente_completos: boolean
+  precisa_completar_dados: boolean
 }
 
 function moeda(valor: number) {
@@ -60,6 +64,8 @@ export function PropostaPublicaPage({ token }: { token: string }) {
   const [decisao, setDecisao] = useState<Decisao | null>(null)
   const [nome, setNome] = useState('')
   const [observacao, setObservacao] = useState('')
+  const [salvandoDados, setSalvandoDados] = useState(false)
+  const [dados, setDados] = useState({ cpf: '', email: '', endereco: '', bairro: '', cidade: '' })
 
   async function carregar() {
     setCarregando(true)
@@ -108,6 +114,29 @@ export function PropostaPublicaPage({ token }: { token: string }) {
     }
   }
 
+  async function completarDados(evento: React.FormEvent) {
+    evento.preventDefault()
+    setSalvandoDados(true)
+    setErro('')
+    setSucesso('')
+
+    try {
+      const resposta = await fetch(`/api/propostas/${token}/dados-cliente`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dados)
+      })
+      const corpo = await resposta.json()
+      if (!resposta.ok) throw new Error(corpo.error || 'Não foi possível salvar seus dados.')
+      setSucesso(corpo.mensagem)
+      await carregar()
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível salvar seus dados.')
+    } finally {
+      setSalvandoDados(false)
+    }
+  }
+
   if (carregando) {
     return <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-500">Carregando sua proposta...</div>
   }
@@ -125,7 +154,12 @@ export function PropostaPublicaPage({ token }: { token: string }) {
   }
 
   const protocolo = `ORC-${String(proposta.numero).padStart(4, '0')}`
-  const respondida = proposta.resposta_cliente || (['Aprovado', 'Recusado'].includes(proposta.status) ? proposta.status as Decisao : null)
+  const respondida = proposta.resposta_cliente || (
+    ['Aprovado', 'Recusado', 'ACEITA', 'RECUSADA'].includes(proposta.status)
+      ? proposta.status as DecisaoRegistrada
+      : null
+  )
+  const aceita = respondida === 'Aprovado' || respondida === 'ACEITA'
 
   return (
     <main className="min-h-screen bg-slate-50 pb-12">
@@ -176,10 +210,36 @@ export function PropostaPublicaPage({ token }: { token: string }) {
         <section className="rounded-3xl border bg-white p-6 shadow-sm md:p-8">
           {respondida ? (
             <div className="text-center">
-              {respondida === 'Aprovado' ? <CheckCircle2 className="mx-auto text-green-600" size={48} /> : <XCircle className="mx-auto text-red-500" size={48} />}
-              <h2 className="mt-4 text-2xl font-bold text-slate-900">Proposta {respondida === 'Aprovado' ? 'aprovada' : 'recusada'}</h2>
+              {aceita ? <CheckCircle2 className="mx-auto text-green-600" size={48} /> : <XCircle className="mx-auto text-red-500" size={48} />}
+              <h2 className="mt-4 text-2xl font-bold text-slate-900">Proposta {aceita ? 'aceita' : 'recusada'}</h2>
               <p className="mt-2 text-slate-500">Resposta registrada em {dataHora(proposta.respondido_em)}{proposta.respondido_por ? ` por ${proposta.respondido_por}` : ''}.</p>
               {proposta.resposta_observacao && <p className="mx-auto mt-4 max-w-xl rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">{proposta.resposta_observacao}</p>}
+
+              {aceita && proposta.precisa_completar_dados && (
+                <form onSubmit={completarDados} className="mx-auto mt-6 max-w-2xl space-y-4 rounded-2xl border border-pink-100 bg-pink-50/60 p-5 text-left">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">Complete os dados para o contrato</h3>
+                    <p className="text-sm text-slate-500">Essas informações só são solicitadas após seu aceite e não precisam ser reenviadas.</p>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Input label="CPF *" inputMode="numeric" required value={dados.cpf} onChange={evento => setDados({ ...dados, cpf: evento.target.value })} />
+                    <Input label="E-mail" type="email" value={dados.email} onChange={evento => setDados({ ...dados, email: evento.target.value })} />
+                    <Input label="Endereço completo *" required className="sm:col-span-2" value={dados.endereco} onChange={evento => setDados({ ...dados, endereco: evento.target.value })} />
+                    <Input label="Bairro *" required value={dados.bairro} onChange={evento => setDados({ ...dados, bairro: evento.target.value })} />
+                    <Input label="Cidade *" required value={dados.cidade} onChange={evento => setDados({ ...dados, cidade: evento.target.value })} />
+                  </div>
+                  <Button type="submit" disabled={salvandoDados} className="w-full sm:w-auto">
+                    {salvandoDados ? 'Salvando dados...' : 'Salvar e continuar para o contrato'}
+                  </Button>
+                </form>
+              )}
+
+              {aceita && proposta.dados_cliente_completos && (
+                <div className="mx-auto mt-6 max-w-xl rounded-2xl bg-green-50 p-4 text-sm text-green-800">
+                  <p className="font-bold">Dados cadastrais concluídos</p>
+                  <p className="mt-1">A equipe já pode gerar e enviar seu contrato.</p>
+                </div>
+              )}
             </div>
           ) : proposta.pode_responder ? (
             <div>

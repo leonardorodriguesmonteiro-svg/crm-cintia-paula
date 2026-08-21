@@ -21,6 +21,14 @@ type Oportunidade = {
   interesse: string | null
   data_evento: string | null
   etapa: string
+  versao: number
+}
+
+type Cliente = {
+  id: string
+  nome: string
+  whatsapp: string | null
+  email: string | null
 }
 
 type Kit = {
@@ -78,7 +86,10 @@ type Orcamento = {
   observacoes: string | null
   reserva_id: string | null
   public_token: string | null
-  resposta_cliente: 'Aprovado' | 'Recusado' | null
+  email_enviado_em: string | null
+  email_destino: string | null
+  email_erro: string | null
+  resposta_cliente: 'Aprovado' | 'Recusado' | 'ACEITA' | 'RECUSADA' | null
   respondido_por: string | null
   respondido_em: string | null
   resposta_observacao: string | null
@@ -97,6 +108,11 @@ type Orcamento = {
     celular: string
     email: string | null
   } | null
+  clientes: {
+    nome: string
+    whatsapp: string | null
+    email: string | null
+  } | null
   contratos: {
     public_token: string | null
     email_enviado_em: string | null
@@ -110,6 +126,7 @@ type Orcamento = {
 }
 
 type FormOrcamento = {
+  cliente_id: string
   oportunidade_id: string
   status: string
   validade: string
@@ -162,6 +179,7 @@ function dataVencimentoSinalInicial() {
 }
 
 const formVazio: FormOrcamento = {
+  cliente_id: '',
   oportunidade_id: '',
   status: 'Rascunho',
   validade: dataValidadeInicial(),
@@ -199,10 +217,10 @@ function dataCurta(valor: string | null) {
 }
 
 function corStatus(status: string) {
-  if (status === 'Aprovado') return 'bg-green-100 text-green-800'
-  if (status === 'Enviado') return 'bg-blue-100 text-blue-800'
-  if (status === 'Recusado') return 'bg-red-100 text-red-800'
-  if (status === 'Expirado') return 'bg-slate-200 text-slate-700'
+  if (['Aprovado', 'ACEITA'].includes(status)) return 'bg-green-100 text-green-800'
+  if (['Enviado', 'ENVIADA'].includes(status)) return 'bg-blue-100 text-blue-800'
+  if (['Recusado', 'RECUSADA', 'CANCELADA'].includes(status)) return 'bg-red-100 text-red-800'
+  if (['Expirado', 'EXPIRADA'].includes(status)) return 'bg-slate-200 text-slate-700'
   return 'bg-amber-100 text-amber-800'
 }
 
@@ -214,7 +232,28 @@ function corFormalizacao(status: string | null) {
   return 'bg-amber-100 text-amber-800'
 }
 
+function nomeClienteDo(orcamento: Orcamento) {
+  return orcamento.clientes?.nome || orcamento.oportunidades?.nome_contato || 'Cliente não identificado'
+}
+
+function emailClienteDo(orcamento: Orcamento) {
+  return orcamento.clientes?.email || orcamento.oportunidades?.email || null
+}
+
+function propostaPodeSerCancelada(orcamento: Orcamento) {
+  return ['Enviado', 'ENVIADA'].includes(orcamento.status) && !orcamento.resposta_cliente
+}
+
+function propostaPodeSerEnviada(orcamento: Orcamento) {
+  return ['Rascunho', 'RASCUNHO', 'Enviado', 'ENVIADA'].includes(orcamento.status) && !orcamento.resposta_cliente
+}
+
+function propostaPodeSerEditada(orcamento: Orcamento) {
+  return ['Rascunho', 'RASCUNHO'].includes(orcamento.status) && !orcamento.resposta_cliente
+}
+
 export function OrcamentosPage() {
+  const [clientes, setClientes] = useState<Cliente[]>([])
   const [oportunidades, setOportunidades] = useState<Oportunidade[]>([])
   const [kits, setKits] = useState<Kit[]>([])
   const [composicoesKit, setComposicoesKit] = useState<ComposicaoKit[]>([])
@@ -240,6 +279,8 @@ export function OrcamentosPage() {
   const [gerandoCobrancaId, setGerandoCobrancaId] = useState<string | null>(null)
   const [enviandoContratoId, setEnviandoContratoId] = useState<string | null>(null)
   const [cancelandoEnvioId, setCancelandoEnvioId] = useState<string | null>(null)
+  const [enviandoPropostaId, setEnviandoPropostaId] = useState<string | null>(null)
+  const [cancelandoPropostaId, setCancelandoPropostaId] = useState<string | null>(null)
   const [mercadoPagoPronto, setMercadoPagoPronto] = useState(false)
   const [carregando, setCarregando] = useState(true)
 
@@ -247,11 +288,12 @@ export function OrcamentosPage() {
     setCarregando(true)
     setErro('')
 
-    const [oportunidadesRes, kitsRes, composicoesRes, acessoriosRes, orcamentosRes] = await Promise.all([
+    const [clientesRes, oportunidadesRes, kitsRes, composicoesRes, acessoriosRes, orcamentosRes] = await Promise.all([
+      supabase.from('clientes').select('id,nome,whatsapp,email').order('nome'),
       supabase
         .from('oportunidades')
-        .select('id,numero,cliente_id,nome_contato,celular,email,interesse,data_evento,etapa')
-        .neq('etapa', 'Perdido')
+        .select('id,numero,cliente_id,nome_contato,celular,email,interesse,data_evento,etapa,versao')
+        .in('etapa', ['APROVADA', 'CONVERTIDA_EM_PROPOSTA', 'Novo contato', 'Em atendimento', 'Orçamento enviado', 'Negociação', 'Fechado'])
         .order('updated_at', { ascending: false }),
       supabase.from('kits').select('id,codigo,nome,valor').order('nome'),
       supabase
@@ -264,15 +306,16 @@ export function OrcamentosPage() {
         .order('nome'),
       supabase
         .from('orcamentos')
-        .select('*,oportunidades(numero,nome_contato,celular,email),contratos(public_token,email_enviado_em,email_destino),lancamentos_financeiros(provedor_pagamento,link_pagamento,status_provedor)')
+        .select('*,clientes(nome,whatsapp,email),oportunidades(numero,nome_contato,celular,email),contratos(public_token,email_enviado_em,email_destino),lancamentos_financeiros(provedor_pagamento,link_pagamento,status_provedor)')
         .order('created_at', { ascending: false })
     ])
 
-    const primeiroErro = oportunidadesRes.error || kitsRes.error || composicoesRes.error || acessoriosRes.error || orcamentosRes.error
+    const primeiroErro = clientesRes.error || oportunidadesRes.error || kitsRes.error || composicoesRes.error || acessoriosRes.error || orcamentosRes.error
 
     if (primeiroErro) {
       setErro(primeiroErro.message)
     } else {
+      setClientes(clientesRes.data || [])
       setOportunidades(oportunidadesRes.data || [])
       setKits(kitsRes.data || [])
       setComposicoesKit((composicoesRes.data as unknown as ComposicaoKit[]) || [])
@@ -303,13 +346,14 @@ export function OrcamentosPage() {
     if (!form.oportunidade_id || form.data_evento) return
 
     const oportunidade = oportunidades.find(item => item.id === form.oportunidade_id)
-    if (!oportunidade?.data_evento) return
+    if (!oportunidade) return
 
     setForm(atual => ({
       ...atual,
-      data_evento: oportunidade.data_evento || '',
-      data_retirada: oportunidade.data_evento || '',
-      data_devolucao: oportunidade.data_evento || ''
+      cliente_id: oportunidade.cliente_id || atual.cliente_id,
+      data_evento: oportunidade.data_evento || atual.data_evento,
+      data_retirada: oportunidade.data_evento || atual.data_retirada,
+      data_devolucao: oportunidade.data_evento || atual.data_devolucao
     }))
   }, [form.data_evento, form.oportunidade_id, oportunidades])
 
@@ -352,11 +396,22 @@ export function OrcamentosPage() {
     setForm(atual => ({
       ...atual,
       oportunidade_id: id,
+      cliente_id: oportunidade?.cliente_id || atual.cliente_id,
       data_evento: oportunidade?.data_evento || atual.data_evento,
       data_retirada: oportunidade?.data_evento || atual.data_retirada,
       data_devolucao: oportunidade?.data_evento || atual.data_devolucao
     }))
     setDisponibilidades({})
+  }
+
+  function selecionarCliente(id: string) {
+    setForm(atual => ({
+      ...atual,
+      cliente_id: id,
+      oportunidade_id: atual.oportunidade_id && oportunidades.some(
+        item => item.id === atual.oportunidade_id && item.cliente_id === id
+      ) ? atual.oportunidade_id : ''
+    }))
   }
 
   function atualizarItem(chave: string, alteracoes: Partial<ItemForm>) {
@@ -421,7 +476,7 @@ export function OrcamentosPage() {
     setErro('')
     setSucesso('')
 
-    if (!form.oportunidade_id) return setErro('Selecione a oportunidade deste orçamento.')
+    if (!form.cliente_id && !form.oportunidade_id) return setErro('Selecione o cliente deste orçamento.')
     if (!form.data_evento) return setErro('Informe a data prevista do evento.')
 
     const itensValidos = itens.filter(item => item.descricao.trim() && Number(item.quantidade) > 0)
@@ -450,6 +505,7 @@ export function OrcamentosPage() {
     }
 
     const oportunidade = oportunidades.find(item => item.id === form.oportunidade_id)
+    const clienteId = form.cliente_id || oportunidade?.cliente_id || null
     const { data: vinculo } = await supabase
       .from('usuarios_empresa')
       .select('empresa_id')
@@ -458,12 +514,13 @@ export function OrcamentosPage() {
       .limit(1)
       .maybeSingle()
 
-    const desejaAprovar = form.status === 'Aprovado'
+    const novaJornada = ['APROVADA', 'CONVERTIDA_EM_PROPOSTA'].includes(oportunidade?.etapa || '')
+    const desejaAprovar = form.status === 'Aprovado' && !novaJornada
     const payload = {
       empresa_id: vinculo?.empresa_id || null,
-      oportunidade_id: form.oportunidade_id,
-      cliente_id: oportunidade?.cliente_id || null,
-      status: desejaAprovar ? 'Enviado' : form.status,
+      oportunidade_id: form.oportunidade_id || null,
+      cliente_id: clienteId,
+      status: novaJornada ? 'RASCUNHO' : (desejaAprovar ? 'Enviado' : form.status),
       validade: form.validade || null,
       data_evento: form.data_evento,
       horario_evento: form.horario_evento || null,
@@ -638,7 +695,22 @@ export function OrcamentosPage() {
   }
 
   async function registrarEnvio(orcamento: Orcamento) {
-    if (orcamento.status !== 'Rascunho') return
+    if (!['Rascunho', 'RASCUNHO'].includes(orcamento.status)) return
+
+    if (orcamento.status === 'RASCUNHO') {
+      const { data: sessao } = await supabase.auth.getSession()
+      const token = sessao.session?.access_token
+      if (!token) throw new Error('Sua sessão expirou. Entre novamente no ERP.')
+
+      const resposta = await fetch(`/api/comercial/propostas/${orcamento.id}/enviar`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const dados = await resposta.json().catch(() => ({}))
+      if (!resposta.ok) throw new Error(dados.erro || 'Não foi possível enviar a proposta.')
+      await carregar()
+      return
+    }
 
     const { error: orcamentoError } = await supabase
       .from('orcamentos')
@@ -712,6 +784,13 @@ export function OrcamentosPage() {
       return
     }
 
+    try {
+      await registrarEnvio(orcamento)
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível liberar a proposta para envio.')
+      return
+    }
+
     const link = `${window.location.origin}/proposta/${orcamento.public_token}`
     let copiado = false
 
@@ -735,6 +814,70 @@ export function OrcamentosPage() {
       setSucesso(`Link público do ORC-${String(orcamento.numero).padStart(4, '0')} copiado.`)
     } else {
       setErro('Não foi possível copiar o link. Abra a proposta e copie o endereço do navegador.')
+    }
+  }
+
+  async function enviarPropostaPorEmail(orcamento: Orcamento) {
+    const email = orcamento.clientes?.email || orcamento.oportunidades?.email
+    if (!email) {
+      setErro('Cadastre um e-mail para o cliente antes de enviar a proposta.')
+      return
+    }
+
+    setErro('')
+    setSucesso('')
+    setEnviandoPropostaId(orcamento.id)
+
+    try {
+      const { data: sessao } = await supabase.auth.getSession()
+      const token = sessao.session?.access_token
+      if (!token) throw new Error('Sua sessão expirou. Entre novamente no ERP.')
+
+      const resposta = await fetch(`/api/orcamentos/${orcamento.id}/enviar-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ reenviar: Boolean(orcamento.email_enviado_em) })
+      })
+      const corpo = await resposta.json().catch(() => ({}))
+      if (!resposta.ok) throw new Error(corpo.error || 'Não foi possível enviar a proposta.')
+
+      setSucesso(corpo.mensagem || `Proposta enviada para ${email}.`)
+      await carregar()
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível enviar a proposta.')
+    } finally {
+      setEnviandoPropostaId(null)
+    }
+  }
+
+  async function cancelarEnvioProposta(orcamento: Orcamento) {
+    if (!window.confirm('Cancelar este envio? O e-mail continuará na caixa do cliente, mas o link da proposta será invalidado.')) return
+
+    setErro('')
+    setSucesso('')
+    setCancelandoPropostaId(orcamento.id)
+
+    try {
+      const { data: sessao } = await supabase.auth.getSession()
+      const token = sessao.session?.access_token
+      if (!token) throw new Error('Sua sessão expirou. Entre novamente no ERP.')
+
+      const resposta = await fetch(`/api/orcamentos/${orcamento.id}/cancelar-envio`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const corpo = await resposta.json().catch(() => ({}))
+      if (!resposta.ok) throw new Error(corpo.error || 'Não foi possível cancelar o envio.')
+
+      setSucesso(corpo.mensagem)
+      await carregar()
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível cancelar o envio.')
+    } finally {
+      setCancelandoPropostaId(null)
     }
   }
 
@@ -982,6 +1125,7 @@ export function OrcamentosPage() {
     if (error) return setErro(error.message)
 
     setForm({
+      cliente_id: orcamento.cliente_id || '',
       oportunidade_id: orcamento.oportunidade_id || '',
       status: orcamento.status,
       validade: orcamento.validade || '',
@@ -1027,14 +1171,37 @@ export function OrcamentosPage() {
           <form onSubmit={salvar} className="space-y-6">
             <div>
               <h2 className="text-xl font-bold text-slate-900">{editandoId ? 'Editar orçamento' : 'Novo orçamento'}</h2>
-              <p className="text-sm text-slate-500">Defina a oportunidade, período e itens da proposta.</p>
+              <p className="text-sm text-slate-500">Defina o cliente, a pré-reserva quando existir, o período e os itens da proposta.</p>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <Select label="Oportunidade *" value={form.oportunidade_id} onChange={evento => selecionarOportunidade(evento.target.value)}>
-                <option value="">Selecione...</option>
-                {oportunidades.map(item => <option key={item.id} value={item.id}>OP-{String(item.numero).padStart(4, '0')} — {item.nome_contato}</option>)}
-              </Select>
+              <div>
+                <Select label="Cliente *" value={form.cliente_id} onChange={evento => selecionarCliente(evento.target.value)}>
+                  <option value="">Selecione um cliente...</option>
+                  {clientes.map(item => (
+                    <option key={item.id} value={item.id}>
+                      {item.nome}{item.email ? ` — ${item.email}` : ''}
+                    </option>
+                  ))}
+                </Select>
+                <Link href="/clientes" className="mt-1 inline-block text-xs font-semibold text-pink-700 hover:text-pink-800">
+                  + Cadastrar novo cliente
+                </Link>
+              </div>
+              <div>
+                <Select label="Pré-reserva aprovada (opcional)" value={form.oportunidade_id} onChange={evento => selecionarOportunidade(evento.target.value)}>
+                  <option value="">Orçamento direto para o cliente</option>
+                  {oportunidades
+                    .filter(item => !form.cliente_id || !item.cliente_id || item.cliente_id === form.cliente_id)
+                    .filter(item => item.etapa !== 'CONVERTIDA_EM_PROPOSTA' || item.id === form.oportunidade_id)
+                    .map(item => (
+                      <option key={item.id} value={item.id}>
+                        PRÉ-{String(item.numero).padStart(4, '0')} — {item.nome_contato}
+                      </option>
+                    ))}
+                </Select>
+                <p className="mt-1 text-xs text-slate-500">Use quando o pedido veio do site ou da esteira comercial.</p>
+              </div>
               <Select label="Status" value={form.status} onChange={evento => setForm({ ...form, status: evento.target.value })}>
                 <option>Rascunho</option><option>Enviado</option><option>Aprovado</option><option>Recusado</option><option>Expirado</option>
               </Select>
@@ -1152,15 +1319,20 @@ export function OrcamentosPage() {
         {orcamentos.map(orcamento => (
           <Card key={orcamento.id}>
             <div className="flex items-start justify-between gap-3">
-              <div><p className="text-xs font-bold text-pink-700">ORC-{String(orcamento.numero).padStart(4, '0')}</p><h2 className="font-bold text-slate-900">{orcamento.oportunidades?.nome_contato || 'Oportunidade não vinculada'}</h2></div>
+              <div><p className="text-xs font-bold text-pink-700">ORC-{String(orcamento.numero).padStart(4, '0')}</p><h2 className="font-bold text-slate-900">{nomeClienteDo(orcamento)}</h2></div>
               <span className={`rounded-full px-3 py-1 text-xs font-bold ${corStatus(orcamento.status)}`}>{orcamento.status}</span>
             </div>
             <div className="mt-4 space-y-1 text-sm text-slate-500">
               <p>Evento: {dataCurta(orcamento.data_evento)}</p><p>Validade: {dataCurta(orcamento.validade)}</p><p className="pt-2 text-xl font-bold text-slate-900">{moeda(orcamento.total)}</p>
             </div>
+            {orcamento.email_enviado_em && (
+              <p className="mt-3 text-xs text-slate-500">
+                E-mail enviado em {new Date(orcamento.email_enviado_em).toLocaleString('pt-BR')} para {orcamento.email_destino || emailClienteDo(orcamento)}
+              </p>
+            )}
             {orcamento.resposta_cliente && (
-              <div className={`mt-4 rounded-xl px-3 py-2 text-xs ${orcamento.resposta_cliente === 'Aprovado' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>
-                <p className="font-bold">Cliente {orcamento.resposta_cliente === 'Aprovado' ? 'aprovou' : 'recusou'} a proposta</p>
+              <div className={`mt-4 rounded-xl px-3 py-2 text-xs ${['Aprovado', 'ACEITA'].includes(orcamento.resposta_cliente) ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>
+                <p className="font-bold">Cliente {['Aprovado', 'ACEITA'].includes(orcamento.resposta_cliente) ? 'aceitou' : 'recusou'} a proposta</p>
                 <p className="mt-0.5">{orcamento.respondido_por || 'Cliente'} · {orcamento.respondido_em ? new Date(orcamento.respondido_em).toLocaleString('pt-BR') : 'data não informada'}</p>
                 {orcamento.resposta_observacao && <p className="mt-1">“{orcamento.resposta_observacao}”</p>}
               </div>
@@ -1327,28 +1499,52 @@ export function OrcamentosPage() {
                   {acaoDocumento === `compartilhar:${orcamento.id}` ? 'Preparando...' : 'Compartilhar'}
                 </Button>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="secondary"
-                  disabled={!orcamento.public_token}
-                  className="flex items-center justify-center gap-1 px-2"
-                  onClick={() => copiarLinkPublico(orcamento)}
+              <button
+                type="button"
+                disabled={!orcamento.public_token}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-pink-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-pink-700 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => copiarLinkPublico(orcamento)}
+              >
+                <Copy size={17} /> Copiar link da proposta
+              </button>
+              {!emailClienteDo(orcamento) && (
+                <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">Cadastre o e-mail do cliente para habilitar o envio automático.</p>
+              )}
+              <button
+                type="button"
+                disabled={enviandoPropostaId === orcamento.id || !emailClienteDo(orcamento) || !propostaPodeSerEnviada(orcamento)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => enviarPropostaPorEmail(orcamento)}
+              >
+                <Mail size={17} />
+                {enviandoPropostaId === orcamento.id
+                  ? 'Enviando...'
+                  : orcamento.email_enviado_em
+                    ? 'Reenviar proposta por e-mail'
+                    : 'Enviar proposta por e-mail'}
+              </button>
+              {propostaPodeSerCancelada(orcamento) && (
+                <button
+                  type="button"
+                  disabled={cancelandoPropostaId === orcamento.id}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={() => cancelarEnvioProposta(orcamento)}
                 >
-                  <Copy size={16} /> Copiar link
-                </Button>
-                {orcamento.public_token ? (
-                  <a
-                    href={`/proposta/${orcamento.public_token}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center justify-center gap-1 rounded-xl border bg-white px-2 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                  >
-                    <ExternalLink size={16} /> Ver proposta
-                  </a>
-                ) : (
-                  <span className="flex items-center justify-center rounded-xl border bg-slate-50 px-2 py-2 text-sm text-slate-400">Link indisponível</span>
-                )}
-              </div>
+                  <Ban size={17} /> {cancelandoPropostaId === orcamento.id ? 'Cancelando...' : 'Cancelar envio e invalidar link'}
+                </button>
+              )}
+              {orcamento.public_token ? (
+                <a
+                  href={`/proposta/${orcamento.public_token}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-pink-200 bg-pink-50 px-4 py-3 text-sm font-bold text-pink-700 transition hover:bg-pink-100"
+                >
+                  <ExternalLink size={17} /> Abrir página do cliente
+                </a>
+              ) : (
+                <span className="flex items-center justify-center rounded-xl border bg-slate-50 px-4 py-3 text-sm text-slate-400">Página do cliente indisponível</span>
+              )}
               {orcamento.reserva_id ? (
                 <Link
                   href={`/reservas/${orcamento.reserva_id}`}
@@ -1364,7 +1560,19 @@ export function OrcamentosPage() {
                   {convertendoId === orcamento.id ? 'Gerando reserva...' : 'Aprovar e gerar reserva'}
                 </Button>
               ) : null}
-              <Button variant="secondary" onClick={() => editar(orcamento)}>Editar orçamento</Button>
+              <Button
+                variant="secondary"
+                disabled={!propostaPodeSerEditada(orcamento)}
+                onClick={() => editar(orcamento)}
+              >
+                {propostaPodeSerEditada(orcamento)
+                  ? 'Editar orçamento'
+                  : orcamento.resposta_cliente
+                    ? 'Proposta respondida'
+                    : ['Enviado', 'ENVIADA'].includes(orcamento.status)
+                      ? 'Cancele o envio para editar'
+                      : 'Edição indisponível'}
+              </Button>
             </div>
           </Card>
         ))}

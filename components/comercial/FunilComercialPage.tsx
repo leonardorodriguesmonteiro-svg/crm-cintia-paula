@@ -8,7 +8,6 @@ import {
   ChevronUp,
   Clock3,
   MessageCircle,
-  Plus,
   Search,
   Target,
   TrendingUp
@@ -19,6 +18,7 @@ import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
+import { PreReservasPanel } from '@/components/comercial/PreReservasPanel'
 
 const etapas = [
   'Novo contato',
@@ -206,12 +206,13 @@ export function FunilComercialPage() {
   }, [busca, oportunidades])
 
   const resumo = useMemo(() => {
-    const abertas = oportunidades.filter(item => !['Fechado', 'Perdido'].includes(item.etapa))
-    const fechadas = oportunidades.filter(item => item.etapa === 'Fechado')
+    const legadas = oportunidades.filter(item => etapas.includes(item.etapa))
+    const abertas = legadas.filter(item => !['Fechado', 'Perdido'].includes(item.etapa))
+    const fechadas = legadas.filter(item => item.etapa === 'Fechado')
     const potencial = abertas.reduce((total, item) => total + Number(item.valor_estimado || 0), 0)
     const hoje = new Date().toISOString().slice(0, 10)
     const retornos = abertas.filter(item => item.proximo_contato && item.proximo_contato <= hoje).length
-    const totalDecididas = oportunidades.filter(item => ['Fechado', 'Perdido'].includes(item.etapa)).length
+    const totalDecididas = legadas.filter(item => ['Fechado', 'Perdido'].includes(item.etapa)).length
 
     return {
       abertas: abertas.length,
@@ -360,25 +361,16 @@ export function FunilComercialPage() {
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <p className="text-sm font-semibold text-pink-700">COMERCIAL</p>
-          <h1 className="text-3xl font-bold text-slate-900">Funil Comercial</h1>
+          <h1 className="text-3xl font-bold text-slate-900">Jornada Comercial</h1>
           <p className="mt-1 text-slate-500">
-            Acompanhe cada contato até o fechamento da festa.
+            Pré-reserva, análise, proposta e formalização em etapas separadas.
           </p>
         </div>
-
-        <Button
-          onClick={() => {
-            setForm(formVazio)
-            setEditandoId(null)
-            setFormAberto(true)
-          }}
-          className="flex items-center justify-center gap-2"
-        >
-          <Plus size={18} /> Nova oportunidade
-        </Button>
       </div>
 
       {erro && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
+
+      <PreReservasPanel />
 
       {formAberto && (
         <Card className="border-pink-200">
@@ -428,6 +420,12 @@ export function FunilComercialPage() {
           </form>
         </Card>
       )}
+
+      <div className="border-t pt-6">
+        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Compatibilidade histórica</p>
+        <h2 className="text-xl font-bold text-slate-900">Oportunidades do funil anterior</h2>
+        <p className="text-sm text-slate-500">Registros existentes continuam disponíveis sem conversão ou exclusão automática.</p>
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="flex items-center gap-4">
