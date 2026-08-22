@@ -229,11 +229,11 @@ export function PropostaPublicaPage({ token }: { token: string }) {
                 <form onSubmit={completarDados} className="mx-auto mt-6 max-w-2xl space-y-4 rounded-2xl border border-pink-100 bg-pink-50/60 p-5 text-left">
                   <div>
                     <h3 className="text-lg font-bold text-slate-900">Complete os dados para o contrato</h3>
-                    <p className="text-sm text-slate-500">Após o aceite, precisamos do CPF e do endereço completo para preparar o contrato. O complemento é opcional.</p>
+                    <p className="text-sm text-slate-500">Após o aceite, precisamos do CPF, e-mail e endereço completo para a formalização. O e-mail é obrigatório para o envio do orçamento, contrato e nota fiscal. Apenas o complemento é opcional.</p>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Input label="CPF *" inputMode="numeric" required maxLength={14} value={dados.cpf} onChange={evento => setDados({ ...dados, cpf: evento.target.value })} />
-                    <Input label="E-mail" type="email" maxLength={254} value={dados.email} onChange={evento => setDados({ ...dados, email: evento.target.value })} />
+                    <Input label="E-mail *" type="email" required maxLength={254} value={dados.email} onChange={evento => setDados({ ...dados, email: evento.target.value })} />
                     <Input label="CEP *" inputMode="numeric" required maxLength={9} placeholder="00000-000" value={dados.cep} onChange={evento => setDados({ ...dados, cep: evento.target.value })} />
                     <Input label="UF *" required maxLength={2} placeholder="RJ" value={dados.estado} onChange={evento => setDados({ ...dados, estado: evento.target.value.toUpperCase().slice(0, 2) })} />
                     <Input label="Logradouro *" required maxLength={300} className="sm:col-span-2" placeholder="Rua, avenida, estrada..." value={dados.endereco} onChange={evento => setDados({ ...dados, endereco: evento.target.value })} />
