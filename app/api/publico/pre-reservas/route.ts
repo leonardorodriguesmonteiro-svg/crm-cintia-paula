@@ -77,6 +77,28 @@ function validarOrigem(request: NextRequest) {
   return origem && origensPermitidas().has(origem) ? origem : null
 }
 
+function detalhesSegurosDoErro(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      tipo: error.name,
+      mensagem: error.message
+    }
+  }
+
+  if (error && typeof error === 'object') {
+    const registro = error as Record<string, unknown>
+    return {
+      tipo: 'ErroSupabase',
+      codigo: typeof registro.code === 'string' ? registro.code : undefined,
+      mensagem: typeof registro.message === 'string' ? registro.message : undefined,
+      detalhe: typeof registro.details === 'string' ? registro.details : undefined,
+      dica: typeof registro.hint === 'string' ? registro.hint : undefined
+    }
+  }
+
+  return { tipo: typeof error }
+}
+
 export async function OPTIONS(request: NextRequest) {
   const origem = validarOrigem(request)
   if (!origem) return new NextResponse(null, { status: 403 })
@@ -175,9 +197,10 @@ export async function POST(request: NextRequest) {
       return resposta(origem, { erro: error.message, codigo: error.codigo }, error.statusHttp)
     }
 
-    console.error('[pre-reservas:publico] falha sem dados pessoais', {
-      tipo: error instanceof Error ? error.name : 'Erro desconhecido'
-    })
+    console.error(
+      '[pre-reservas:publico] falha sem dados pessoais',
+      detalhesSegurosDoErro(error)
+    )
     return resposta(origem, {
       erro: 'Não foi possível registrar a pré-reserva agora.'
     }, 500)
