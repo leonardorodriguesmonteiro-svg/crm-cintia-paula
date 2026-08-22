@@ -11,8 +11,7 @@ import {
   hashDoSolicitante,
   JANELA_PRE_RESERVAS_SEGUNDOS,
   LIMITE_PRE_RESERVAS,
-  origemDaRequisicao,
-  origensPermitidas,
+  origemEhPermitida,
   TAMANHO_MAXIMO_PRE_RESERVA
 } from '@/lib/server/publicPreReservation'
 
@@ -82,8 +81,7 @@ function resposta(
 }
 
 function validarOrigem(request: NextRequest) {
-  const origem = origemDaRequisicao(request)
-  return origem && origensPermitidas().has(origem) ? origem : null
+  return origemEhPermitida(request)
 }
 
 function detalhesSegurosDoErro(error: unknown) {
