@@ -12,13 +12,13 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 type Contexto = {
-  params: Promise<{ token: string }>
+  params: Promise<{ id: string }>
 }
 
 const tokenValido = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 export async function POST(request: NextRequest, contexto: Contexto) {
-  const { token } = await contexto.params
+  const { id: token } = await contexto.params
 
   if (!tokenValido.test(token)) {
     return NextResponse.json({ error: 'Contrato não encontrado.' }, { status: 404 })
