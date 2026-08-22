@@ -3,6 +3,7 @@ import {
   exigirPerfis,
   respostaErroAdministrativo
 } from '@/lib/server/adminAuth'
+import { publicarConfirmacaoReservaV2 } from '@/lib/formalizacaoConfirmacao'
 import { supabaseServer } from '@/lib/supabaseServer'
 
 export const dynamic = 'force-dynamic'
@@ -12,6 +13,12 @@ type AcaoFormalizacao =
   | 'formalizar'
   | 'confirmar_assinatura'
   | 'confirmar_sinal'
+
+type ResultadoFormalizacao = {
+  nova_confirmacao?: boolean
+  reserva_id?: string | null
+  [chave: string]: unknown
+}
 
 export async function POST(
   request: NextRequest,
@@ -44,7 +51,6 @@ export async function POST(
           { status: 400 }
         )
       }
-
     }
 
     const resultado = await supabaseServer.rpc('executar_formalizacao_servidor', {
@@ -60,7 +66,17 @@ export async function POST(
       return NextResponse.json({ error: resultado.error.message }, { status: 400 })
     }
 
-    return NextResponse.json({ sucesso: true, ...(resultado.data || {}) })
+    const dados = (resultado.data || {}) as ResultadoFormalizacao
+    const evento = await publicarConfirmacaoReservaV2(
+      dados,
+      `Formalização V2 · ${acao}`
+    )
+
+    return NextResponse.json({
+      sucesso: true,
+      ...dados,
+      avisos: evento.avisos
+    })
   } catch (error) {
     const resposta = respostaErroAdministrativo(error)
     return NextResponse.json({ error: resposta.mensagem }, { status: resposta.status })
