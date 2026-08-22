@@ -2,12 +2,12 @@ import Link from 'next/link'
 import type { ReactNode } from 'react'
 
 const links = [
-  { href: '/', label: 'Início' },
-  { href: '/kits', label: 'Kits' },
-  { href: '/como-funciona', label: 'Como funciona' },
-  { href: '/sobre', label: 'Sobre' },
-  { href: '/duvidas', label: 'Dúvidas' },
-  { href: '/contato', label: 'Contato' }
+  { href: '/site', label: 'Início' },
+  { href: '/site/kits', label: 'Kits' },
+  { href: '/site/como-funciona', label: 'Como funciona' },
+  { href: '/site/sobre', label: 'Sobre' },
+  { href: '/site/duvidas', label: 'Dúvidas' },
+  { href: '/site/contato', label: 'Contato' }
 ]
 
 export function SitePublicoLayout({ children }: { children: ReactNode }) {
@@ -15,7 +15,7 @@ export function SitePublicoLayout({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-white text-slate-900">
       <header className="sticky top-0 z-50 border-b border-pink-100 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 md:px-8">
-          <Link href="/" className="min-w-fit">
+          <Link href="/site" className="min-w-fit">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-600">Cintia Paula</p>
             <p className="text-base font-black md:text-lg">Festas &amp; Decorações</p>
           </Link>
@@ -56,9 +56,9 @@ export function SitePublicoLayout({ children }: { children: ReactNode }) {
           <div>
             <p className="font-black">Navegação</p>
             <div className="mt-3 flex flex-col gap-2 text-sm text-slate-300">
-              <Link href="/kits">Conhecer os kits</Link>
-              <Link href="/como-funciona">Como funciona</Link>
-              <Link href="/duvidas">Dúvidas frequentes</Link>
+              <Link href="/site/kits">Conhecer os kits</Link>
+              <Link href="/site/como-funciona">Como funciona</Link>
+              <Link href="/site/duvidas">Dúvidas frequentes</Link>
               <Link href="/reservar">Solicitar reserva</Link>
             </div>
           </div>
