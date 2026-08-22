@@ -7,5 +7,10 @@ export const metadata: Metadata = {
 }
 
 export default function Page() {
-  return <ReservaPublicaPage />
+  return (
+    <>
+      <style>{`button[aria-label="Abrir Central de Feedback"]{display:none!important}`}</style>
+      <ReservaPublicaPage />
+    </>
+  )
 }
