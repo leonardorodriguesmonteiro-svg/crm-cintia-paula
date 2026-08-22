@@ -33,6 +33,15 @@ function textoOpcional(valor: unknown) {
   return typeof valor === 'string' ? valor : null
 }
 
+function emailPublicoValido(valor: unknown) {
+  if (typeof valor !== 'string') return null
+  const email = valor.trim().toLowerCase()
+  if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return null
+  }
+  return email
+}
+
 function itensDoCorpo(valor: unknown): ItemPreReservaInput[] {
   if (!Array.isArray(valor)) return []
 
@@ -143,6 +152,14 @@ export async function POST(request: NextRequest) {
       }, 202)
     }
 
+    const email = emailPublicoValido(corpo.email)
+    if (!email) {
+      return resposta(origem, {
+        erro: 'Informe um e-mail válido. Ele será usado para o envio do orçamento, contrato e nota fiscal.',
+        codigo: 'EMAIL_INVALIDO'
+      }, 400)
+    }
+
     const idempotencia = String(
       request.headers.get('idempotency-key') || ''
     ).trim()
@@ -172,7 +189,7 @@ export async function POST(request: NextRequest) {
       clienteId: null,
       nomeContato: String(corpo.nome || ''),
       celular: String(corpo.celular || ''),
-      email: textoOpcional(corpo.email),
+      email,
       origem: 'Site',
       origemExternaId: `site:${idempotencia}`,
       dataEvento: textoOpcional(corpo.data_evento),
