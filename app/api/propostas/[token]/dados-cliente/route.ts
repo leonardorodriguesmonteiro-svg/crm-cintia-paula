@@ -28,7 +28,7 @@ export async function POST(
       bairro: String(corpo.bairro || ''),
       cidade: String(corpo.cidade || ''),
       estado: String(corpo.estado || ''),
-      email: typeof corpo.email === 'string' ? corpo.email : null
+      email: String(corpo.email || '')
     })
 
     return NextResponse.json({
