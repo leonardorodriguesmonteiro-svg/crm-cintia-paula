@@ -33,7 +33,7 @@ export default function SobrePage() {
             <h2 className="text-3xl font-black">Vamos começar a montar sua festa?</h2>
             <p className="mx-auto mt-4 max-w-2xl text-slate-300">Conheça os kits disponíveis ou envie uma solicitação personalizada.</p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
-              <Link href="/kits" className="rounded-full bg-white px-5 py-3 font-black text-slate-950">Ver kits</Link>
+              <Link href="/site/kits" className="rounded-full bg-white px-5 py-3 font-black text-slate-950">Ver kits</Link>
               <Link href="/reservar" className="rounded-full bg-pink-500 px-5 py-3 font-black text-white">Solicitar reserva</Link>
             </div>
           </div>
