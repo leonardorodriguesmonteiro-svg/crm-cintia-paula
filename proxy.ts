@@ -6,6 +6,19 @@ const DOMINIOS_PUBLICOS = new Set([
   'www.cintiapaulafestaedecoracao.com.br'
 ])
 
+const ROTAS_PUBLICAS_SITE = new Map<string, string>([
+  ['/', '/site'],
+  ['/kits', '/site/kits'],
+  ['/como-funciona', '/site/como-funciona'],
+  ['/sobre', '/site/sobre'],
+  ['/duvidas', '/site/duvidas'],
+  ['/contato', '/site/contato']
+])
+
+const ROTAS_INTERNAS_SITE = new Map<string, string>(
+  Array.from(ROTAS_PUBLICAS_SITE.entries()).map(([publica, interna]) => [interna, publica])
+)
+
 function hostnameDaRequisicao(request: NextRequest) {
   return (request.headers.get('host') || request.nextUrl.hostname)
     .split(':')[0]
@@ -14,7 +27,7 @@ function hostnameDaRequisicao(request: NextRequest) {
 }
 
 function rotaPublicaPermitida(pathname: string) {
-  if (pathname === '/' || pathname === '/reservar') return true
+  if (pathname === '/reservar') return true
   if (pathname.startsWith('/proposta/')) return true
   if (pathname.startsWith('/contrato/')) return true
 
@@ -36,9 +49,18 @@ export function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  if (pathname === '/') {
+  const rotaPublica = ROTAS_INTERNAS_SITE.get(pathname)
+  if (rotaPublica !== undefined) {
     const destino = request.nextUrl.clone()
-    destino.pathname = '/reservar'
+    destino.pathname = rotaPublica || '/'
+    destino.search = ''
+    return NextResponse.redirect(destino)
+  }
+
+  const rotaInterna = ROTAS_PUBLICAS_SITE.get(pathname)
+  if (rotaInterna) {
+    const destino = request.nextUrl.clone()
+    destino.pathname = rotaInterna
     return NextResponse.rewrite(destino)
   }
 
