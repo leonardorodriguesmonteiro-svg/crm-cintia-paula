@@ -4,11 +4,27 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
-const tipos = ['Erro', 'Dificuldade', 'Sugestão', 'Elogio'] as const
+const tipos = [
+  'Erro',
+  'Dificuldade',
+  'Sugestão',
+  'Necessidade operacional',
+  'Elogio'
+] as const
+
+const impactos = [
+  'Não classificado',
+  'Bloqueia operação',
+  'Atrasa operação',
+  'Melhoria importante',
+  'Conveniência'
+] as const
+
 const respostaAutomatica =
-  'Recebemos seu feedback e ele já foi registrado para análise. Você pode acompanhar o andamento por esta Central.'
+  'Recebemos seu feedback e ele já foi registrado para triagem. Você pode acompanhar o andamento por esta Central.'
 
 type TipoFeedback = (typeof tipos)[number]
+type ImpactoFeedback = (typeof impactos)[number]
 type AbaFeedback = 'enviar' | 'acompanhar'
 
 type FeedbackUsuario = {
@@ -17,6 +33,7 @@ type FeedbackUsuario = {
   mensagem: string
   status: string
   prioridade: string
+  impacto: string
   resposta: string | null
   resolvido_em: string | null
   created_at: string
@@ -29,10 +46,20 @@ function protocolo(id: string) {
 function corStatus(status: string) {
   if (status === 'Concluído') return 'bg-green-100 text-green-800'
   if (status === 'Descartado') return 'bg-slate-200 text-slate-700'
+  if (status === 'Validação') return 'bg-teal-100 text-teal-800'
   if (status === 'Em desenvolvimento') return 'bg-purple-100 text-purple-800'
-  if (status === 'Planejado') return 'bg-blue-100 text-blue-800'
-  if (status === 'Em análise') return 'bg-yellow-100 text-yellow-800'
+  if (status === 'Backlog') return 'bg-blue-100 text-blue-800'
+  if (status === 'Aprovado') return 'bg-indigo-100 text-indigo-800'
+  if (status === 'Triagem') return 'bg-yellow-100 text-yellow-800'
   return 'bg-pink-100 text-pink-800'
+}
+
+function corImpacto(impacto: string) {
+  if (impacto === 'Bloqueia operação') return 'bg-red-100 text-red-800'
+  if (impacto === 'Atrasa operação') return 'bg-orange-100 text-orange-800'
+  if (impacto === 'Melhoria importante') return 'bg-blue-100 text-blue-800'
+  if (impacto === 'Conveniência') return 'bg-green-100 text-green-800'
+  return 'bg-slate-100 text-slate-600'
 }
 
 export function FeedbackButton() {
@@ -40,6 +67,7 @@ export function FeedbackButton() {
   const [aberto, setAberto] = useState(false)
   const [aba, setAba] = useState<AbaFeedback>('enviar')
   const [tipo, setTipo] = useState<TipoFeedback>('Sugestão')
+  const [impacto, setImpacto] = useState<ImpactoFeedback>('Não classificado')
   const [mensagem, setMensagem] = useState('')
   const [erro, setErro] = useState('')
   const [sucesso, setSucesso] = useState('')
@@ -64,7 +92,7 @@ export function FeedbackButton() {
 
     const { data, error } = await supabase
       .from('feedbacks')
-      .select('id,tipo,mensagem,status,prioridade,resposta,resolvido_em,created_at')
+      .select('id,tipo,mensagem,status,prioridade,impacto,resposta,resolvido_em,created_at')
       .eq('usuario_id', user.id)
       .order('created_at', { ascending: false })
 
@@ -95,6 +123,7 @@ export function FeedbackButton() {
     setSucesso('')
     setMensagem('')
     setTipo('Sugestão')
+    setImpacto('Não classificado')
   }
 
   async function selecionarAba(novaAba: AbaFeedback) {
@@ -141,6 +170,8 @@ export function FeedbackButton() {
 
       const pagina = typeof document !== 'undefined' ? document.title : pathname
       const url = typeof window !== 'undefined' ? window.location.href : pathname
+      const navegador = typeof navigator !== 'undefined' ? navigator.userAgent : null
+      const versaoApp = process.env.NEXT_PUBLIC_APP_VERSION || 'beta'
 
       const { data: feedback, error: feedbackError } = await supabase
         .from('feedbacks')
@@ -148,19 +179,23 @@ export function FeedbackButton() {
           empresa_id: vinculo?.empresa_id || null,
           usuario_id: user.id,
           tipo,
+          impacto,
           mensagem: mensagem.trim(),
           pagina,
           url,
+          navegador,
+          versao_app: versaoApp,
           status: 'Novo',
           prioridade: 'Não classificada',
           resposta: respostaAutomatica
         })
-        .select('id,tipo,mensagem,status,prioridade,resposta,resolvido_em,created_at')
+        .select('id,tipo,mensagem,status,prioridade,impacto,resposta,resolvido_em,created_at')
         .single()
 
       if (feedbackError) throw feedbackError
 
       setMensagem('')
+      setImpacto('Não classificado')
       setMeusFeedbacks(atuais => [feedback, ...atuais.filter(item => item.id !== feedback.id)])
       setSucesso(`Feedback recebido. Protocolo ${protocolo(feedback.id)}.`)
       setAba('acompanhar')
@@ -171,7 +206,12 @@ export function FeedbackButton() {
     }
   }
 
-  if (pathname === '/login' || pathname === '/redefinir-senha' || pathname.startsWith('/proposta/') || pathname.startsWith('/contrato/')) {
+  if (
+    pathname === '/login' ||
+    pathname === '/redefinir-senha' ||
+    pathname.startsWith('/proposta/') ||
+    pathname.startsWith('/contrato/')
+  ) {
     return null
   }
 
@@ -197,9 +237,9 @@ export function FeedbackButton() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold text-pink-700">CENTRAL DE FEEDBACK</p>
-                <h2 className="text-xl font-bold text-slate-900">Sua opinião melhora o ERP</h2>
+                <h2 className="text-xl font-bold text-slate-900">Sua experiência melhora o ERP</h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Envie uma ideia e acompanhe a resposta da administração.
+                  Registre erros, dificuldades, necessidades e sugestões sem sair da tela atual.
                 </p>
               </div>
 
@@ -234,10 +274,10 @@ export function FeedbackButton() {
             {sucesso && <div className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-700">{sucesso}</div>}
 
             {aba === 'enviar' ? (
-              <form onSubmit={enviarFeedback} className="mt-5 space-y-4">
+              <form onSubmit={enviarFeedback} className="mt-5 space-y-5">
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-700">Tipo de feedback</label>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {tipos.map(item => (
                       <button
                         key={item}
@@ -252,6 +292,22 @@ export function FeedbackButton() {
                 </div>
 
                 <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">Impacto no seu trabalho</label>
+                  <select
+                    value={impacto}
+                    onChange={evento => setImpacto(evento.target.value as ImpactoFeedback)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-pink-400 focus:ring-4 focus:ring-pink-50"
+                  >
+                    {impactos.map(item => (
+                      <option key={item} value={item}>{item}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Se não tiver certeza, deixe como “Não classificado”. A administração poderá ajustar depois.
+                  </p>
+                </div>
+
+                <div>
                   <label htmlFor="feedback-mensagem" className="mb-2 block text-sm font-semibold text-slate-700">
                     Descreva sua experiência
                   </label>
@@ -259,7 +315,7 @@ export function FeedbackButton() {
                     id="feedback-mensagem"
                     value={mensagem}
                     onChange={evento => setMensagem(evento.target.value)}
-                    placeholder="Ex.: Não encontrei o telefone do cliente na tela da missão..."
+                    placeholder="Ex.: Ao tentar concluir uma reserva, o botão não avançou para o contrato..."
                     rows={6}
                     maxLength={2000}
                     className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-pink-400 focus:ring-4 focus:ring-pink-50"
@@ -268,7 +324,9 @@ export function FeedbackButton() {
                   <p className="mt-1 text-right text-xs text-slate-400">{mensagem.length}/2000</p>
                 </div>
 
-                <div className="rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500">Página atual: {pathname}</div>
+                <div className="rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500">
+                  A página atual e informações técnicas do navegador serão anexadas automaticamente para facilitar a análise.
+                </div>
 
                 <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                   <button type="button" onClick={fechar} disabled={enviando} className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">
@@ -289,6 +347,7 @@ export function FeedbackButton() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-bold text-pink-700">{protocolo(item.id)}</span>
                         <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">{item.tipo}</span>
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${corImpacto(item.impacto)}`}>{item.impacto}</span>
                       </div>
                       <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${corStatus(item.status)}`}>{item.status}</span>
                     </div>
