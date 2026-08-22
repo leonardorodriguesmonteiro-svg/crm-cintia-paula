@@ -85,6 +85,7 @@ export async function POST(
       email_id: string | null
       ignorado: boolean
     } | null = null
+    let envioPendente = false
 
     if (acao === 'formalizar' && dados.contrato_id) {
       try {
@@ -93,6 +94,7 @@ export async function POST(
           request.nextUrl.origin
         )
       } catch (error) {
+        envioPendente = true
         if (error instanceof EmailContratoNaoConfiguradoError) {
           avisos.push(error.message)
         } else {
@@ -101,9 +103,12 @@ export async function POST(
       }
     }
 
-    const mensagem = acao === 'formalizar' && envioContrato?.sucesso && !envioContrato.ignorado
-      ? `${dados.mensagem || 'Formalização preparada.'} Contrato enviado automaticamente ao e-mail cadastrado.`
-      : dados.mensagem
+    let mensagem = dados.mensagem
+    if (acao === 'formalizar' && envioContrato?.sucesso && !envioContrato.ignorado) {
+      mensagem = `${dados.mensagem || 'Formalização preparada.'} Contrato enviado automaticamente ao e-mail cadastrado.`
+    } else if (acao === 'formalizar' && envioPendente) {
+      mensagem = `${dados.mensagem || 'Formalização preparada.'} O contrato foi gerado, mas o envio por e-mail está pendente.`
+    }
 
     return NextResponse.json({
       sucesso: true,
