@@ -16,6 +16,13 @@ function escaparHtml(valor: string) {
     .replace(/'/g, '&#039;')
 }
 
+function emailValido(valor: string | null | undefined) {
+  const email = String(valor || '').trim().toLowerCase()
+  return email.length > 0
+    && email.length <= 254
+    && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
 export async function enviarPropostaPorEmail(
   orcamentoId: string,
   origem: string,
@@ -60,11 +67,15 @@ export async function enviarPropostaPorEmail(
       email: resposta.data.email
     }
   }
-  if (!cliente?.email) throw new Error('O cliente selecionado não possui e-mail cadastrado.')
 
+  if (!emailValido(cliente?.email)) {
+    throw new Error('Cadastre um e-mail válido do cliente antes de enviar a proposta.')
+  }
+
+  const emailDestino = String(cliente!.email).trim().toLowerCase()
   const link = `${new URL(origem).origin}/proposta/${orcamento.public_token}`
   const numero = `ORC-${String(orcamento.numero).padStart(4, '0')}`
-  const nome = escaparHtml(cliente.nome || 'cliente')
+  const nome = escaparHtml(cliente?.nome || 'cliente')
   const total = Number(orcamento.total || 0).toLocaleString('pt-BR', {
     style: 'currency', currency: 'BRL'
   })
@@ -74,7 +85,7 @@ export async function enviarPropostaPorEmail(
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       from: remetente,
-      to: [cliente.email],
+      to: [emailDestino],
       ...(respostaPara ? { reply_to: respostaPara } : {}),
       subject: `Sua proposta ${numero} — Cintia Paula`,
       html: `<div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#1f2937;line-height:1.6"><div style="background:#db2777;color:white;padding:28px;border-radius:18px 18px 0 0"><h1 style="margin:0">Cintia Paula Festas e Decorações</h1></div><div style="border:1px solid #e5e7eb;border-top:0;padding:28px;border-radius:0 0 18px 18px"><h2 style="color:#be185d">Olá, ${nome}!</h2><p>Preparamos a proposta <strong>${numero}</strong>, no valor total de <strong>${total}</strong>.</p><p>Revise os itens, datas e condições antes de registrar sua decisão.</p><p style="margin:28px 0"><a href="${link}" style="background:#db2777;color:white;text-decoration:none;padding:13px 22px;border-radius:10px;font-weight:bold">Abrir proposta</a></p><p>Se precisar de ajustes, responda a este e-mail antes de aceitar.</p></div></div>`
@@ -89,9 +100,9 @@ export async function enviarPropostaPorEmail(
 
   await supabaseServer.from('orcamentos').update({
     email_enviado_em: new Date().toISOString(),
-    email_destino: cliente.email,
+    email_destino: emailDestino,
     email_erro: null
   }).eq('id', orcamento.id)
 
-  return { sucesso: true, destino: cliente.email, email_id: corpo.id || null, ignorado: false }
+  return { sucesso: true, destino: emailDestino, email_id: corpo.id || null, ignorado: false }
 }
