@@ -11,7 +11,7 @@ create or replace function public.completar_dados_cliente_proposta_v2_servidor(
   p_bairro text,
   p_cidade text,
   p_estado text,
-  p_email text
+  p_email text default null
 )
 returns jsonb
 language plpgsql
