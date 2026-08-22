@@ -1,43 +1,26 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
-
-const links = [
-  { href: '/site', label: 'Início' },
-  { href: '/site/kits', label: 'Kits' },
-  { href: '/site/como-funciona', label: 'Como funciona' },
-  { href: '/site/sobre', label: 'Sobre' },
-  { href: '/site/duvidas', label: 'Dúvidas' },
-  { href: '/site/contato', label: 'Contato' }
-]
+import { SitePublicoMenu } from '@/components/publico/SitePublicoMenu'
 
 export function SitePublicoLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-white text-slate-900">
       <header className="sticky top-0 z-50 border-b border-pink-100 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 md:px-8">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 md:px-8">
           <Link href="/site" className="min-w-fit">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-600">Cintia Paula</p>
             <p className="text-base font-black md:text-lg">Festas &amp; Decorações</p>
           </Link>
 
-          <nav className="order-3 flex w-full gap-1 overflow-x-auto pb-1 text-sm font-bold text-slate-600 md:order-2 md:w-auto md:pb-0">
-            {links.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="whitespace-nowrap rounded-full px-3 py-2 transition hover:bg-pink-50 hover:text-pink-700"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-
-          <Link
-            href="/reservar"
-            className="order-2 rounded-full bg-pink-600 px-4 py-2 text-sm font-black text-white shadow-sm transition hover:bg-pink-700 md:order-3"
-          >
-            Reservar agora
-          </Link>
+          <div className="flex items-center gap-3">
+            <SitePublicoMenu />
+            <Link
+              href="/reservar"
+              className="hidden rounded-full bg-pink-600 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-pink-700 md:inline-flex"
+            >
+              Reservar agora
+            </Link>
+          </div>
         </div>
       </header>
 
