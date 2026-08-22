@@ -14,7 +14,10 @@ type OrdemServico = {
   numero: string
   status: string | null
   responsavel: string | null
+  cliente_nome: string | null
   data_prevista: string | null
+  data_retirada: string | null
+  horario_retirada: string | null
   observacoes: string | null
 }
 
@@ -25,33 +28,65 @@ type ItemOS = {
   concluido: boolean
 }
 
+type ReservaOperacional = {
+  data_retirada: string | null
+  horario_retirada: string | null
+  data_evento: string | null
+  clientes: { nome: string } | { nome: string }[] | null
+}
+
+function nomeClienteDaReserva(reserva: ReservaOperacional | null) {
+  if (!reserva?.clientes) return ''
+  return Array.isArray(reserva.clientes)
+    ? reserva.clientes[0]?.nome || ''
+    : reserva.clientes.nome || ''
+}
+
 export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
   const [os, setOs] = useState<OrdemServico | null>(null)
   const [itens, setItens] = useState<ItemOS[]>([])
   const [erro, setErro] = useState('')
   const [responsavel, setResponsavel] = useState('')
-  const [dataPrevista, setDataPrevista] = useState('')
+  const [clienteNome, setClienteNome] = useState('')
+  const [dataRetirada, setDataRetirada] = useState('')
+  const [horarioRetirada, setHorarioRetirada] = useState('')
   const [observacoes, setObservacoes] = useState('')
   const [novaEtapa, setNovaEtapa] = useState('Separação')
   const [novaTarefa, setNovaTarefa] = useState('')
-  const [mostrarTarefaExtra, setMostrarTarefaExtra] = useState(false)
 
   async function carregar() {
-    const { data: osData, error: osError } = await supabase
-      .from('ordens_servico')
-      .select('*')
-      .eq('reserva_id', reservaId)
-      .maybeSingle()
+    setErro('')
 
-    if (osError) return setErro(osError.message)
+    const [osRes, reservaRes] = await Promise.all([
+      supabase
+        .from('ordens_servico')
+        .select('*')
+        .eq('reserva_id', reservaId)
+        .maybeSingle(),
+      supabase
+        .from('reservas')
+        .select('data_retirada,horario_retirada,data_evento,clientes(nome)')
+        .eq('id', reservaId)
+        .maybeSingle()
+    ])
+
+    if (osRes.error) return setErro(osRes.error.message)
+    if (reservaRes.error) return setErro(reservaRes.error.message)
+
+    const osData = osRes.data as OrdemServico | null
+    const reservaData = reservaRes.data as unknown as ReservaOperacional | null
+    const clientePadrao = nomeClienteDaReserva(reservaData)
+    const dataPadrao = reservaData?.data_retirada || reservaData?.data_evento || ''
+    const horarioPadrao = reservaData?.horario_retirada || ''
 
     setOs(osData)
+    setClienteNome(osData?.cliente_nome || clientePadrao)
+    setResponsavel(osData?.responsavel || '')
+    setDataRetirada(osData?.data_retirada || osData?.data_prevista || dataPadrao)
+    setHorarioRetirada(osData?.horario_retirada || horarioPadrao)
+    setObservacoes(osData?.observacoes || '')
 
     if (osData) {
-      setResponsavel(osData.responsavel || '')
-      setDataPrevista(osData.data_prevista || '')
-      setObservacoes(osData.observacoes || '')
-
       const { data: itensData, error: itensError } = await supabase
         .from('ordem_servico_itens')
         .select('*')
@@ -60,6 +95,8 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
 
       if (itensError) return setErro(itensError.message)
       setItens(itensData || [])
+    } else {
+      setItens([])
     }
   }
 
@@ -89,8 +126,21 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
     })
   }
 
+  function validarRetirada() {
+    if (!clienteNome.trim()) {
+      setErro('Informe o nome do cliente ou responsável pela retirada.')
+      return false
+    }
+    if (!dataRetirada) {
+      setErro('Informe a data da retirada.')
+      return false
+    }
+    return true
+  }
+
   async function criarOS() {
     setErro('')
+    if (!validarRetirada()) return
 
     const numero = `OS-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`
 
@@ -100,9 +150,12 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
         reserva_id: reservaId,
         numero,
         status: 'Aberta',
-        responsavel: responsavel || null,
-        data_prevista: dataPrevista || null,
-        observacoes: observacoes || null
+        responsavel: responsavel.trim() || null,
+        cliente_nome: clienteNome.trim(),
+        data_retirada: dataRetirada,
+        horario_retirada: horarioRetirada || null,
+        data_prevista: dataRetirada,
+        observacoes: observacoes.trim() || null
       })
       .select('*')
       .single()
@@ -110,17 +163,18 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
     if (error) return setErro(error.message)
 
     const tarefasPadrao = [
-      { etapa: 'Separação', descricao: 'Separar todos os itens do kit' },
-      { etapa: 'Separação', descricao: 'Conferir composição do kit' },
+      { etapa: 'Separação', descricao: 'Separar todos os itens da reserva' },
+      { etapa: 'Separação', descricao: 'Conferir KIT pronto ou composição do KIT personalizado' },
       { etapa: 'Separação', descricao: 'Registrar checklist antes da saída' },
-      { etapa: 'Entrega', descricao: 'Carregar itens para transporte' },
-      { etapa: 'Entrega', descricao: 'Confirmar entrega ao cliente' },
+      { etapa: 'Retirada', descricao: 'Confirmar entrega dos itens ao cliente ou responsável pela retirada' },
+      { etapa: 'Entrega', descricao: 'Carregar itens para transporte quando houver entrega' },
+      { etapa: 'Entrega', descricao: 'Confirmar entrega ao cliente quando houver entrega' },
       { etapa: 'Devolução', descricao: 'Conferir itens devolvidos' },
       { etapa: 'Devolução', descricao: 'Registrar avarias ou pendências' },
       { etapa: 'Encerramento', descricao: 'Finalizar ordem de serviço' }
     ]
 
-    await supabase.from('ordem_servico_itens').insert(
+    const { error: tarefasError } = await supabase.from('ordem_servico_itens').insert(
       tarefasPadrao.map(t => ({
         ordem_servico_id: data.id,
         etapa: t.etapa,
@@ -129,26 +183,40 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
       }))
     )
 
-    await timeline('Ordem de Serviço criada', `A ${numero} foi criada para esta reserva.`)
+    if (tarefasError) return setErro(tarefasError.message)
+
+    await timeline(
+      'Ordem de Serviço criada',
+      `${numero} criada para ${clienteNome.trim()}, retirada em ${dataRetirada}${horarioRetirada ? ` às ${horarioRetirada}` : ''}.`
+    )
     carregar()
   }
 
   async function salvarOS() {
     if (!os) return
+    setErro('')
+    if (!validarRetirada()) return
 
     const { error } = await supabase
       .from('ordens_servico')
       .update({
-        responsavel: responsavel || null,
-        data_prevista: dataPrevista || null,
-        observacoes: observacoes || null,
+        responsavel: responsavel.trim() || null,
+        cliente_nome: clienteNome.trim(),
+        data_retirada: dataRetirada,
+        horario_retirada: horarioRetirada || null,
+        // Espelho mantido para compatibilidade com relatórios antigos.
+        data_prevista: dataRetirada,
+        observacoes: observacoes.trim() || null,
         updated_at: new Date().toISOString()
       })
       .eq('id', os.id)
 
     if (error) return setErro(error.message)
 
-    await timeline('Ordem de Serviço atualizada', 'Dados operacionais da OS foram atualizados.')
+    await timeline(
+      'Ordem de Serviço atualizada',
+      `Retirada definida para ${dataRetirada}${horarioRetirada ? ` às ${horarioRetirada}` : ''} — ${clienteNome.trim()}.`
+    )
     carregar()
   }
 
@@ -207,13 +275,13 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
     const { error } = await supabase.from('ordem_servico_itens').insert({
       ordem_servico_id: os.id,
       etapa: novaEtapa,
-      descricao: novaTarefa,
+      descricao: novaTarefa.trim(),
       concluido: false
     })
 
     if (error) return setErro(error.message)
 
-    await timeline('Tarefa adicionada à OS', `${novaEtapa}: ${novaTarefa}`)
+    await timeline('Tarefa adicionada à OS', `${novaEtapa}: ${novaTarefa.trim()}`)
     setNovaTarefa('')
     carregar()
   }
@@ -222,7 +290,7 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
     <Card>
       <h2 className="text-lg font-semibold text-slate-900">Centro Operacional</h2>
       <p className="mt-1 text-sm text-slate-500">
-        Controle a execução da reserva por Ordem de Serviço.
+        Controle a retirada, entrega, devolução e execução da reserva pela Ordem de Serviço.
       </p>
 
       {erro && (
@@ -237,12 +305,15 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
             Esta reserva ainda não possui Ordem de Serviço.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Input label="Responsável" value={responsavel} onChange={e => setResponsavel(e.target.value)} />
-            <Input label="Data prevista" type="date" value={dataPrevista} onChange={e => setDataPrevista(e.target.value)} />
-            <div className="flex items-end">
-              <Button onClick={criarOS}>Criar Ordem de Serviço</Button>
-            </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Input label="Cliente / responsável pela retirada *" value={clienteNome} onChange={e => setClienteNome(e.target.value)} />
+            <Input label="Responsável interno" value={responsavel} onChange={e => setResponsavel(e.target.value)} />
+            <Input label="Data da retirada *" type="date" value={dataRetirada} onChange={e => setDataRetirada(e.target.value)} />
+            <Input label="Horário da retirada" type="time" value={horarioRetirada} onChange={e => setHorarioRetirada(e.target.value)} />
+          </div>
+
+          <div className="mt-4">
+            <Button onClick={criarOS}>Criar Ordem de Serviço</Button>
           </div>
         </div>
       ) : (
@@ -271,9 +342,14 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input label="Responsável" value={responsavel} onChange={e => setResponsavel(e.target.value)} />
-            <Input label="Data prevista" type="date" value={dataPrevista} onChange={e => setDataPrevista(e.target.value)} />
+          <div className="rounded-2xl border border-pink-100 bg-pink-50/50 p-4">
+            <h3 className="font-semibold text-slate-900">Retirada / atendimento</h3>
+            <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <Input label="Cliente / responsável pela retirada *" value={clienteNome} onChange={e => setClienteNome(e.target.value)} />
+              <Input label="Responsável interno" value={responsavel} onChange={e => setResponsavel(e.target.value)} />
+              <Input label="Data da retirada *" type="date" value={dataRetirada} onChange={e => setDataRetirada(e.target.value)} />
+              <Input label="Horário da retirada" type="time" value={horarioRetirada} onChange={e => setHorarioRetirada(e.target.value)} />
+            </div>
           </div>
 
           <Textarea label="Observações" value={observacoes} onChange={e => setObservacoes(e.target.value)} />
@@ -281,10 +357,11 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
           <Button onClick={salvarOS}>Salvar OS</Button>
 
           <form onSubmit={adicionarTarefa} className="rounded-2xl border bg-slate-50 p-4">
-            <h3 className="mb-3 font-semibold text-slate-900">Adicionar tarefa extra extra</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <h3 className="mb-3 font-semibold text-slate-900">Adicionar tarefa extra</h3>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               <Select label="Etapa" value={novaEtapa} onChange={e => setNovaEtapa(e.target.value)}>
                 <option>Separação</option>
+                <option>Retirada</option>
                 <option>Entrega</option>
                 <option>Devolução</option>
                 <option>Encerramento</option>
@@ -304,7 +381,7 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
           />
 
           <div className="grid gap-4 md:grid-cols-2">
-            {['Separação', 'Entrega', 'Devolução', 'Encerramento'].map(etapa => (
+            {['Separação', 'Retirada', 'Entrega', 'Devolução', 'Encerramento'].map(etapa => (
               <div key={etapa} className="rounded-2xl border p-4">
                 <h3 className="font-semibold text-slate-900">{etapa}</h3>
 
