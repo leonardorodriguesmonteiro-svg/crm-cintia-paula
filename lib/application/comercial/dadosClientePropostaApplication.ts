@@ -34,7 +34,7 @@ export type CompletarDadosClientePropostaV2Input = {
   bairro: string
   cidade: string
   estado: string
-  email?: string | null
+  email: string
 }
 
 export async function completarDadosClientePropostaV2(
@@ -48,7 +48,7 @@ export async function completarDadosClientePropostaV2(
   const bairro = input.bairro.trim()
   const cidade = input.cidade.trim()
   const estado = input.estado.trim().toUpperCase()
-  const email = input.email?.trim().toLowerCase() || null
+  const email = input.email.trim().toLowerCase()
 
   if (!cpfValido(cpf)) {
     throw new JornadaComercialError('Informe um CPF válido.', 'CPF_INVALIDO')
@@ -82,8 +82,11 @@ export async function completarDadosClientePropostaV2(
     throw new JornadaComercialError('Informe uma UF válida.', 'ESTADO_INVALIDO')
   }
 
-  if (email && (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
-    throw new JornadaComercialError('Informe um e-mail válido.', 'EMAIL_INVALIDO')
+  if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new JornadaComercialError(
+      'Informe um e-mail válido. Ele será usado para o envio do orçamento, contrato e nota fiscal.',
+      'EMAIL_INVALIDO'
+    )
   }
 
   const { data, error } = await supabaseServer.rpc(
@@ -117,7 +120,7 @@ export async function completarDadosClientePropostaV2(
     await publicarEvento({
       codigo: ERPEvents.CLIENTE_DADOS_COMPLETOS,
       titulo: `Dados cadastrais da proposta #${resultado.numero} concluídos`,
-      descricao: 'Cliente concluiu CPF e endereço completo necessários para o contrato.',
+      descricao: 'Cliente concluiu CPF, e-mail e endereço completo necessários para a formalização.',
       empresaId: resultado.empresa_id,
       entidadeTipo: 'Proposta',
       entidadeId: resultado.orcamento_id,
