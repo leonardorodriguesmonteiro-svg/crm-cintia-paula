@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { publicarConfirmacaoReservaV2 } from '@/lib/formalizacaoConfirmacao'
 import {
   buscarPagamentoMercadoPagoPorReferencia,
   conciliarPagamentoMercadoPago,
@@ -86,7 +87,16 @@ export async function POST(request: NextRequest, contexto: Contexto) {
     }
 
     const resultado = await conciliarPagamentoMercadoPago(lancamentoId, pagamento)
-    return NextResponse.json({ sucesso: true, ...resultado })
+    const evento = await publicarConfirmacaoReservaV2(
+      resultado,
+      'Mercado Pago · consulta do contrato'
+    )
+
+    return NextResponse.json({
+      sucesso: true,
+      ...resultado,
+      avisos: evento.avisos
+    })
   } catch (error) {
     if (error instanceof MercadoPagoNaoConfiguradoError) {
       return NextResponse.json({ error: error.message }, { status: 503 })
