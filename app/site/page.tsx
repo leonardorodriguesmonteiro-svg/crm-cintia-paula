@@ -23,7 +23,7 @@ export default function SiteHomePage() {
                 Escolha um kit pronto, monte uma composição personalizada e faça sua solicitação de reserva online.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <Link href="/kits" className="rounded-full bg-pink-600 px-6 py-3 font-black text-white shadow-sm hover:bg-pink-700">
+                <Link href="/site/kits" className="rounded-full bg-pink-600 px-6 py-3 font-black text-white shadow-sm hover:bg-pink-700">
                   Ver kits
                 </Link>
                 <Link href="/reservar" className="rounded-full border border-pink-200 bg-white px-6 py-3 font-black text-pink-700 hover:bg-pink-50">
@@ -64,7 +64,7 @@ export default function SiteHomePage() {
             ))}
           </div>
           <div className="mt-8 text-center">
-            <Link href="/como-funciona" className="font-black text-pink-700">Entender todo o processo →</Link>
+            <Link href="/site/como-funciona" className="font-black text-pink-700">Entender todo o processo →</Link>
           </div>
         </section>
 
