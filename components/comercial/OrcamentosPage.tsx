@@ -61,6 +61,7 @@ type AcessorioEstoque = {
 type ItemForm = {
   chave: string
   kit_id: string
+  estoque_item_id: string
   descricao: string
   quantidade: number | string
   valor_unitario: number | string
@@ -76,6 +77,7 @@ type Orcamento = {
   data_evento: string | null
   horario_evento: string | null
   data_retirada: string | null
+  horario_retirada: string | null
   data_devolucao: string | null
   endereco_evento: string | null
   subtotal: number
@@ -133,6 +135,7 @@ type FormOrcamento = {
   data_evento: string
   horario_evento: string
   data_retirada: string
+  horario_retirada: string
   data_devolucao: string
   endereco_evento: string
   desconto: number | string
@@ -186,6 +189,7 @@ const formVazio: FormOrcamento = {
   data_evento: '',
   horario_evento: '',
   data_retirada: '',
+  horario_retirada: '',
   data_devolucao: '',
   endereco_evento: '',
   desconto: 0,
@@ -198,6 +202,7 @@ function novoItem(): ItemForm {
   return {
     chave: crypto.randomUUID(),
     kit_id: '',
+    estoque_item_id: '',
     descricao: '',
     quantidade: 1,
     valor_unitario: 0
@@ -225,10 +230,10 @@ function corStatus(status: string) {
 }
 
 function corFormalizacao(status: string | null) {
-  if (status === 'Venda confirmada') return 'bg-green-100 text-green-800'
-  if (status === 'Aguardando sinal') return 'bg-blue-100 text-blue-800'
-  if (status === 'Aguardando contrato') return 'bg-purple-100 text-purple-800'
-  if (status === 'Cancelada') return 'bg-red-100 text-red-800'
+  if (status === 'Venda confirmada' || status === 'RESERVA_CONFIRMADA') return 'bg-green-100 text-green-800'
+  if (status === 'Aguardando sinal' || status === 'AGUARDANDO_PAGAMENTO') return 'bg-blue-100 text-blue-800'
+  if (status === 'Aguardando contrato' || status === 'AGUARDANDO_ASSINATURA') return 'bg-purple-100 text-purple-800'
+  if (status === 'Cancelada' || status === 'CANCELADA') return 'bg-red-100 text-red-800'
   return 'bg-amber-100 text-amber-800'
 }
 
@@ -337,10 +342,9 @@ export function OrcamentosPage() {
   useEffect(() => {
     const oportunidadeId = new URLSearchParams(window.location.search).get('oportunidade')
     if (!oportunidadeId) return
-
-    setForm(atual => ({ ...atual, oportunidade_id: oportunidadeId }))
     setFormAberto(true)
-  }, [])
+    void selecionarOportunidade(oportunidadeId)
+  }, [oportunidades])
 
   useEffect(() => {
     if (!form.oportunidade_id || form.data_evento) return
@@ -391,7 +395,7 @@ export function OrcamentosPage() {
     setFormAberto(true)
   }
 
-  function selecionarOportunidade(id: string) {
+  async function selecionarOportunidade(id: string) {
     const oportunidade = oportunidades.find(item => item.id === id)
     setForm(atual => ({
       ...atual,
@@ -402,6 +406,30 @@ export function OrcamentosPage() {
       data_devolucao: oportunidade?.data_evento || atual.data_devolucao
     }))
     setDisponibilidades({})
+
+    if (!id) return
+
+    const { data, error } = await supabase
+      .from('oportunidade_itens')
+      .select('id,tipo,kit_id,estoque_item_id,nome_snapshot,valor_referencia,quantidade')
+      .eq('oportunidade_id', id)
+      .order('ordem')
+
+    if (error) {
+      setErro(`Não foi possível carregar os itens escolhidos pelo cliente: ${error.message}`)
+      return
+    }
+
+    if ((data || []).length > 0) {
+      setItens((data || []).map(item => ({
+        chave: item.id,
+        kit_id: item.kit_id || '',
+        estoque_item_id: item.estoque_item_id || '',
+        descricao: item.nome_snapshot,
+        quantidade: item.quantidade,
+        valor_unitario: Number(item.valor_referencia || 0)
+      })))
+    }
   }
 
   function selecionarCliente(id: string) {
@@ -427,26 +455,30 @@ export function OrcamentosPage() {
     const kit = kits.find(item => item.id === kitId)
     atualizarItem(chave, {
       kit_id: kitId,
+      estoque_item_id: '',
       descricao: kit ? `${kit.codigo ? `${kit.codigo} - ` : ''}${kit.nome}` : '',
+      quantidade: 1,
       valor_unitario: Number(kit?.valor || 0)
     })
   }
 
   function adicionarAcessorio(acessorio: AcessorioEstoque) {
-    setItens(atuais => [...atuais, {
-      ...novoItem(),
-      descricao: `${acessorio.codigo ? `${acessorio.codigo} - ` : ''}${acessorio.nome}`
-    }])
+    setItens(atuais => {
+      const vazio = atuais.length === 1
+        && !atuais[0].kit_id
+        && !atuais[0].estoque_item_id
+        && !atuais[0].descricao.trim()
+      const novo = {
+        ...novoItem(),
+        estoque_item_id: acessorio.id,
+        descricao: `${acessorio.codigo ? `${acessorio.codigo} - ` : ''}${acessorio.nome}`
+      }
+      return vazio ? [novo] : [...atuais, novo]
+    })
     setBuscaAcessorio('')
   }
 
   async function verificarDisponibilidade(item: ItemForm) {
-    if (!item.kit_id) {
-      const resultado = { disponivel: true, motivo: 'Item adicional sem controle de kit.' }
-      setDisponibilidades(atuais => ({ ...atuais, [item.chave]: resultado }))
-      return resultado
-    }
-
     const inicio = form.data_retirada || form.data_evento
     const fim = form.data_devolucao || form.data_evento
 
@@ -456,17 +488,40 @@ export function OrcamentosPage() {
       return resultado
     }
 
-    const { data, error } = await supabase.rpc('verificar_disponibilidade_kit', {
-      p_kit_id: item.kit_id,
-      p_inicio: inicio,
-      p_fim: fim,
-      p_reserva_ignorar: null
-    })
+    if (item.kit_id) {
+      const { data, error } = await supabase.rpc('verificar_disponibilidade_kit', {
+        p_kit_id: item.kit_id,
+        p_inicio: inicio,
+        p_fim: fim,
+        p_reserva_ignorar: null
+      })
 
-    const resultado = error
-      ? { disponivel: false, motivo: error.message }
-      : (data as Disponibilidade)
+      const resultado = error
+        ? { disponivel: false, motivo: error.message }
+        : (data as Disponibilidade)
 
+      setDisponibilidades(atuais => ({ ...atuais, [item.chave]: resultado }))
+      return resultado
+    }
+
+    if (item.estoque_item_id) {
+      const { data, error } = await supabase.rpc('verificar_disponibilidade_estoque_item', {
+        p_estoque_item_id: item.estoque_item_id,
+        p_quantidade: Number(item.quantidade || 0),
+        p_inicio: inicio,
+        p_fim: fim,
+        p_reserva_ignorar: null
+      })
+
+      const resultado = error
+        ? { disponivel: false, motivo: error.message }
+        : (data as Disponibilidade)
+
+      setDisponibilidades(atuais => ({ ...atuais, [item.chave]: resultado }))
+      return resultado
+    }
+
+    const resultado = { disponivel: true, motivo: 'Item livre sem vínculo com o estoque.' }
     setDisponibilidades(atuais => ({ ...atuais, [item.chave]: resultado }))
     return resultado
   }
@@ -480,7 +535,7 @@ export function OrcamentosPage() {
     if (!form.data_evento) return setErro('Informe a data prevista do evento.')
 
     const itensValidos = itens.filter(item => item.descricao.trim() && Number(item.quantidade) > 0)
-    if (!itensValidos.length) return setErro('Adicione pelo menos um item ao orçamento.')
+    if (!itensValidos.length) return setErro('Escolha um KIT pronto ou monte um KIT personalizado com itens do estoque.')
 
     setSalvando(true)
 
@@ -525,6 +580,7 @@ export function OrcamentosPage() {
       data_evento: form.data_evento,
       horario_evento: form.horario_evento || null,
       data_retirada: form.data_retirada || form.data_evento,
+      horario_retirada: form.horario_retirada || null,
       data_devolucao: form.data_devolucao || form.data_evento,
       endereco_evento: form.endereco_evento.trim() || null,
       desconto: Number(form.desconto) || 0,
@@ -569,6 +625,7 @@ export function OrcamentosPage() {
       itensValidos.map(item => ({
         orcamento_id: orcamentoId,
         kit_id: item.kit_id || null,
+        estoque_item_id: item.estoque_item_id || null,
         descricao: item.descricao.trim(),
         quantidade: Number(item.quantidade),
         valor_unitario: Number(item.valor_unitario) || 0
@@ -607,7 +664,7 @@ export function OrcamentosPage() {
       await supabase.from('oportunidades').update({ etapa: 'Orçamento enviado' }).eq('id', oportunidade.id)
     }
 
-    setSucesso('Orçamento salvo e totais recalculados com sucesso.')
+    setSucesso('Orçamento salvo. A disponibilidade foi consultada; o estoque só será bloqueado quando a reserva for confirmada.')
     setFormAberto(false)
     setEditandoId(null)
     setSalvando(false)
@@ -1031,8 +1088,6 @@ export function OrcamentosPage() {
         }
       }
 
-      if (data?.contrato_id) mensagem += ' Revise os dados e use o botão de envio quando estiver pronto.'
-
       setSucesso(mensagem)
       await carregar()
     } catch (error) {
@@ -1118,7 +1173,7 @@ export function OrcamentosPage() {
     setErro('')
     const { data, error } = await supabase
       .from('orcamento_itens')
-      .select('id,kit_id,descricao,quantidade,valor_unitario')
+      .select('id,kit_id,estoque_item_id,descricao,quantidade,valor_unitario')
       .eq('orcamento_id', orcamento.id)
       .order('created_at')
 
@@ -1132,6 +1187,7 @@ export function OrcamentosPage() {
       data_evento: orcamento.data_evento || '',
       horario_evento: orcamento.horario_evento || '',
       data_retirada: orcamento.data_retirada || '',
+      horario_retirada: orcamento.horario_retirada || '',
       data_devolucao: orcamento.data_devolucao || '',
       endereco_evento: orcamento.endereco_evento || '',
       desconto: orcamento.desconto || 0,
@@ -1142,6 +1198,7 @@ export function OrcamentosPage() {
     setItens((data || []).map(item => ({
       chave: item.id,
       kit_id: item.kit_id || '',
+      estoque_item_id: item.estoque_item_id || '',
       descricao: item.descricao,
       quantidade: item.quantidade,
       valor_unitario: item.valor_unitario
@@ -1158,7 +1215,7 @@ export function OrcamentosPage() {
         <div>
           <p className="text-sm font-semibold text-pink-700">COMERCIAL</p>
           <h1 className="text-3xl font-bold text-slate-900">Orçamentos</h1>
-          <p className="mt-1 text-slate-500">Monte propostas com kits, adicionais e disponibilidade conferida.</p>
+          <p className="mt-1 text-slate-500">Escolha um KIT pronto e precificado ou monte um KIT personalizado com itens do estoque.</p>
         </div>
         <Button onClick={iniciarNovo} className="flex items-center justify-center gap-2"><Plus size={18} /> Novo orçamento</Button>
       </div>
@@ -1171,7 +1228,7 @@ export function OrcamentosPage() {
           <form onSubmit={salvar} className="space-y-6">
             <div>
               <h2 className="text-xl font-bold text-slate-900">{editandoId ? 'Editar orçamento' : 'Novo orçamento'}</h2>
-              <p className="text-sm text-slate-500">Defina o cliente, a pré-reserva quando existir, o período e os itens da proposta.</p>
+              <p className="text-sm text-slate-500">A disponibilidade pode ser consultada durante o orçamento. O estoque só é bloqueado na confirmação definitiva da reserva.</p>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -1189,7 +1246,7 @@ export function OrcamentosPage() {
                 </Link>
               </div>
               <div>
-                <Select label="Pré-reserva aprovada (opcional)" value={form.oportunidade_id} onChange={evento => selecionarOportunidade(evento.target.value)}>
+                <Select label="Pré-reserva aprovada (opcional)" value={form.oportunidade_id} onChange={evento => void selecionarOportunidade(evento.target.value)}>
                   <option value="">Orçamento direto para o cliente</option>
                   {oportunidades
                     .filter(item => !form.cliente_id || !item.cliente_id || item.cliente_id === form.cliente_id)
@@ -1200,32 +1257,33 @@ export function OrcamentosPage() {
                       </option>
                     ))}
                 </Select>
-                <p className="mt-1 text-xs text-slate-500">Use quando o pedido veio do site ou da esteira comercial.</p>
+                <p className="mt-1 text-xs text-slate-500">Ao selecionar uma pré-reserva do site, os KITs e itens de estoque escolhidos pelo cliente são carregados automaticamente.</p>
               </div>
               <Select label="Status" value={form.status} onChange={evento => setForm({ ...form, status: evento.target.value })}>
                 <option>Rascunho</option><option>Enviado</option><option>Aprovado</option><option>Recusado</option><option>Expirado</option>
               </Select>
               <Input label="Validade" type="date" value={form.validade} onChange={evento => setForm({ ...form, validade: evento.target.value })} />
               <Input label="Data do evento *" type="date" value={form.data_evento} onChange={evento => { setForm({ ...form, data_evento: evento.target.value }); setDisponibilidades({}) }} />
-              <Input label="Horário" placeholder="Ex.: 14:00" value={form.horario_evento} onChange={evento => setForm({ ...form, horario_evento: evento.target.value })} />
+              <Input label="Horário do evento" placeholder="Ex.: 14:00" value={form.horario_evento} onChange={evento => setForm({ ...form, horario_evento: evento.target.value })} />
               <Input label="Endereço do evento" value={form.endereco_evento} onChange={evento => setForm({ ...form, endereco_evento: evento.target.value })} />
               <Input label="Data de retirada" type="date" value={form.data_retirada} onChange={evento => { setForm({ ...form, data_retirada: evento.target.value }); setDisponibilidades({}) }} />
+              <Input label="Horário da retirada" type="time" value={form.horario_retirada} onChange={evento => setForm({ ...form, horario_retirada: evento.target.value })} />
               <Input label="Data de devolução" type="date" value={form.data_devolucao} onChange={evento => { setForm({ ...form, data_devolucao: evento.target.value }); setDisponibilidades({}) }} />
             </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <div><h3 className="font-bold text-slate-900">Itens da proposta</h3><p className="text-sm text-slate-500">Selecione um kit principal ou inclua acessórios decorativos do estoque.</p></div>
-                <Button variant="secondary" onClick={() => setItens(atuais => [...atuais, novoItem()])}><Plus size={16} className="inline" /> Adicionar item</Button>
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-bold text-slate-900">1. KIT pronto e precificado</h3>
+                <p className="text-sm text-slate-500">Selecione um KIT cadastrado. O preço do KIT entra automaticamente na proposta.</p>
               </div>
 
               <div className="rounded-2xl border border-pink-100 bg-pink-50/50 p-4">
                 <div className="mb-3">
-                  <h4 className="font-semibold text-slate-900">Acessórios decorativos disponíveis</h4>
-                  <p className="text-xs text-slate-500">Pesquise tapetes, vasos, flores, bandejas, cilindros e outros itens para adicionar à proposta.</p>
+                  <h4 className="font-semibold text-slate-900">2. Monte seu KIT pelo estoque</h4>
+                  <p className="text-xs text-slate-500">Pesquise os itens físicos escolhidos pelo cliente. Defina a quantidade e o valor de locação na proposta.</p>
                 </div>
                 <Input
-                  aria-label="Buscar acessório decorativo"
+                  aria-label="Buscar item do estoque"
                   placeholder="Buscar por nome, código ou categoria..."
                   value={buscaAcessorio}
                   onChange={evento => setBuscaAcessorio(evento.target.value)}
@@ -1239,11 +1297,15 @@ export function OrcamentosPage() {
                       className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50"
                     >
                       <span><strong>{acessorio.nome}</strong>{acessorio.categoria ? ` · ${acessorio.categoria}` : ''}</span>
-                      <span className="shrink-0 text-xs text-slate-500">Disponível: {acessorio.quantidade_disponivel || 0} · Adicionar +</span>
+                      <span className="shrink-0 text-xs text-slate-500">Base disponível: {acessorio.quantidade_disponivel || 0} · Adicionar +</span>
                     </button>
                   ))}
-                  {acessoriosFiltrados.length === 0 && <p className="px-3 py-4 text-center text-sm text-slate-500">Nenhum acessório encontrado.</p>}
+                  {acessoriosFiltrados.length === 0 && <p className="px-3 py-4 text-center text-sm text-slate-500">Nenhum item de estoque encontrado.</p>}
                 </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button variant="secondary" onClick={() => setItens(atuais => [...atuais, novoItem()])}><Plus size={16} className="inline" /> Adicionar item livre</Button>
               </div>
 
               {itens.map((item, indice) => {
@@ -1254,17 +1316,24 @@ export function OrcamentosPage() {
                 return (
                   <div key={item.chave} className="rounded-2xl border bg-slate-50 p-4">
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-                      <Select label="Kit ou pacote principal (opcional)" className="xl:col-span-2" value={item.kit_id} onChange={evento => selecionarKit(item.chave, evento.target.value)}>
-                        <option value="">Item adicional</option>
-                        {kits.map(kit => <option key={kit.id} value={kit.id}>{kit.codigo ? `${kit.codigo} - ` : ''}{kit.nome}</option>)}
+                      <Select label="KIT pronto (opcional)" className="xl:col-span-2" value={item.kit_id} onChange={evento => selecionarKit(item.chave, evento.target.value)}>
+                        <option value="">KIT personalizado / item avulso</option>
+                        {kits.map(kit => <option key={kit.id} value={kit.id}>{kit.codigo ? `${kit.codigo} - ` : ''}{kit.nome} · {moeda(kit.valor || 0)}</option>)}
                       </Select>
-                      <Input label="Descrição do item / acessório *" className="xl:col-span-2" value={item.descricao} onChange={evento => atualizarItem(item.chave, { descricao: evento.target.value })} />
-                      <Input label="Quantidade" type="number" min="0.01" step="0.01" value={item.quantidade} onChange={evento => atualizarItem(item.chave, { quantidade: evento.target.value })} />
+                      <Input label="Descrição *" className="xl:col-span-2" value={item.descricao} onChange={evento => atualizarItem(item.chave, { descricao: evento.target.value })} />
+                      <Input label="Quantidade" type="number" min="0.01" step="0.01" value={item.quantidade} disabled={Boolean(item.kit_id)} onChange={evento => atualizarItem(item.chave, { quantidade: evento.target.value })} />
                       <Input label="Valor unitário" type="number" min="0" step="0.01" value={item.valor_unitario} onChange={evento => atualizarItem(item.chave, { valor_unitario: evento.target.value })} />
                     </div>
+
+                    {item.estoque_item_id && !item.kit_id && (
+                      <div className="mt-3 rounded-xl border border-cyan-100 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-800">
+                        Item vinculado ao estoque físico. O bloqueio ocorrerá somente quando a reserva for confirmada.
+                      </div>
+                    )}
+
                     {item.kit_id && (
                       <div className="mt-3 rounded-xl border bg-white p-3">
-                        <p className="text-xs font-bold uppercase text-slate-500">Composição incluída neste kit</p>
+                        <p className="text-xs font-bold uppercase text-slate-500">Composição incluída neste KIT</p>
                         <div className="mt-2 max-h-32 space-y-1 overflow-y-auto text-sm">
                           {composicaoSelecionada.map(linha => (
                             <p key={linha.id} className="flex justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2">
@@ -1272,10 +1341,11 @@ export function OrcamentosPage() {
                               <span className="shrink-0 text-slate-500">Qtd.: {linha.quantidade}{Number(linha.valor_ajuste || 0) !== 0 ? ` · ${Number(linha.valor_ajuste || 0) > 0 ? '+' : ''}${moeda(linha.valor_ajuste || 0)}` : ''}</span>
                             </p>
                           ))}
-                          {composicaoSelecionada.length === 0 && <p className="text-slate-500">Este kit ainda não possui itens de composição cadastrados.</p>}
+                          {composicaoSelecionada.length === 0 && <p className="text-slate-500">Este KIT ainda não possui itens de composição cadastrados.</p>}
                         </div>
                       </div>
                     )}
+
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
                       <span className="font-semibold">Subtotal: {moeda(Number(item.quantidade || 0) * Number(item.valor_unitario || 0))}</span>
                       <div className="flex flex-wrap items-center gap-2">
@@ -1284,7 +1354,7 @@ export function OrcamentosPage() {
                             {disponibilidade.disponivel ? <CheckCircle2 size={14} /> : <CircleAlert size={14} />}{disponibilidade.motivo}
                           </span>
                         )}
-                        {item.kit_id && <Button variant="secondary" onClick={() => verificarDisponibilidade(item)}><CalendarCheck size={16} className="inline" /> Ver disponibilidade</Button>}
+                        {(item.kit_id || item.estoque_item_id) && <Button variant="secondary" onClick={() => verificarDisponibilidade(item)}><CalendarCheck size={16} className="inline" /> Consultar disponibilidade</Button>}
                         {itens.length > 1 && <Button variant="danger" aria-label={`Remover item ${indice + 1}`} onClick={() => setItens(atuais => atuais.filter(linha => linha.chave !== item.chave))}><Trash2 size={16} /></Button>}
                       </div>
                     </div>
@@ -1323,7 +1393,10 @@ export function OrcamentosPage() {
               <span className={`rounded-full px-3 py-1 text-xs font-bold ${corStatus(orcamento.status)}`}>{orcamento.status}</span>
             </div>
             <div className="mt-4 space-y-1 text-sm text-slate-500">
-              <p>Evento: {dataCurta(orcamento.data_evento)}</p><p>Validade: {dataCurta(orcamento.validade)}</p><p className="pt-2 text-xl font-bold text-slate-900">{moeda(orcamento.total)}</p>
+              <p>Evento: {dataCurta(orcamento.data_evento)}</p>
+              <p>Retirada: {dataCurta(orcamento.data_retirada)}{orcamento.horario_retirada ? ` às ${orcamento.horario_retirada.slice(0, 5)}` : ''}</p>
+              <p>Validade: {dataCurta(orcamento.validade)}</p>
+              <p className="pt-2 text-xl font-bold text-slate-900">{moeda(orcamento.total)}</p>
             </div>
             {orcamento.email_enviado_em && (
               <p className="mt-3 text-xs text-slate-500">
@@ -1342,7 +1415,7 @@ export function OrcamentosPage() {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <p className="text-xs font-bold uppercase text-pink-700">Formalização da venda</p>
-                    <p className="mt-0.5 text-xs text-slate-500">Reserva, contrato e cobrança do sinal em um só fluxo.</p>
+                    <p className="mt-0.5 text-xs text-slate-500">Reserva provisória, contrato e cobrança. O estoque entra somente na confirmação.</p>
                   </div>
                   <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${corFormalizacao(orcamento.formalizacao_status)}`}>
                     {orcamento.formalizacao_status || 'Aguardando formalização'}
@@ -1471,8 +1544,8 @@ export function OrcamentosPage() {
                       <p className="rounded-xl bg-green-50 px-3 py-2 text-xs font-semibold text-green-800">Sinal recebido em {new Date(orcamento.sinal_pago_em).toLocaleString('pt-BR')}.</p>
                     )}
 
-                    {orcamento.formalizacao_status === 'Venda confirmada' && (
-                      <p className="rounded-xl bg-green-600 px-4 py-3 text-center text-sm font-bold text-white">Venda confirmada e pronta para a operação.</p>
+                    {['Venda confirmada', 'RESERVA_CONFIRMADA'].includes(orcamento.formalizacao_status || '') && (
+                      <p className="rounded-xl bg-green-600 px-4 py-3 text-center text-sm font-bold text-white">Reserva confirmada. Estoque bloqueado para o período e operação liberada.</p>
                     )}
                   </div>
                 )}
