@@ -159,6 +159,7 @@ revoke execute on function public.auditar_evidence_engine() from public, anon, a
 revoke execute on function public.auditar_usuario_empresa() from public, anon, authenticated;
 revoke execute on function public.garantir_administrador_inicial() from public, anon, authenticated;
 revoke execute on function public.gerar_codigo_automatico_estoque() from public, anon, authenticated;
+revoke execute on function public.proximo_numero_reserva() from public, anon, authenticated;
 -- RPC legítima do frontend autenticado; não retirar authenticated.
 revoke execute on function public.meu_acesso() from public, anon;
 revoke execute on function public.recalcular_orcamento_por_itens() from public, anon, authenticated;

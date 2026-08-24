@@ -37,3 +37,7 @@ homologação 23 (21 `WARN`). A maior parte envolve funções `SECURITY DEFINER`
 Algumas são RPCs intencionais do ERP ou helpers de RLS; as funções internas
 identificadas foram tratadas no arquivo 001. A proteção contra senhas vazadas
 permanece como configuração manual do Auth.
+
+No ensaio de restauração isolado, o pacote reduziu os avisos de segurança de
+45 `WARN` (produção antes da promoção) para 10 `WARN`: nove RPCs/helpers
+autenticados intencionais e a proteção de senha vazada ainda não habilitada.

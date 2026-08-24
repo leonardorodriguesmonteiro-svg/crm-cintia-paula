@@ -12,7 +12,7 @@ Este documento não autoriza nem executa alterações em produção.
 
 - [x] Dump manual do banco de produção concluído, identificado e validado por
       SHA-256 (o plano Free atual não oferece backup agendado).
-- [ ] Procedimento de restauração testado ou confirmado pelo provedor.
+- [x] Procedimento de restauração testado em projeto Supabase isolado.
 - [x] Conteúdo das 17 migrações remotas exportado e versionado como evidência.
 - [x] Diferenças entre migrações remotas e locais classificadas por impacto.
 - [x] SQL pendente revisado por ordem e impacto.
@@ -54,9 +54,11 @@ do ERP/site e o histórico `supabase_migrations`. Os arquivos possuem permissão
 local `0600`, hashes SHA-256 registrados e não contêm credenciais temporárias.
 Os papéis efêmeros e o token `Full access` foram revogados após a operação.
 
-Permanece pendente testar a restauração em um projeto isolado. Há uma relação
-circular entre `reservas` e `orcamentos`, que exige restauração controlada dos
-dados com triggers temporariamente desabilitados ou tratamento equivalente.
+O ensaio foi concluído em 24/08/2026. A relação circular entre `reservas` e
+`orcamentos` foi restaurada com triggers desativados somente dentro da
+transação; as contagens coincidiram com produção e não houve órfãos. O
+procedimento corrigido está em
+`docs/evidencias/ENSAIO_RESTAURACAO_2026-08-24.md`.
 
 ### Pacote de promoção consolidado em 24/08/2026
 
