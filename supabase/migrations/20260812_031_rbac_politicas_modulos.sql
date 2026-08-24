@@ -103,14 +103,26 @@ for all to authenticated
 using (public.usuario_tem_perfil(array[U&'Opera\00E7\00E3o', 'Estoque']))
 with check (public.usuario_tem_perfil(array[U&'Opera\00E7\00E3o', 'Estoque']));
 
-create policy rbac_estoque_consultar on public.estoque
-for select to authenticated
-using (public.usuario_tem_perfil(array['Comercial', 'Financeiro', U&'Opera\00E7\00E3o', 'Estoque']));
+-- `estoque` é somente legado; instalações novas operam exclusivamente sobre
+-- `estoque_itens`. Mantém RBAC na tabela antiga apenas quando ela existir.
+do $$
+begin
+  if to_regclass('public.estoque') is not null then
+    execute $policy$
+      create policy rbac_estoque_consultar on public.estoque
+      for select to authenticated
+      using (public.usuario_tem_perfil(array['Comercial', 'Financeiro', U&'Opera\00E7\00E3o', 'Estoque']))
+    $policy$;
 
-create policy rbac_estoque_gerenciar on public.estoque
-for all to authenticated
-using (public.usuario_tem_perfil(array[U&'Opera\00E7\00E3o', 'Estoque']))
-with check (public.usuario_tem_perfil(array[U&'Opera\00E7\00E3o', 'Estoque']));
+    execute $policy$
+      create policy rbac_estoque_gerenciar on public.estoque
+      for all to authenticated
+      using (public.usuario_tem_perfil(array[U&'Opera\00E7\00E3o', 'Estoque']))
+      with check (public.usuario_tem_perfil(array[U&'Opera\00E7\00E3o', 'Estoque']))
+    $policy$;
+  end if;
+end
+$$;
 
 create policy rbac_movimentos_estoque_consultar on public.movimentos_estoque
 for select to authenticated
@@ -121,14 +133,25 @@ for all to authenticated
 using (public.usuario_tem_perfil(array[U&'Opera\00E7\00E3o', 'Estoque']))
 with check (public.usuario_tem_perfil(array[U&'Opera\00E7\00E3o', 'Estoque']));
 
-create policy rbac_temas_consultar on public.temas
-for select to authenticated
-using (public.usuario_tem_perfil(array['Comercial', 'Financeiro', U&'Opera\00E7\00E3o', 'Estoque']));
+-- `temas` também é legado; o catálogo atual usa `kits.tema`.
+do $$
+begin
+  if to_regclass('public.temas') is not null then
+    execute $policy$
+      create policy rbac_temas_consultar on public.temas
+      for select to authenticated
+      using (public.usuario_tem_perfil(array['Comercial', 'Financeiro', U&'Opera\00E7\00E3o', 'Estoque']))
+    $policy$;
 
-create policy rbac_temas_gerenciar on public.temas
-for all to authenticated
-using (public.usuario_tem_perfil(array[U&'Opera\00E7\00E3o', 'Estoque']))
-with check (public.usuario_tem_perfil(array[U&'Opera\00E7\00E3o', 'Estoque']));
+    execute $policy$
+      create policy rbac_temas_gerenciar on public.temas
+      for all to authenticated
+      using (public.usuario_tem_perfil(array[U&'Opera\00E7\00E3o', 'Estoque']))
+      with check (public.usuario_tem_perfil(array[U&'Opera\00E7\00E3o', 'Estoque']))
+    $policy$;
+  end if;
+end
+$$;
 
 -- Comercial.
 create policy rbac_oportunidades_comercial on public.oportunidades
@@ -254,20 +277,23 @@ for all to authenticated
 using (public.usuario_tem_perfil(array[U&'Opera\00E7\00E3o']))
 with check (public.usuario_tem_perfil(array[U&'Opera\00E7\00E3o']));
 
-create policy rbac_workflow_acoes_operacao on public.workflow_acoes
-for all to authenticated
-using (public.usuario_tem_perfil(array[U&'Opera\00E7\00E3o']))
-with check (public.usuario_tem_perfil(array[U&'Opera\00E7\00E3o']));
-
-create policy rbac_workflow_eventos_operacao on public.workflow_eventos
-for all to authenticated
-using (public.usuario_tem_perfil(array[U&'Opera\00E7\00E3o']))
-with check (public.usuario_tem_perfil(array[U&'Opera\00E7\00E3o']));
-
-create policy rbac_workflow_regras_operacao on public.workflow_regras
-for all to authenticated
-using (public.usuario_tem_perfil(array[U&'Opera\00E7\00E3o']))
-with check (public.usuario_tem_perfil(array[U&'Opera\00E7\00E3o']));
+-- O antigo motor de workflow é opcional e não faz parte da esteira V2.
+do $$
+declare
+  v_tabela text;
+begin
+  foreach v_tabela in array array['workflow_acoes', 'workflow_eventos', 'workflow_regras']
+  loop
+    if to_regclass('public.' || v_tabela) is not null then
+      execute format(
+        'create policy %I on public.%I for all to authenticated using (public.usuario_tem_perfil(array[U&''Opera\00E7\00E3o''])) with check (public.usuario_tem_perfil(array[U&''Opera\00E7\00E3o'']))',
+        'rbac_' || v_tabela || '_operacao',
+        v_tabela
+      );
+    end if;
+  end loop;
+end
+$$;
 
 create policy rbac_equipe_operacao on public.equipe
 for all to authenticated
@@ -305,10 +331,18 @@ for all to authenticated
 using (public.usuario_tem_perfil(array['Financeiro']))
 with check (public.usuario_tem_perfil(array['Financeiro']));
 
-create policy rbac_pagamentos on public.pagamentos
-for all to authenticated
-using (public.usuario_tem_perfil(array['Financeiro']))
-with check (public.usuario_tem_perfil(array['Financeiro']));
+do $$
+begin
+  if to_regclass('public.pagamentos') is not null then
+    execute $policy$
+      create policy rbac_pagamentos on public.pagamentos
+      for all to authenticated
+      using (public.usuario_tem_perfil(array['Financeiro']))
+      with check (public.usuario_tem_perfil(array['Financeiro']))
+    $policy$;
+  end if;
+end
+$$;
 
 create policy rbac_pagamento_webhook_eventos_consultar on public.pagamento_webhook_eventos
 for select to authenticated

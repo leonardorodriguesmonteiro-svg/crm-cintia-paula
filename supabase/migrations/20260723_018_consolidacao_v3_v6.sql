@@ -1,6 +1,28 @@
 -- Consolida os dados e regras da V3 no modelo canônico da V6.
 -- A migração é idempotente e mantém as tabelas legadas como cópia de segurança.
 
+alter table public.estoque_itens
+add column if not exists quantidade_disponivel integer not null default 0;
+
+update public.estoque_itens
+set quantidade_disponivel = greatest(
+  coalesce(quantidade_total, 0) - coalesce(quantidade_manutencao, 0),
+  0
+);
+
+-- Colunas operacionais presentes na V3 e necessárias às regras consolidadas.
+-- `data_festa` permanece como compatibilidade de leitura durante a transição.
+alter table public.reservas
+  add column if not exists data_festa date,
+  add column if not exists data_retirada date,
+  add column if not exists data_devolucao date,
+  add column if not exists status_comercial text,
+  add column if not exists status_operacional text default 'Aguardando operação';
+
+update public.reservas
+set data_festa = coalesce(data_festa, data_evento),
+    data_evento = coalesce(data_evento, data_festa);
+
 create table if not exists public.consolidacao_estoque_v3_v6 (
   estoque_v3_id uuid primary key,
   estoque_v6_id uuid not null unique references public.estoque_itens(id),

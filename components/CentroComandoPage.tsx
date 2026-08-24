@@ -76,7 +76,7 @@ export function CentroComandoPage() {
     setCarregando(true)
 
     const consultaVazia = () => Promise.resolve({ data: [], error: null })
-    const [reservasRes, contratosRes, ordensRes, logisticaRes, workflowRes, workflowAcoesRes, formalizacoesRes] =
+    const [reservasRes, contratosRes, ordensRes, logisticaRes, workflowRes, formalizacoesRes] =
       await Promise.all([
         supabase
           .from('reservas')
@@ -96,20 +96,16 @@ export function CentroComandoPage() {
           .select('id,etapa,status,horario_previsto') : consultaVazia(),
 
         pode('operacao') ? supabase
-          .from('workflow_eventos')
-          .select('id,titulo,tipo,created_at')
+          .from('timeline_global')
+          .select('id,titulo,tipo:modulo,created_at')
           .order('created_at', { ascending: false })
           .limit(5) : consultaVazia(),
-
-        pode('operacao') ? supabase
-          .from('workflow_acoes')
-          .select('status') : consultaVazia(),
 
         pode('orcamentos') ? supabase
           .from('orcamentos')
           .select('id,numero,formalizacao_status,oportunidades(nome_contato)')
-          .eq('status', 'Aprovado')
-          .neq('formalizacao_status', 'Venda confirmada')
+          .eq('status', 'ACEITA')
+          .neq('formalizacao_status', 'RESERVA_CONFIRMADA')
           .order('updated_at', { ascending: false }) : consultaVazia()
       ])
 
@@ -119,7 +115,6 @@ export function CentroComandoPage() {
       ordensRes.error ||
       logisticaRes.error ||
       workflowRes.error ||
-      workflowAcoesRes.error ||
       formalizacoesRes.error
 
     if (primeiraFalha) {
@@ -131,7 +126,7 @@ export function CentroComandoPage() {
     setOrdens(ordensRes.data || [])
     setLogistica(logisticaRes.data || [])
     setWorkflow(workflowRes.data || [])
-    setWorkflowAcoes(workflowAcoesRes.data || [])
+    setWorkflowAcoes([])
     setFormalizacoes((formalizacoesRes.data as unknown as Formalizacao[]) || [])
     setCarregando(false)
   }
@@ -351,13 +346,9 @@ export function CentroComandoPage() {
               Atividade recente do ERP
             </h2>
             <p className="text-sm text-slate-500">
-              Últimos eventos processados pelo Workflow.
+              Últimos eventos registrados na timeline operacional.
             </p>
           </div>
-
-          <Link href="/workflow" className="text-sm font-semibold text-pink-700">
-            Abrir Workflow
-          </Link>
         </div>
 
         <div className="mt-5 space-y-3">

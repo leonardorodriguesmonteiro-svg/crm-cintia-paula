@@ -28,3 +28,28 @@ for all
 to authenticated
 using (true)
 with check (true);
+
+-- A V3 já possuía esta tabela. Instalações novas da V6 também precisam
+-- criá-la, pois timeline, formalização e conciliação financeira dependem dela.
+create table if not exists public.recebimentos (
+  id uuid primary key default gen_random_uuid(),
+  reserva_id uuid references public.reservas(id) on delete cascade,
+  valor numeric not null default 0,
+  data_recebimento date,
+  forma_pagamento text,
+  status text default 'Pago',
+  observacoes text,
+  created_at timestamptz default now()
+);
+
+alter table public.recebimentos enable row level security;
+
+drop policy if exists "Usuários autenticados podem acessar recebimentos"
+on public.recebimentos;
+
+create policy "Usuários autenticados podem acessar recebimentos"
+on public.recebimentos
+for all
+to authenticated
+using (true)
+with check (true);

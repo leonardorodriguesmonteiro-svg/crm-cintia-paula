@@ -48,14 +48,14 @@ async function buscarProposta(token: string) {
 
   const oportunidade = relacaoUnica(data.oportunidades)
   const cliente = relacaoUnica(data.clientes)
-  const expirada = ['Expirado', 'EXPIRADA'].includes(data.status) || Boolean(
+  const expirada = data.status === 'EXPIRADA' || Boolean(
     data.validade && data.validade < dataHojeBrasil()
   )
 
   return {
     numero: data.numero,
-    status: expirada && ['Rascunho', 'Enviado', 'RASCUNHO', 'ENVIADA'].includes(data.status)
-      ? (data.status === data.status.toUpperCase() ? 'EXPIRADA' : 'Expirado')
+    status: expirada && ['RASCUNHO', 'ENVIADA'].includes(data.status)
+      ? 'EXPIRADA'
       : data.status,
     validade: data.validade,
     data_evento: data.data_evento,
@@ -86,7 +86,7 @@ async function buscarProposta(token: string) {
     dados_cliente_completos: Boolean(data.dados_cliente_completos_em),
     precisa_completar_dados:
       data.status === 'ACEITA' && !data.dados_cliente_completos_em,
-    pode_responder: !expirada && ['Rascunho', 'Enviado', 'ENVIADA'].includes(data.status)
+    pode_responder: !expirada && data.status === 'ENVIADA'
   }
 }
 
