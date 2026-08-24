@@ -29,6 +29,18 @@ nome. Até que as diferenças sejam classificadas e o dump manual esteja
 concluído, ficam proibidos `supabase db push`, reparo do histórico e aplicação
 manual de SQL em produção.
 
+### Tentativa de backup em 24/08/2026
+
+- O acesso temporário ao Postgres foi habilitado com sucesso pela CLI.
+- A conexão ao projeto e o `migration fetch` foram validados.
+- O `db dump` não iniciou porque a CLI local exige Docker Desktop para executar
+  o `pg_dump`, e o equipamento não possui Docker nem `pg_dump` instalado.
+- O arquivo parcial vazio foi removido e o token temporário foi revogado sem ter
+  sido usado para qualquer alteração no banco.
+- Há aproximadamente 2 GiB livres no disco; instalar Docker não é recomendável
+  nesse estado. A alternativa preferencial é instalar somente um cliente
+  PostgreSQL 17 compatível ou liberar espaço antes de instalar o Docker.
+
 Para liberar o próximo portão, usar a CLI oficial autenticada para:
 
 1. obter a senha do Postgres de produção de forma segura;
