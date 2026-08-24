@@ -10,13 +10,29 @@ Este documento não autoriza nem executa alterações em produção.
 
 ## Portões obrigatórios
 
-- [ ] Backup recuperável do banco de produção concluído e identificado.
+- [ ] Dump manual recuperável do banco de produção concluído e identificado
+      (o plano Free atual não oferece backup agendado).
 - [ ] Procedimento de restauração testado ou confirmado pelo provedor.
 - [ ] Histórico das 17 migrações remotas reconciliado com o repositório.
 - [ ] SQL pendente revisado por ordem e impacto.
 - [ ] Advisors de segurança e desempenho sem alerta impeditivo.
 - [ ] Mercado Pago e Resend decididos e configurados separadamente por ambiente.
 - [ ] Janela de implantação e responsáveis definidos.
+
+## Bloqueio atual
+
+O painel remoto registra 17 migrações com versões que não existem no Git. Seis
+possuem nomes funcionalmente equivalentes a arquivos locais, mas timestamps
+diferentes; as outras onze não têm arquivo com o mesmo nome. Até que o conteúdo
+remoto seja exportado e comparado, ficam proibidos `supabase db push`, reparo do
+histórico e aplicação manual de SQL em produção.
+
+Para liberar o próximo portão, usar a CLI oficial autenticada para:
+
+1. gerar dumps separados de schema, dados e papéis/roles;
+2. executar `supabase migration fetch` em uma cópia de trabalho limpa;
+3. comparar o conteúdo obtido com as migrações locais;
+4. montar o plano final contendo somente SQL ainda não aplicado.
 
 ## Ordem de implantação
 
