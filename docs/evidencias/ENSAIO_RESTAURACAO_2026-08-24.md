@@ -75,5 +75,7 @@ erro. A segunda execução não alterou dados, confirmando idempotência operaci
 - O backup lógico não contém os binários do Storage.
 - Configurações de Auth, SMTP, chaves, URLs e Edge Functions não são restauradas
   pelos SQLs e devem ser tratadas separadamente em recuperação real.
-- O projeto temporário deve ser excluído após a aprovação do resultado e a
-  homologação original deve ser reativada.
+- Após a aprovação do resultado, o projeto temporário
+  `vpsbdpqrlmxhpoeshrqq` foi excluído definitivamente. A homologação original
+  foi reativada e confirmada como `ACTIVE_HEALTHY`; produção também permaneceu
+  `ACTIVE_HEALTHY`.
