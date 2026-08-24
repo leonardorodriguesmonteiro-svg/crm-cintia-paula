@@ -14,8 +14,8 @@ Este documento não autoriza nem executa alterações em produção.
       SHA-256 (o plano Free atual não oferece backup agendado).
 - [ ] Procedimento de restauração testado ou confirmado pelo provedor.
 - [x] Conteúdo das 17 migrações remotas exportado e versionado como evidência.
-- [ ] Diferenças entre migrações remotas e locais classificadas por impacto.
-- [ ] SQL pendente revisado por ordem e impacto.
+- [x] Diferenças entre migrações remotas e locais classificadas por impacto.
+- [x] SQL pendente revisado por ordem e impacto.
 - [ ] Advisors de segurança e desempenho sem alerta impeditivo.
 - [ ] Mercado Pago e Resend decididos e configurados separadamente por ambiente.
 - [ ] Janela de implantação e responsáveis definidos.
@@ -57,6 +57,18 @@ Os papéis efêmeros e o token `Full access` foram revogados após a operação.
 Permanece pendente testar a restauração em um projeto isolado. Há uma relação
 circular entre `reservas` e `orcamentos`, que exige restauração controlada dos
 dados com triggers temporariamente desabilitados ou tratamento equivalente.
+
+### Pacote de promoção consolidado em 24/08/2026
+
+O SQL revisado e a validação posterior estão em
+`docs/evidencias/promocao-producao-2026-08-24/`. O pacote preserva a função
+endurecida de formalização já existente em produção. A versão local que a
+recriava foi excluída por remover o isolamento por empresa e a validação do
+e-mail do cliente; a correção de autorização subsequente também foi excluída
+porque procurava um trecho inexistente e poderia abortar a transação.
+
+Não houve execução em produção. Continuam pendentes o ensaio de restauração,
+os Advisors e a definição da janela de implantação.
 
 Para liberar o próximo portão, usar a CLI oficial autenticada para:
 
