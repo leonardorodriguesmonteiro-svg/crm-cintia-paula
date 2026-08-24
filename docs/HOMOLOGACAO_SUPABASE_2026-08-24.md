@@ -93,6 +93,19 @@ e dados fictícios de teste. Nenhum dado de cliente será copiado automaticament
 depende da exportação oficial das migrações remotas; renomear arquivos ou
 reparar o histórico sem essa comparação não é seguro.
 
+### Exportação e comparação concluídas
+
+As 17 migrações foram exportadas pela API oficial com permissão somente de
+leitura e armazenadas em `docs/evidencias/migracoes-producao-2026-08-24`.
+Somente `acoes_proposta` é byte a byte idêntica ao arquivo local equivalente.
+As outras cinco equivalências por nome possuem conteúdo diferente. Os arquivos
+de evidência permanecem fora de `supabase/migrations` para não serem aplicados
+acidentalmente.
+
+Foi criado um token temporário, limitado ao projeto de produção e com acesso de
+leitura, exclusivamente para essa exportação. O token foi revogado logo após a
+coleta.
+
 ## Estado funcional encontrado
 
 Apesar das regras V2, os dados ainda usam parte do vocabulário legado:

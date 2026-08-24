@@ -13,7 +13,8 @@ Este documento não autoriza nem executa alterações em produção.
 - [ ] Dump manual recuperável do banco de produção concluído e identificado
       (o plano Free atual não oferece backup agendado).
 - [ ] Procedimento de restauração testado ou confirmado pelo provedor.
-- [ ] Histórico das 17 migrações remotas reconciliado com o repositório.
+- [x] Conteúdo das 17 migrações remotas exportado e versionado como evidência.
+- [ ] Diferenças entre migrações remotas e locais classificadas por impacto.
 - [ ] SQL pendente revisado por ordem e impacto.
 - [ ] Advisors de segurança e desempenho sem alerta impeditivo.
 - [ ] Mercado Pago e Resend decididos e configurados separadamente por ambiente.
@@ -21,17 +22,18 @@ Este documento não autoriza nem executa alterações em produção.
 
 ## Bloqueio atual
 
-O painel remoto registra 17 migrações com versões que não existem no Git. Seis
-possuem nomes funcionalmente equivalentes a arquivos locais, mas timestamps
-diferentes; as outras onze não têm arquivo com o mesmo nome. Até que o conteúdo
-remoto seja exportado e comparado, ficam proibidos `supabase db push`, reparo do
-histórico e aplicação manual de SQL em produção.
+O painel remoto registra 17 migrações com versões que não existem na pasta
+local. Seis possuem nomes funcionalmente equivalentes a arquivos locais, mas
+somente uma é byte a byte idêntica; as outras onze não têm arquivo com o mesmo
+nome. Até que as diferenças sejam classificadas e o dump manual esteja
+concluído, ficam proibidos `supabase db push`, reparo do histórico e aplicação
+manual de SQL em produção.
 
 Para liberar o próximo portão, usar a CLI oficial autenticada para:
 
-1. gerar dumps separados de schema, dados e papéis/roles;
-2. executar `supabase migration fetch` em uma cópia de trabalho limpa;
-3. comparar o conteúdo obtido com as migrações locais;
+1. obter a senha do Postgres de produção de forma segura;
+2. gerar dumps separados de schema, dados e papéis/roles;
+3. classificar as diferenças já exportadas entre o remoto e o Git;
 4. montar o plano final contendo somente SQL ainda não aplicado.
 
 ## Ordem de implantação
