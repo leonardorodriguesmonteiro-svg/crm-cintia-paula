@@ -153,19 +153,21 @@ alter table public.empresas
   alter column status set not null;
 
 -- Hardening de funções internas expostas pela Data API.
-revoke execute on function public.auditar_empresa() from public, anon;
-revoke execute on function public.auditar_entidade_operacional() from public, anon;
-revoke execute on function public.auditar_evidence_engine() from public, anon;
-revoke execute on function public.auditar_usuario_empresa() from public, anon;
-revoke execute on function public.garantir_administrador_inicial() from public, anon;
-revoke execute on function public.gerar_codigo_automatico_estoque() from public, anon;
+revoke execute on function public.auditar_empresa() from public, anon, authenticated;
+revoke execute on function public.auditar_entidade_operacional() from public, anon, authenticated;
+revoke execute on function public.auditar_evidence_engine() from public, anon, authenticated;
+revoke execute on function public.auditar_usuario_empresa() from public, anon, authenticated;
+revoke execute on function public.garantir_administrador_inicial() from public, anon, authenticated;
+revoke execute on function public.gerar_codigo_automatico_estoque() from public, anon, authenticated;
+-- RPC legítima do frontend autenticado; não retirar authenticated.
 revoke execute on function public.meu_acesso() from public, anon;
-revoke execute on function public.recalcular_orcamento_por_itens() from public, anon;
-revoke execute on function public.recalcular_reserva_por_itens() from public, anon;
-revoke execute on function public.registrar_preferencia_mercado_pago(uuid, text, text) from public, anon;
-revoke execute on function public.registrar_timeline_assinatura_missao() from public, anon;
-revoke execute on function public.registrar_timeline_evidencia_missao() from public, anon;
-revoke execute on function public.registrar_timeline_ocorrencia_missao() from public, anon;
+revoke execute on function public.recalcular_orcamento_por_itens() from public, anon, authenticated;
+revoke execute on function public.recalcular_reserva_por_itens() from public, anon, authenticated;
+revoke execute on function public.registrar_preferencia_mercado_pago(uuid, text, text) from public, anon, authenticated;
+revoke execute on function public.registrar_timeline_assinatura_missao() from public, anon, authenticated;
+revoke execute on function public.registrar_timeline_evidencia_missao() from public, anon, authenticated;
+revoke execute on function public.registrar_timeline_ocorrencia_missao() from public, anon, authenticated;
+-- Helpers usados pelas políticas RLS; authenticated precisa executá-los.
 revoke execute on function public.usuario_eh_admin_empresa(uuid) from public, anon;
 revoke execute on function public.usuario_eh_administrador() from public, anon;
 revoke execute on function public.usuario_pertence_empresa(uuid) from public, anon;

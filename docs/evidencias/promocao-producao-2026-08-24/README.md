@@ -9,6 +9,9 @@ locais posteriores à homologação.
 - Incluído: normalização definitiva dos estados de propostas/formalização.
 - Incluído: índices das consultas da nova esteira.
 - Incluído: compatibilidade `empresas.status` e hardening das funções internas.
+- O hardening revoga `authenticated` somente de funções internas/de trigger e
+  RPCs exclusivas do servidor. `meu_acesso`, verificadores de disponibilidade e
+  helpers usados por RLS preservam a execução autenticada necessária ao ERP.
 - Excluído: recriação de `executar_formalizacao_servidor`. A versão existente em
   produção é mais nova e preserva isolamento por empresa e validação do e-mail.
 - Excluído: remoção dos confirmadores experimentais. Eles não existem no schema
@@ -26,3 +29,11 @@ locais posteriores à homologação.
 
 O arquivo 001 contém uma guarda que interrompe a transação se a função endurecida
 de formalização não corresponder ao schema analisado.
+
+## Advisors antes da promoção
+
+Em 2026-08-24, produção apresentou 48 avisos de segurança (45 `WARN`) e a
+homologação 23 (21 `WARN`). A maior parte envolve funções `SECURITY DEFINER`.
+Algumas são RPCs intencionais do ERP ou helpers de RLS; as funções internas
+identificadas foram tratadas no arquivo 001. A proteção contra senhas vazadas
+permanece como configuração manual do Auth.

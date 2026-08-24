@@ -16,7 +16,7 @@ Este documento não autoriza nem executa alterações em produção.
 - [x] Conteúdo das 17 migrações remotas exportado e versionado como evidência.
 - [x] Diferenças entre migrações remotas e locais classificadas por impacto.
 - [x] SQL pendente revisado por ordem e impacto.
-- [ ] Advisors de segurança e desempenho sem alerta impeditivo.
+- [x] Advisors de segurança e desempenho levantados e classificados.
 - [ ] Mercado Pago e Resend decididos e configurados separadamente por ambiente.
 - [ ] Janela de implantação e responsáveis definidos.
 
@@ -68,7 +68,7 @@ e-mail do cliente; a correção de autorização subsequente também foi excluí
 porque procurava um trecho inexistente e poderia abortar a transação.
 
 Não houve execução em produção. Continuam pendentes o ensaio de restauração,
-os Advisors e a definição da janela de implantação.
+a correção dos avisos impeditivos e a definição da janela de implantação.
 
 Para liberar o próximo portão, usar a CLI oficial autenticada para:
 
