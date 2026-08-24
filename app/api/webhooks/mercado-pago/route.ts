@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { InvalidWebhookSignatureError } from 'mercadopago'
+import { publicarConfirmacaoReservaV2 } from '@/lib/formalizacaoConfirmacao'
 import {
+  conciliarPagamentoMercadoPago,
   consultarPagamentoMercadoPago,
   MercadoPagoNaoConfiguradoError,
   validarWebhookMercadoPago
@@ -123,27 +125,29 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const formaPagamento = `Mercado Pago · ${pagamento.payment_method_id || pagamento.payment_type_id || 'online'}`
-    const { error: conciliacaoError } = await supabaseServer.rpc('conciliar_pagamento_mercado_pago', {
-      p_lancamento_id: lancamentoId,
-      p_pagamento_id: pagamentoId,
-      p_status: status,
-      p_status_detalhe: pagamento.status_detail || null,
-      p_forma_pagamento: formaPagamento,
-      p_valor: Number(pagamento.transaction_amount || 0),
-      p_pago_em: pagamento.date_approved || null
-    })
-
-    if (conciliacaoError) throw conciliacaoError
+    const resultado = await conciliarPagamentoMercadoPago(lancamentoId, pagamento)
+    const eventoConfirmacao = await publicarConfirmacaoReservaV2(
+      resultado,
+      'Mercado Pago · webhook'
+    )
 
     const { error: concluirEventoError } = await supabaseServer
       .from('pagamento_webhook_eventos')
-      .update({ processado_em: new Date().toISOString(), erro: null })
+      .update({
+        processado_em: new Date().toISOString(),
+        erro: eventoConfirmacao.avisos.length
+          ? eventoConfirmacao.avisos.join('; ').slice(0, 1000)
+          : null
+      })
       .eq('id', eventoId)
 
     if (concluirEventoError) throw concluirEventoError
 
-    return respostaOk({ conciliado: status === 'approved' })
+    return respostaOk({
+      conciliado: status === 'approved',
+      reserva_confirmada: Boolean(resultado.nova_confirmacao),
+      avisos: eventoConfirmacao.avisos
+    })
   } catch (error) {
     const mensagem = error instanceof Error ? error.message : 'Falha ao processar a notificação.'
 

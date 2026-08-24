@@ -16,6 +16,13 @@ function escaparHtml(valor: string) {
     .replace(/'/g, '&#039;')
 }
 
+function emailValido(valor: string | null | undefined) {
+  const email = String(valor || '').trim().toLowerCase()
+  return email.length > 0
+    && email.length <= 254
+    && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
 type OpcoesEnvioContrato = {
   reenviar?: boolean
 }
@@ -65,10 +72,13 @@ export async function enviarContratoPorEmail(
     .maybeSingle()
 
   if (clienteError) throw clienteError
-  if (!cliente?.email) throw new Error('Cadastre o e-mail do cliente antes de enviar o contrato.')
+  if (!emailValido(cliente?.email)) {
+    throw new Error('Cadastre um e-mail válido do cliente antes de enviar o contrato.')
+  }
 
+  const emailDestino = String(cliente!.email).trim().toLowerCase()
   const link = `${new URL(origem).origin}/contrato/${contrato.public_token}`
-  const nome = escaparHtml(cliente.nome || 'cliente')
+  const nome = escaparHtml(cliente?.nome || 'cliente')
   const numero = escaparHtml(contrato.numero_contrato)
   const dataEvento = reserva.data_evento
     ? new Date(`${reserva.data_evento}T12:00:00`).toLocaleDateString('pt-BR')
@@ -82,7 +92,7 @@ export async function enviarContratoPorEmail(
     },
     body: JSON.stringify({
       from: remetente,
-      to: [cliente.email],
+      to: [emailDestino],
       ...(respostaPara ? { reply_to: respostaPara } : {}),
       subject: `Bem-vinda à Cintia Paula — contrato ${contrato.numero_contrato}`,
       html: `
@@ -116,14 +126,14 @@ export async function enviarContratoPorEmail(
     .update({
       status: contrato.status === 'Gerado' ? 'Enviado' : contrato.status,
       email_enviado_em: new Date().toISOString(),
-      email_destino: cliente.email,
+      email_destino: emailDestino,
       email_erro: null
     })
     .eq('id', contrato.id)
 
   return {
     sucesso: true,
-    destino: cliente.email,
+    destino: emailDestino,
     email_id: corpo.id || null,
     ignorado: false
   }

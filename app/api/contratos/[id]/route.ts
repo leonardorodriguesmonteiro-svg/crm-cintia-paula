@@ -1,14 +1,15 @@
 import { createHash } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
+import { formatarEnderecoCompleto } from '@/lib/endereco'
+import { publicarConfirmacaoReservaV2 } from '@/lib/formalizacaoConfirmacao'
 import { criarOuObterPreferenciaMercadoPago, MercadoPagoNaoConfiguradoError } from '@/lib/mercadoPago'
 import { gerarPixCopiaECola } from '@/lib/pix'
 import { supabaseServer } from '@/lib/supabaseServer'
-import { formatarEnderecoCompleto } from '@/lib/endereco'
 
 export const dynamic = 'force-dynamic'
 
 type Contexto = {
-  params: Promise<{ token: string }>
+  params: Promise<{ id: string }>
 }
 
 const tokenValido = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -172,7 +173,7 @@ async function buscarContrato(token: string) {
 }
 
 export async function GET(_request: NextRequest, contexto: Contexto) {
-  const { token } = await contexto.params
+  const { id: token } = await contexto.params
 
   if (!tokenValido.test(token)) {
     return NextResponse.json({ error: 'Contrato não encontrado.' }, { status: 404 })
@@ -192,7 +193,7 @@ export async function GET(_request: NextRequest, contexto: Contexto) {
 }
 
 export async function POST(request: NextRequest, contexto: Contexto) {
-  const { token } = await contexto.params
+  const { id: token } = await contexto.params
 
   if (!tokenValido.test(token)) {
     return NextResponse.json({ error: 'Contrato não encontrado.' }, { status: 404 })
@@ -236,6 +237,11 @@ export async function POST(request: NextRequest, contexto: Contexto) {
     return NextResponse.json({ error: error.message }, { status })
   }
 
+  const eventoConfirmacao = await publicarConfirmacaoReservaV2(
+    data || {},
+    'Contrato · assinatura pública'
+  )
+
   let cobranca: { link_pagamento: string | null; criado: boolean } | null = null
   let avisoPagamento: string | null = null
 
@@ -271,6 +277,7 @@ export async function POST(request: NextRequest, contexto: Contexto) {
     mensagem: data?.mensagem,
     assinatura: data,
     cobranca,
-    aviso_pagamento: avisoPagamento
+    aviso_pagamento: avisoPagamento,
+    avisos: eventoConfirmacao.avisos
   })
 }

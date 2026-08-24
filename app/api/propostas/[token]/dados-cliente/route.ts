@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import {
-  completarDadosClienteProposta,
-  JornadaComercialError
-} from '@/lib/application/comercial/jornadaComercialApplication'
+import { completarDadosClientePropostaV2 } from '@/lib/application/comercial/dadosClientePropostaApplication'
+import { JornadaComercialError } from '@/lib/application/comercial/jornadaComercialApplication'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -20,13 +18,17 @@ export async function POST(
 
   try {
     const corpo = await request.json().catch(() => ({})) as Record<string, unknown>
-    const resultado = await completarDadosClienteProposta({
+    const resultado = await completarDadosClientePropostaV2({
       token,
       cpf: String(corpo.cpf || ''),
+      cep: String(corpo.cep || ''),
       endereco: String(corpo.endereco || ''),
+      numero: String(corpo.numero || ''),
+      complemento: typeof corpo.complemento === 'string' ? corpo.complemento : null,
       bairro: String(corpo.bairro || ''),
       cidade: String(corpo.cidade || ''),
-      email: typeof corpo.email === 'string' ? corpo.email : null
+      estado: String(corpo.estado || ''),
+      email: String(corpo.email || '')
     })
 
     return NextResponse.json({

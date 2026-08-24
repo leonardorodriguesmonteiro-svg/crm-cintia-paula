@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { publicarConfirmacaoReservaV2 } from '@/lib/formalizacaoConfirmacao'
 import {
   buscarPagamentoMercadoPagoPorReferencia,
   conciliarPagamentoMercadoPago,
@@ -11,13 +12,13 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 type Contexto = {
-  params: Promise<{ token: string }>
+  params: Promise<{ id: string }>
 }
 
 const tokenValido = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 export async function POST(request: NextRequest, contexto: Contexto) {
-  const { token } = await contexto.params
+  const { id: token } = await contexto.params
 
   if (!tokenValido.test(token)) {
     return NextResponse.json({ error: 'Contrato não encontrado.' }, { status: 404 })
@@ -86,7 +87,16 @@ export async function POST(request: NextRequest, contexto: Contexto) {
     }
 
     const resultado = await conciliarPagamentoMercadoPago(lancamentoId, pagamento)
-    return NextResponse.json({ sucesso: true, ...resultado })
+    const evento = await publicarConfirmacaoReservaV2(
+      resultado,
+      'Mercado Pago · consulta do contrato'
+    )
+
+    return NextResponse.json({
+      sucesso: true,
+      ...resultado,
+      avisos: evento.avisos
+    })
   } catch (error) {
     if (error instanceof MercadoPagoNaoConfiguradoError) {
       return NextResponse.json({ error: error.message }, { status: 503 })

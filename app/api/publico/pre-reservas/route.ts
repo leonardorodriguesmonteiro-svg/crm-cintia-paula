@@ -11,8 +11,7 @@ import {
   hashDoSolicitante,
   JANELA_PRE_RESERVAS_SEGUNDOS,
   LIMITE_PRE_RESERVAS,
-  origemDaRequisicao,
-  origensPermitidas,
+  origemEhPermitida,
   TAMANHO_MAXIMO_PRE_RESERVA
 } from '@/lib/server/publicPreReservation'
 
@@ -31,6 +30,15 @@ type CorpoPreReserva = {
 
 function textoOpcional(valor: unknown) {
   return typeof valor === 'string' ? valor : null
+}
+
+function emailPublicoValido(valor: unknown) {
+  if (typeof valor !== 'string') return null
+  const email = valor.trim().toLowerCase()
+  if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return null
+  }
+  return email
 }
 
 function itensDoCorpo(valor: unknown): ItemPreReservaInput[] {
@@ -73,8 +81,29 @@ function resposta(
 }
 
 function validarOrigem(request: NextRequest) {
-  const origem = origemDaRequisicao(request)
-  return origem && origensPermitidas().has(origem) ? origem : null
+  return origemEhPermitida(request)
+}
+
+function detalhesSegurosDoErro(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      tipo: error.name,
+      mensagem: error.message
+    }
+  }
+
+  if (error && typeof error === 'object') {
+    const registro = error as Record<string, unknown>
+    return {
+      tipo: 'ErroSupabase',
+      codigo: typeof registro.code === 'string' ? registro.code : undefined,
+      mensagem: typeof registro.message === 'string' ? registro.message : undefined,
+      detalhe: typeof registro.details === 'string' ? registro.details : undefined,
+      dica: typeof registro.hint === 'string' ? registro.hint : undefined
+    }
+  }
+
+  return { tipo: typeof error }
 }
 
 export async function OPTIONS(request: NextRequest) {
@@ -121,6 +150,14 @@ export async function POST(request: NextRequest) {
       }, 202)
     }
 
+    const email = emailPublicoValido(corpo.email)
+    if (!email) {
+      return resposta(origem, {
+        erro: 'Informe um e-mail válido. Ele será usado para o envio do orçamento, contrato e nota fiscal.',
+        codigo: 'EMAIL_INVALIDO'
+      }, 400)
+    }
+
     const idempotencia = String(
       request.headers.get('idempotency-key') || ''
     ).trim()
@@ -150,7 +187,7 @@ export async function POST(request: NextRequest) {
       clienteId: null,
       nomeContato: String(corpo.nome || ''),
       celular: String(corpo.celular || ''),
-      email: textoOpcional(corpo.email),
+      email,
       origem: 'Site',
       origemExternaId: `site:${idempotencia}`,
       dataEvento: textoOpcional(corpo.data_evento),
@@ -175,9 +212,10 @@ export async function POST(request: NextRequest) {
       return resposta(origem, { erro: error.message, codigo: error.codigo }, error.statusHttp)
     }
 
-    console.error('[pre-reservas:publico] falha sem dados pessoais', {
-      tipo: error instanceof Error ? error.name : 'Erro desconhecido'
-    })
+    console.error(
+      '[pre-reservas:publico] falha sem dados pessoais',
+      detalhesSegurosDoErro(error)
+    )
     return resposta(origem, {
       erro: 'Não foi possível registrar a pré-reserva agora.'
     }, 500)

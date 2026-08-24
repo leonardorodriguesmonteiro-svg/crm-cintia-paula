@@ -24,7 +24,7 @@ export function origensPermitidas() {
     .map(origem => origem.trim())
     .filter(Boolean)
 
-  const origens = configuradas.length ? configuradas : ORIGENS_PADRAO
+  const origens = configuradas.length ? configuradas : [...ORIGENS_PADRAO]
   if (process.env.NODE_ENV !== 'production') {
     origens.push('http://localhost:3000', 'http://localhost:3001')
   }
@@ -41,6 +41,17 @@ export function origemDaRequisicao(request: NextRequest) {
   } catch {
     return null
   }
+}
+
+export function origemEhPermitida(request: NextRequest) {
+  const origem = origemDaRequisicao(request)
+  if (!origem) return null
+
+  // Permite a própria aplicação hospedando a jornada pública (inclui Preview Vercel)
+  // sem abrir CORS para terceiros. Domínios externos continuam dependentes da allowlist.
+  if (origem === request.nextUrl.origin) return origem
+
+  return origensPermitidas().has(origem) ? origem : null
 }
 
 export function cabecalhosCors(origem: string) {
