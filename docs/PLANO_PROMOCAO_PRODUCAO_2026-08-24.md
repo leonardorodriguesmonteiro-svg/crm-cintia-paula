@@ -10,8 +10,8 @@ Este documento não autoriza nem executa alterações em produção.
 
 ## Portões obrigatórios
 
-- [ ] Dump manual recuperável do banco de produção concluído e identificado
-      (o plano Free atual não oferece backup agendado).
+- [x] Dump manual do banco de produção concluído, identificado e validado por
+      SHA-256 (o plano Free atual não oferece backup agendado).
 - [ ] Procedimento de restauração testado ou confirmado pelo provedor.
 - [x] Conteúdo das 17 migrações remotas exportado e versionado como evidência.
 - [ ] Diferenças entre migrações remotas e locais classificadas por impacto.
@@ -40,6 +40,23 @@ manual de SQL em produção.
 - Há aproximadamente 2 GiB livres no disco; instalar Docker não é recomendável
   nesse estado. A alternativa preferencial é instalar somente um cliente
   PostgreSQL 17 compatível ou liberar espaço antes de instalar o Docker.
+
+### Backup concluído em 24/08/2026
+
+Após a liberação de espaço, o cliente PostgreSQL 17.11 oficial foi montado
+temporariamente e os dumps foram gerados em:
+
+`/Users/macbookair/Documents/CP Festas/backups/crm-cintia-paula/2026-08-24`
+
+Arquivos validados: `roles.sql`, `schema.sql`, `data.sql` e `MANIFESTO.txt`.
+O dump contém os schemas gerenciados e próprios, incluindo `auth.users`, dados
+do ERP/site e o histórico `supabase_migrations`. Os arquivos possuem permissão
+local `0600`, hashes SHA-256 registrados e não contêm credenciais temporárias.
+Os papéis efêmeros e o token `Full access` foram revogados após a operação.
+
+Permanece pendente testar a restauração em um projeto isolado. Há uma relação
+circular entre `reservas` e `orcamentos`, que exige restauração controlada dos
+dados com triggers temporariamente desabilitados ou tratamento equivalente.
 
 Para liberar o próximo portão, usar a CLI oficial autenticada para:
 
