@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { correspondeBusca } from '@/lib/catalogoBusca'
 import { supabase } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -103,16 +104,12 @@ export function EstoqueClient() {
   }, [])
 
   const filtrados = useMemo(() => {
-    const termo = busca.toLowerCase()
     return itens.filter((item) => {
-      const correspondeBusca = [item.nome, item.codigo, item.categoria, item.cor, item.status]
-        .join(' ')
-        .toLowerCase()
-        .includes(termo)
+      const encontrado = correspondeBusca(busca, [item.nome, item.codigo, item.categoria, item.cor, item.localizacao, item.observacoes])
       const correspondeCategoria = !filtroCategoria || item.categoria === filtroCategoria
       const correspondeStatus = !filtroStatus || item.status === filtroStatus
-      return correspondeBusca && correspondeCategoria && correspondeStatus
-    })
+      return encontrado && correspondeCategoria && correspondeStatus
+    }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base', numeric: true }))
   }, [itens, busca, filtroCategoria, filtroStatus])
 
   const categorias = useMemo(() => Array.from(new Set(
@@ -256,6 +253,7 @@ export function EstoqueClient() {
       <div>
         <h1 className="text-3xl font-bold text-slate-900">Estoque</h1>
         <p className="text-slate-500">Controle os itens físicos usados nos kits.</p>
+        <a href="#lista-estoque" className="mt-2 inline-block text-sm font-semibold text-pink-700 underline">Ir para itens cadastrados</a>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -345,14 +343,14 @@ export function EstoqueClient() {
       </Card>
 
       <Card>
-        <div className="mb-5 space-y-4">
+        <div id="lista-estoque" className="mb-4 scroll-mt-24 space-y-3">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Itens cadastrados</h2>
-            <p className="text-sm text-slate-500">{filtrados.length} item(ns) encontrado(s)</p>
+            <p className="text-sm text-slate-500">{filtrados.length} de {itens.length} item(ns)</p>
           </div>
 
           <div className="grid gap-3 md:grid-cols-3">
-            <Input placeholder="Buscar por nome, código, cor..." value={busca} onChange={e => setBusca(e.target.value)} />
+            <Input aria-label="Buscar item do estoque" placeholder="Nome, código, cor ou localização..." value={busca} onChange={e => setBusca(e.target.value)} />
             <Select aria-label="Filtrar por categoria" value={filtroCategoria} onChange={e => setFiltroCategoria(e.target.value)}>
               <option value="">Todas as categorias</option>
               {categorias.map(categoria => <option key={categoria}>{categoria}</option>)}
@@ -364,49 +362,32 @@ export function EstoqueClient() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtrados.map((item) => (
-            <div key={item.id} className="rounded-2xl border p-4 space-y-3 bg-white">
-              <div className="aspect-[4/3] overflow-hidden rounded-xl bg-slate-100">
-                {item.foto_url ? (
-                  <img src={item.foto_url} alt={item.nome} className="h-full w-full object-cover" loading="lazy" />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-sm text-slate-400">Sem foto</div>
-                )}
-              </div>
-              <div className="flex justify-between gap-3">
-                <div>
-                  <p className="font-semibold text-slate-900">{item.nome}</p>
-                  <p className="text-sm text-slate-500">{item.codigo || 'Sem código'} • {item.categoria || 'Sem categoria'}</p>
+        {(busca || filtroCategoria || filtroStatus) && <Button className="mb-3" variant="secondary" onClick={() => { setBusca(''); setFiltroCategoria(''); setFiltroStatus('') }}>Limpar busca e filtros</Button>}
+        <div className="space-y-2">
+          {filtrados.map(item => (
+            <article key={item.id} className="rounded-xl border bg-white p-3">
+              <div className="flex items-start gap-3">
+                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-slate-100">
+                  {item.foto_url ? <img src={item.foto_url} alt={item.nome} className="h-full w-full object-contain" loading="lazy" /> : <span className="flex h-full items-center justify-center text-xs text-slate-400">Sem foto</span>}
                 </div>
-                <span className="text-xs bg-pink-50 text-pink-700 rounded-full px-2 py-1 h-fit">
-                  {item.status}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-3 text-center text-sm border rounded-xl overflow-hidden">
-                <div className="p-2">
-                  <p className="font-bold">{item.quantidade_total || 0}</p>
-                  <p className="text-slate-500">Total</p>
-                </div>
-                <div className="p-2 border-x">
-                  <p className="font-bold">{item.quantidade_disponivel || 0}</p>
-                  <p className="text-slate-500">Disponível</p>
-                </div>
-                <div className="p-2">
-                  <p className="font-bold">{item.quantidade_manutencao || 0}</p>
-                  <p className="text-slate-500">Manut.</p>
+                <div className="min-w-0 flex-1">
+                  <h3 className="break-words font-semibold text-slate-900">{item.nome}</h3>
+                  <p className="break-words text-xs text-slate-500">{item.codigo || 'Sem código'} · {item.categoria || 'Sem categoria'} · Cor: {item.cor || '-'}</p>
+                  <p className="mt-1 text-sm">Disponível: <strong>{item.quantidade_disponivel || 0}</strong> · Total: {item.quantidade_total || 0} · Manutenção: {item.quantidade_manutencao || 0}</p>
                 </div>
               </div>
-
-              <p className="text-sm text-slate-600">Cor: {item.cor || '-'}</p>
-              <p className="text-sm text-slate-600">Localização: {item.localizacao || '-'}</p>
-
-              <div className="flex gap-2 pt-2">
-                <Button variant="secondary" onClick={() => editar(item)}>Editar</Button>
-                <Button variant="danger" onClick={() => excluir(item.id)}>Excluir</Button>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Button variant="secondary" onClick={() => editar(item)} aria-label={`Editar item ${item.nome}`}>Editar</Button>
+                <Button variant="danger" onClick={() => excluir(item.id)} aria-label={`Excluir item ${item.nome}`}>Excluir</Button>
+                <span className="text-xs text-slate-500">{item.status}</span>
               </div>
-            </div>
+              <details className="mt-2">
+                <summary className="cursor-pointer text-sm font-medium text-pink-700">Ver foto e detalhes</summary>
+                {item.foto_url && <img src={item.foto_url} alt={item.nome} className="mt-3 max-h-80 max-w-full rounded-lg object-contain" loading="lazy" />}
+                <p className="mt-2 break-words text-sm text-slate-600">Localização: {item.localizacao || '-'}</p>
+                {item.observacoes && <p className="mt-2 whitespace-pre-wrap break-words text-sm text-slate-600">{item.observacoes}</p>}
+              </details>
+            </article>
           ))}
         </div>
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { correspondeBusca } from '@/lib/catalogoBusca'
 import { supabase } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -49,6 +50,8 @@ export function KitsModule() {
   const [form, setForm] = useState(vazio)
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
+  const [filtroStatus, setFiltroStatus] = useState('')
+  const [filtroCategoria, setFiltroCategoria] = useState('')
   const [erro, setErro] = useState('')
   const [sucesso, setSucesso] = useState('')
   const [salvando, setSalvando] = useState(false)
@@ -69,16 +72,12 @@ export function KitsModule() {
     carregar()
   }, [])
 
-  const filtrados = useMemo(() => {
-    const termo = busca.trim().toLocaleLowerCase('pt-BR')
-    return kits.filter(kit =>
-      [kit.codigo, kit.nome, kit.tema, kit.categoria, kit.status]
-        .filter(Boolean)
-        .join(' ')
-        .toLocaleLowerCase('pt-BR')
-        .includes(termo)
-    )
-  }, [busca, kits])
+  const categorias = useMemo(() => Array.from(new Set(kits.map(kit => kit.categoria).filter((categoria): categoria is string => Boolean(categoria)))).sort((a, b) => a.localeCompare(b, 'pt-BR')), [kits])
+  const filtrados = useMemo(() => kits.filter(kit =>
+    correspondeBusca(busca, [kit.codigo, kit.nome, kit.tema, kit.categoria, kit.descricao])
+    && (!filtroStatus || kit.status === filtroStatus)
+    && (!filtroCategoria || kit.categoria === filtroCategoria)
+  ).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base', numeric: true })), [busca, kits, filtroStatus, filtroCategoria])
 
   function limparFormulario() {
     setForm(vazio)
@@ -201,6 +200,7 @@ export function KitsModule() {
       <div>
         <h1 className="text-3xl font-bold text-slate-900">Kits</h1>
         <p className="text-slate-500">Cadastre temas, valores, disponibilidade e fotos para o ERP e o site.</p>
+        <a href="#lista-kits" className="mt-2 inline-block text-sm font-semibold text-pink-700 underline">Ir para kits cadastrados</a>
       </div>
 
       {erro && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
@@ -248,42 +248,50 @@ export function KitsModule() {
       </Card>
 
       <Card>
-        <div className="mb-5 grid gap-3 md:grid-cols-[1fr_320px] md:items-center">
+        <div id="lista-kits" className="mb-4 scroll-mt-24 space-y-3">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Kits cadastrados</h2>
-            <p className="text-sm text-slate-500">{filtrados.length} kit(s) encontrado(s)</p>
+            <p className="text-sm text-slate-500" role="status">{filtrados.length} de {kits.length} kit(s)</p>
           </div>
-          <Input placeholder="Buscar kit..." value={busca} onChange={e => setBusca(e.target.value)} />
+          <div className="grid gap-3 md:grid-cols-3">
+            <Input label="Buscar kit" placeholder="Nome, código, tema ou descrição..." value={busca} onChange={e => setBusca(e.target.value)} />
+            <Select label="Categoria" value={filtroCategoria} onChange={e => setFiltroCategoria(e.target.value)}>
+              <option value="">Todas as categorias</option>
+              {categorias.map(categoria => <option key={categoria}>{categoria}</option>)}
+            </Select>
+            <Select label="Status" value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)}>
+              <option value="">Todos os status</option>
+              {Array.from(new Set(kits.map(kit => kit.status).filter((status): status is string => Boolean(status)))).sort().map(status => <option key={status}>{status}</option>)}
+            </Select>
+          </div>
+          {(busca || filtroStatus || filtroCategoria) && <Button variant="secondary" onClick={() => { setBusca(''); setFiltroStatus(''); setFiltroCategoria('') }}>Limpar busca e filtros</Button>}
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="space-y-2">
           {filtrados.map(kit => (
-            <div key={kit.id} className="overflow-hidden rounded-2xl border bg-white">
-              <div className="aspect-[4/3] bg-slate-100">
-                {kit.foto_url ? (
-                  <img src={kit.foto_url} alt={kit.nome} className="h-full w-full object-cover" loading="lazy" />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-sm text-slate-400">Sem foto</div>
-                )}
-              </div>
-              <div className="space-y-3 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-slate-900">{kit.nome}</p>
-                    <p className="text-sm text-slate-500">{kit.codigo || 'Sem código'} · {kit.tema || 'Sem tema'}</p>
-                  </div>
-                  <span className="rounded-full bg-pink-50 px-2 py-1 text-xs font-semibold text-pink-700">{kit.status || 'Disponível'}</span>
+            <article key={kit.id} className="rounded-xl border bg-white p-3">
+              <div className="flex items-start gap-3">
+                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-slate-100">
+                  {kit.foto_url ? <img src={kit.foto_url} alt={kit.nome} className="h-full w-full object-contain" loading="lazy" /> : <span className="flex h-full items-center justify-center text-xs text-slate-400">Sem foto</span>}
                 </div>
-                {kit.descricao && <p className="line-clamp-2 text-sm text-slate-600">{kit.descricao}</p>}
-                <p className="text-sm"><strong>{moeda(kit.valor)}</strong> · Quantidade {kit.quantidade || 0}</p>
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="secondary" onClick={() => editar(kit)}>Editar</Button>
-                  {kit.status !== 'Inativo' && (
-                    <Button variant="danger" onClick={() => retirarDoCatalogo(kit)}>Retirar do catálogo</Button>
-                  )}
+                <div className="min-w-0 flex-1">
+                  <h3 className="break-words font-semibold text-slate-900">{kit.nome}</h3>
+                  <p className="break-words text-xs text-slate-500">{kit.codigo || 'Sem código'} · {kit.tema || 'Sem tema'} · {kit.categoria || 'Sem categoria'}</p>
+                  <p className="mt-1 text-sm"><strong>{moeda(kit.valor)}</strong> · Quantidade {kit.quantidade || 0} · {kit.status || 'Disponível'}</p>
                 </div>
               </div>
-            </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Button variant="secondary" onClick={() => editar(kit)} aria-label={`Editar kit ${kit.nome}`}>Editar</Button>
+                {kit.status !== 'Inativo' && <Button variant="danger" onClick={() => retirarDoCatalogo(kit)}>Retirar do catálogo</Button>}
+              </div>
+              {(kit.foto_url || kit.descricao) && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-sm font-medium text-pink-700">Ver foto e descrição</summary>
+                  {kit.foto_url && <img src={kit.foto_url} alt={kit.nome} className="mt-3 max-h-80 max-w-full rounded-lg object-contain" loading="lazy" />}
+                  {kit.descricao && <p className="mt-2 whitespace-pre-wrap break-words text-sm text-slate-600">{kit.descricao}</p>}
+                </details>
+              )}
+            </article>
           ))}
         </div>
 

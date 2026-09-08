@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { correspondeBusca } from '@/lib/catalogoBusca'
 import { supabase } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Select } from '@/components/ui/Select'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 
@@ -31,6 +31,8 @@ export function KitComposicaoClient() {
   const [erro, setErro] = useState('')
   const [editando, setEditando] = useState<string | null>(null)
   const [buscaItem, setBuscaItem] = useState('')
+  const [buscaKit, setBuscaKit] = useState('')
+  const kitsFiltrados = useMemo(() => kits.filter(kit => correspondeBusca(buscaKit, [kit.nome, kit.codigo])).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base', numeric: true })), [kits, buscaKit])
 
   function moeda(valor: number) {
     return Number(valor || 0).toLocaleString('pt-BR', {
@@ -153,15 +155,10 @@ export function KitComposicaoClient() {
   const valorCalculado = Math.max(valorBase + totalAjustes, 0)
   const itensDisponiveis = useMemo(() => {
     const vinculados = new Set(composicao.filter(linha => linha.id !== editando).map(linha => linha.item_id))
-    const termo = buscaItem.trim().toLocaleLowerCase('pt-BR')
 
     return itens.filter(item => {
       if (vinculados.has(item.id)) return false
-      return [item.codigo, item.nome]
-        .filter(Boolean)
-        .join(' ')
-        .toLocaleLowerCase('pt-BR')
-        .includes(termo)
+      return correspondeBusca(buscaItem, [item.codigo, item.nome])
     })
   }, [buscaItem, composicao, editando, itens])
 
@@ -185,14 +182,18 @@ export function KitComposicaoClient() {
             <p className="text-sm text-slate-500">Escolha qual kit deseja montar ou revisar.</p>
           </div>
 
-          <Select value={kitId} onChange={(e) => setKitId(e.target.value)}>
-            <option value="">Escolha um kit...</option>
-            {kits.map((kit) => (
-              <option key={kit.id} value={kit.id}>
-                {kit.codigo ? `${kit.codigo} - ` : ''}{kit.nome}
-              </option>
+          <Input label="Buscar kit para compor" placeholder="Digite o nome ou código..." value={buscaKit} onChange={e => setBuscaKit(e.target.value)} />
+          <p className="text-sm text-slate-500" role="status">{kitsFiltrados.length} de {kits.length} kit(s)</p>
+          <div className="max-h-64 overflow-y-auto rounded-xl border [scrollbar-width:auto] [&::-webkit-scrollbar]:w-4 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-400" role="group" aria-label="Kits para compor">
+            {kitsFiltrados.map(kit => (
+              <button key={kit.id} type="button" aria-pressed={kitId === kit.id} onClick={() => setKitId(kit.id)} className={`block min-h-11 w-full border-b px-3 py-2 text-left text-sm last:border-0 focus-visible:outline-pink-600 ${kitId === kit.id ? 'bg-pink-50 font-semibold text-pink-800' : 'hover:bg-slate-50'}`}>
+                {kit.codigo ? `${kit.codigo} · ` : ''}{kit.nome}
+              </button>
             ))}
-          </Select>
+            {!kitsFiltrados.length && <p className="p-3 text-sm text-slate-500">Nenhum kit encontrado. Tente outro nome ou código.</p>}
+          </div>
+          {buscaKit && <Button variant="secondary" onClick={() => setBuscaKit('')}>Limpar busca de kits</Button>}
+          {kitSelecionado && <p className="text-sm text-pink-800">Kit selecionado: <strong>{kitSelecionado.nome}</strong></p>}
         </div>
       </Card>
 
