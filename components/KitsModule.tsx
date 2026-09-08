@@ -177,6 +177,25 @@ export function KitsModule() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  async function retirarDoCatalogo(kit: Kit) {
+    if (!confirm(`Retirar o kit "${kit.nome}" do catálogo? O histórico de reservas será preservado.`)) return
+
+    setErro('')
+    setSucesso('')
+    const { error } = await supabase
+      .from('kits')
+      .update({ status: 'Inativo' })
+      .eq('id', kit.id)
+
+    if (error) {
+      setErro(error.message)
+      return
+    }
+
+    setSucesso('Kit retirado do catálogo. Reservas e registros anteriores foram preservados.')
+    await carregar()
+  }
+
   return (
     <div className="space-y-6 p-4 pb-28 md:p-8">
       <div>
@@ -257,7 +276,12 @@ export function KitsModule() {
                 </div>
                 {kit.descricao && <p className="line-clamp-2 text-sm text-slate-600">{kit.descricao}</p>}
                 <p className="text-sm"><strong>{moeda(kit.valor)}</strong> · Quantidade {kit.quantidade || 0}</p>
-                <Button variant="secondary" onClick={() => editar(kit)}>Editar</Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="secondary" onClick={() => editar(kit)}>Editar</Button>
+                  {kit.status !== 'Inativo' && (
+                    <Button variant="danger" onClick={() => retirarDoCatalogo(kit)}>Retirar do catálogo</Button>
+                  )}
+                </div>
               </div>
             </div>
           ))}

@@ -208,15 +208,15 @@ export function KitComposicaoClient() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="space-y-2 md:col-span-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,3fr)_140px_minmax(180px,1fr)]">
+              <div className="space-y-2">
                 <Input
                   label="Buscar item do estoque"
                   placeholder="Digite o nome ou código..."
                   value={buscaItem}
                   onChange={(e) => setBuscaItem(e.target.value)}
                 />
-                <div className="max-h-52 space-y-1 overflow-y-auto rounded-xl border bg-white p-2">
+                <div className="max-h-80 space-y-1 overflow-y-auto rounded-xl border bg-white p-2 [scrollbar-width:auto] [&::-webkit-scrollbar]:w-4 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-400 [&::-webkit-scrollbar-track]:bg-slate-100">
                   {itensDisponiveis.map(item => (
                     <button
                       key={item.id}
@@ -252,6 +252,7 @@ export function KitComposicaoClient() {
               />
 
               <Textarea
+                className="md:col-span-3"
                 label="Observações"
                 value={observacoes}
                 onChange={(e) => setObservacoes(e.target.value)}
