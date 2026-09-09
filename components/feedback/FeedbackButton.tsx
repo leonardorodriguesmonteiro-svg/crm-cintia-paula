@@ -217,14 +217,16 @@ export function FeedbackButton() {
 
   return (
     <>
+      <div className="flex justify-end px-4 pt-4 pb-28 md:p-0">
       <button
         type="button"
         onClick={() => abrir('enviar')}
-        className="fixed bottom-24 right-4 z-[60] rounded-full bg-pink-600 px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-pink-700 hover:shadow-xl md:bottom-5 md:right-5"
+        className="rounded-full bg-pink-600 px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-pink-700 hover:shadow-xl md:fixed md:bottom-5 md:right-5 md:z-40"
         aria-label="Abrir Central de Feedback"
       >
         💡 Feedbacks
       </button>
+      </div>
 
       {aberto && (
         <div
