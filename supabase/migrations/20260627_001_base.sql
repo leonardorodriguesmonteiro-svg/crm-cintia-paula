@@ -1,5 +1,29 @@
 create extension if not exists "pgcrypto";
 
+-- Estrutura multiempresa que já existia nas versões anteriores do ERP. Ela
+-- precisa estar na migração-base porque os módulos de timeline, feedback,
+-- comercial e RBAC a referenciam posteriormente.
+create table if not exists public.empresas (
+  id uuid primary key default gen_random_uuid(),
+  nome text not null,
+  status text not null default 'Ativa',
+  created_at timestamptz default now()
+);
+
+create table if not exists public.usuarios_empresa (
+  id uuid primary key default gen_random_uuid(),
+  usuario_id uuid not null references auth.users(id) on delete cascade,
+  empresa_id uuid not null references public.empresas(id) on delete cascade,
+  nome text,
+  perfil text default 'Comercial',
+  ativo boolean not null default true,
+  created_at timestamptz default now(),
+  unique (usuario_id, empresa_id)
+);
+
+alter table public.empresas enable row level security;
+alter table public.usuarios_empresa enable row level security;
+
 create table if not exists public.clientes (
   id uuid primary key default gen_random_uuid(),
   nome text not null,

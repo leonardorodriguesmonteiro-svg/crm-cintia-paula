@@ -91,7 +91,7 @@ type Orcamento = {
   email_enviado_em: string | null
   email_destino: string | null
   email_erro: string | null
-  resposta_cliente: 'Aprovado' | 'Recusado' | 'ACEITA' | 'RECUSADA' | null
+  resposta_cliente: 'ACEITA' | 'RECUSADA' | null
   respondido_por: string | null
   respondido_em: string | null
   resposta_observacao: string | null
@@ -149,12 +149,6 @@ type Disponibilidade = {
   motivo: string
 }
 
-type ConversaoReserva = {
-  reserva_id: string
-  criada: boolean
-  mensagem: string
-}
-
 type DadosDocumento = Orcamento & {
   cliente: {
     nome: string
@@ -184,7 +178,7 @@ function dataVencimentoSinalInicial() {
 const formVazio: FormOrcamento = {
   cliente_id: '',
   oportunidade_id: '',
-  status: 'Rascunho',
+  status: 'RASCUNHO',
   validade: dataValidadeInicial(),
   data_evento: '',
   horario_evento: '',
@@ -222,17 +216,17 @@ function dataCurta(valor: string | null) {
 }
 
 function corStatus(status: string) {
-  if (['Aprovado', 'ACEITA'].includes(status)) return 'bg-green-100 text-green-800'
-  if (['Enviado', 'ENVIADA'].includes(status)) return 'bg-blue-100 text-blue-800'
-  if (['Recusado', 'RECUSADA', 'CANCELADA'].includes(status)) return 'bg-red-100 text-red-800'
-  if (['Expirado', 'EXPIRADA'].includes(status)) return 'bg-slate-200 text-slate-700'
+  if (status === 'ACEITA') return 'bg-green-100 text-green-800'
+  if (status === 'ENVIADA') return 'bg-blue-100 text-blue-800'
+  if (['RECUSADA', 'CANCELADA'].includes(status)) return 'bg-red-100 text-red-800'
+  if (status === 'EXPIRADA') return 'bg-slate-200 text-slate-700'
   return 'bg-amber-100 text-amber-800'
 }
 
 function corFormalizacao(status: string | null) {
   if (status === 'Venda confirmada' || status === 'RESERVA_CONFIRMADA') return 'bg-green-100 text-green-800'
   if (status === 'Aguardando sinal' || status === 'AGUARDANDO_PAGAMENTO') return 'bg-blue-100 text-blue-800'
-  if (status === 'Aguardando contrato' || status === 'AGUARDANDO_ASSINATURA') return 'bg-purple-100 text-purple-800'
+  if (['Aguardando contrato', 'CONTRATO_GERADO', 'CONTRATO_ENVIADO', 'AGUARDANDO_ASSINATURA'].includes(status || '')) return 'bg-purple-100 text-purple-800'
   if (status === 'Cancelada' || status === 'CANCELADA') return 'bg-red-100 text-red-800'
   return 'bg-amber-100 text-amber-800'
 }
@@ -246,15 +240,15 @@ function emailClienteDo(orcamento: Orcamento) {
 }
 
 function propostaPodeSerCancelada(orcamento: Orcamento) {
-  return ['Enviado', 'ENVIADA'].includes(orcamento.status) && !orcamento.resposta_cliente
+  return orcamento.status === 'ENVIADA' && !orcamento.resposta_cliente
 }
 
 function propostaPodeSerEnviada(orcamento: Orcamento) {
-  return ['Rascunho', 'RASCUNHO', 'Enviado', 'ENVIADA'].includes(orcamento.status) && !orcamento.resposta_cliente
+  return ['RASCUNHO', 'ENVIADA'].includes(orcamento.status) && !orcamento.resposta_cliente
 }
 
 function propostaPodeSerEditada(orcamento: Orcamento) {
-  return ['Rascunho', 'RASCUNHO'].includes(orcamento.status) && !orcamento.resposta_cliente
+  return orcamento.status === 'RASCUNHO' && !orcamento.resposta_cliente
 }
 
 export function OrcamentosPage() {
@@ -273,7 +267,6 @@ export function OrcamentosPage() {
   const [erro, setErro] = useState('')
   const [sucesso, setSucesso] = useState('')
   const [salvando, setSalvando] = useState(false)
-  const [convertendoId, setConvertendoId] = useState<string | null>(null)
   const [acaoDocumento, setAcaoDocumento] = useState<string | null>(null)
   const [formalizandoId, setFormalizandoId] = useState<string | null>(null)
   const [assinandoId, setAssinandoId] = useState<string | null>(null)
@@ -298,7 +291,7 @@ export function OrcamentosPage() {
       supabase
         .from('oportunidades')
         .select('id,numero,cliente_id,nome_contato,celular,email,interesse,data_evento,etapa,versao')
-        .in('etapa', ['APROVADA', 'CONVERTIDA_EM_PROPOSTA', 'Novo contato', 'Em atendimento', 'Orçamento enviado', 'Negociação', 'Fechado'])
+        .in('etapa', ['APROVADA', 'CONVERTIDA_EM_PROPOSTA'])
         .order('updated_at', { ascending: false }),
       supabase.from('kits').select('id,codigo,nome,valor').order('nome'),
       supabase
@@ -569,13 +562,11 @@ export function OrcamentosPage() {
       .limit(1)
       .maybeSingle()
 
-    const novaJornada = ['APROVADA', 'CONVERTIDA_EM_PROPOSTA'].includes(oportunidade?.etapa || '')
-    const desejaAprovar = form.status === 'Aprovado' && !novaJornada
     const payload = {
       empresa_id: vinculo?.empresa_id || null,
       oportunidade_id: form.oportunidade_id || null,
       cliente_id: clienteId,
-      status: novaJornada ? 'RASCUNHO' : (desejaAprovar ? 'Enviado' : form.status),
+      status: 'RASCUNHO',
       validade: form.validade || null,
       data_evento: form.data_evento,
       horario_evento: form.horario_evento || null,
@@ -638,59 +629,10 @@ export function OrcamentosPage() {
       return
     }
 
-    if (desejaAprovar && orcamentoId) {
-      const { data: conversao, error: conversaoError } = await supabase.rpc(
-        'aprovar_orcamento_e_criar_reserva',
-        { p_orcamento_id: orcamentoId }
-      )
-
-      if (conversaoError) {
-        setErro(`O orçamento foi salvo, mas a reserva não foi criada: ${conversaoError.message}`)
-        setSalvando(false)
-        await carregar()
-        return
-      }
-
-      const resultado = conversao as ConversaoReserva
-      setSucesso(resultado.mensagem)
-      setFormAberto(false)
-      setEditandoId(null)
-      setSalvando(false)
-      await carregar()
-      return
-    }
-
-    if (form.status === 'Enviado' && oportunidade && !['Fechado', 'Perdido'].includes(oportunidade.etapa)) {
-      await supabase.from('oportunidades').update({ etapa: 'Orçamento enviado' }).eq('id', oportunidade.id)
-    }
-
-    setSucesso('Orçamento salvo. A disponibilidade foi consultada; o estoque só será bloqueado quando a reserva for confirmada.')
+    setSucesso('Orçamento salvo e totais recalculados com sucesso.')
     setFormAberto(false)
     setEditandoId(null)
     setSalvando(false)
-    await carregar()
-  }
-
-  async function aprovarECriarReserva(orcamento: Orcamento) {
-    if (!window.confirm(`Aprovar o ORC-${String(orcamento.numero).padStart(4, '0')} e gerar a reserva confirmada?`)) return
-
-    setErro('')
-    setSucesso('')
-    setConvertendoId(orcamento.id)
-
-    const { data, error } = await supabase.rpc('aprovar_orcamento_e_criar_reserva', {
-      p_orcamento_id: orcamento.id
-    })
-
-    if (error) {
-      setErro(error.message)
-      setConvertendoId(null)
-      return
-    }
-
-    const resultado = data as ConversaoReserva
-    setSucesso(resultado.mensagem)
-    setConvertendoId(null)
     await carregar()
   }
 
@@ -752,39 +694,18 @@ export function OrcamentosPage() {
   }
 
   async function registrarEnvio(orcamento: Orcamento) {
-    if (!['Rascunho', 'RASCUNHO'].includes(orcamento.status)) return
+    if (orcamento.status !== 'RASCUNHO') return
 
-    if (orcamento.status === 'RASCUNHO') {
-      const { data: sessao } = await supabase.auth.getSession()
-      const token = sessao.session?.access_token
-      if (!token) throw new Error('Sua sessão expirou. Entre novamente no ERP.')
+    const { data: sessao } = await supabase.auth.getSession()
+    const token = sessao.session?.access_token
+    if (!token) throw new Error('Sua sessão expirou. Entre novamente no ERP.')
 
-      const resposta = await fetch(`/api/comercial/propostas/${orcamento.id}/enviar`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      const dados = await resposta.json().catch(() => ({}))
-      if (!resposta.ok) throw new Error(dados.erro || 'Não foi possível enviar a proposta.')
-      await carregar()
-      return
-    }
-
-    const { error: orcamentoError } = await supabase
-      .from('orcamentos')
-      .update({ status: 'Enviado' })
-      .eq('id', orcamento.id)
-
-    if (orcamentoError) throw orcamentoError
-
-    if (orcamento.oportunidade_id) {
-      const { error: oportunidadeError } = await supabase
-        .from('oportunidades')
-        .update({ etapa: 'Orçamento enviado' })
-        .eq('id', orcamento.oportunidade_id)
-        .in('etapa', ['Novo contato', 'Em atendimento', 'Orçamento enviado', 'Negociação'])
-
-      if (oportunidadeError) throw oportunidadeError
-    }
+    const resposta = await fetch(`/api/comercial/propostas/${orcamento.id}/enviar`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    const dados = await resposta.json().catch(() => ({}))
+    if (!resposta.ok) throw new Error(dados.erro || 'Não foi possível enviar a proposta.')
 
     await carregar()
   }
@@ -1228,12 +1149,12 @@ export function OrcamentosPage() {
           <form onSubmit={salvar} className="space-y-6">
             <div>
               <h2 className="text-xl font-bold text-slate-900">{editandoId ? 'Editar orçamento' : 'Novo orçamento'}</h2>
-              <p className="text-sm text-slate-500">A disponibilidade pode ser consultada durante o orçamento. O estoque só é bloqueado na confirmação definitiva da reserva.</p>
+              <p className="text-sm text-slate-500">Escolha a pré-reserva ou um cliente cadastrado, consulte a disponibilidade e revise os itens. O estoque só é bloqueado na confirmação definitiva.</p>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <div>
-                <Select label="Cliente *" value={form.cliente_id} onChange={evento => selecionarCliente(evento.target.value)}>
+                <Select label="Cliente cadastrado (opcional)" value={form.cliente_id} onChange={evento => selecionarCliente(evento.target.value)}>
                   <option value="">Selecione um cliente...</option>
                   {clientes.map(item => (
                     <option key={item.id} value={item.id}>
@@ -1244,6 +1165,7 @@ export function OrcamentosPage() {
                 <Link href="/clientes" className="mt-1 inline-block text-xs font-semibold text-pink-700 hover:text-pink-800">
                   + Cadastrar novo cliente
                 </Link>
+                <p className="mt-1 text-xs text-slate-500">Dispensável quando uma pré-reserva aprovada estiver selecionada.</p>
               </div>
               <div>
                 <Select label="Pré-reserva aprovada (opcional)" value={form.oportunidade_id} onChange={evento => void selecionarOportunidade(evento.target.value)}>
@@ -1259,9 +1181,11 @@ export function OrcamentosPage() {
                 </Select>
                 <p className="mt-1 text-xs text-slate-500">Ao selecionar uma pré-reserva do site, os KITs e itens de estoque escolhidos pelo cliente são carregados automaticamente.</p>
               </div>
-              <Select label="Status" value={form.status} onChange={evento => setForm({ ...form, status: evento.target.value })}>
-                <option>Rascunho</option><option>Enviado</option><option>Aprovado</option><option>Recusado</option><option>Expirado</option>
-              </Select>
+              <div className="rounded-xl border bg-slate-50 px-3 py-2">
+                <p className="text-xs font-semibold text-slate-500">Status</p>
+                <p className="mt-1 text-sm font-bold text-slate-800">Rascunho</p>
+                <p className="mt-1 text-xs text-slate-500">O status avança pelo envio e pela resposta do cliente.</p>
+              </div>
               <Input label="Validade" type="date" value={form.validade} onChange={evento => setForm({ ...form, validade: evento.target.value })} />
               <Input label="Data do evento *" type="date" value={form.data_evento} onChange={evento => { setForm({ ...form, data_evento: evento.target.value }); setDisponibilidades({}) }} />
               <Input label="Horário do evento" placeholder="Ex.: 14:00" value={form.horario_evento} onChange={evento => setForm({ ...form, horario_evento: evento.target.value })} />
@@ -1404,13 +1328,13 @@ export function OrcamentosPage() {
               </p>
             )}
             {orcamento.resposta_cliente && (
-              <div className={`mt-4 rounded-xl px-3 py-2 text-xs ${['Aprovado', 'ACEITA'].includes(orcamento.resposta_cliente) ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>
-                <p className="font-bold">Cliente {['Aprovado', 'ACEITA'].includes(orcamento.resposta_cliente) ? 'aceitou' : 'recusou'} a proposta</p>
+              <div className={`mt-4 rounded-xl px-3 py-2 text-xs ${orcamento.resposta_cliente === 'ACEITA' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>
+                <p className="font-bold">Cliente {orcamento.resposta_cliente === 'ACEITA' ? 'aceitou' : 'recusou'} a proposta</p>
                 <p className="mt-0.5">{orcamento.respondido_por || 'Cliente'} · {orcamento.respondido_em ? new Date(orcamento.respondido_em).toLocaleString('pt-BR') : 'data não informada'}</p>
                 {orcamento.resposta_observacao && <p className="mt-1">“{orcamento.resposta_observacao}”</p>}
               </div>
             )}
-            {orcamento.status === 'Aprovado' && (
+            {orcamento.status === 'ACEITA' && (
               <div className="mt-4 rounded-2xl border border-pink-100 bg-pink-50/60 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
@@ -1418,7 +1342,7 @@ export function OrcamentosPage() {
                     <p className="mt-0.5 text-xs text-slate-500">Reserva provisória, contrato e cobrança. O estoque entra somente na confirmação.</p>
                   </div>
                   <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${corFormalizacao(orcamento.formalizacao_status)}`}>
-                    {orcamento.formalizacao_status || 'Aguardando formalização'}
+                    {orcamento.formalizacao_status || 'AGUARDANDO_DADOS'}
                   </span>
                 </div>
 
@@ -1435,7 +1359,11 @@ export function OrcamentosPage() {
                   ))}
                 </div>
 
-                {!orcamento.contrato_id ? (
+                {!orcamento.contrato_id && orcamento.formalizacao_status === 'AGUARDANDO_DADOS' ? (
+                  <p className="mt-4 rounded-xl bg-amber-50 px-3 py-3 text-sm font-semibold text-amber-800">
+                    Aguardando o cliente concluir CPF, endereço e dados necessários para o contrato na página da proposta.
+                  </p>
+                ) : !orcamento.contrato_id ? (
                   <div className="mt-4 space-y-3">
                     <div className="grid gap-3 sm:grid-cols-2">
                       <Input
@@ -1623,15 +1551,8 @@ export function OrcamentosPage() {
                   href={`/reservas/${orcamento.reserva_id}`}
                   className="rounded-xl bg-pink-600 px-4 py-2 text-center text-sm font-semibold text-white transition hover:bg-pink-700"
                 >
-                  Abrir reserva gerada
+                  Abrir reserva vinculada
                 </Link>
-              ) : orcamento.status === 'Enviado' ? (
-                <Button
-                  disabled={convertendoId === orcamento.id}
-                  onClick={() => aprovarECriarReserva(orcamento)}
-                >
-                  {convertendoId === orcamento.id ? 'Gerando reserva...' : 'Aprovar e gerar reserva'}
-                </Button>
               ) : null}
               <Button
                 variant="secondary"
@@ -1642,7 +1563,7 @@ export function OrcamentosPage() {
                   ? 'Editar orçamento'
                   : orcamento.resposta_cliente
                     ? 'Proposta respondida'
-                    : ['Enviado', 'ENVIADA'].includes(orcamento.status)
+                    : orcamento.status === 'ENVIADA'
                       ? 'Cancele o envio para editar'
                       : 'Edição indisponível'}
               </Button>

@@ -31,14 +31,7 @@ export async function POST(
         empresaId: acesso.vinculo.empresa_id,
         orcamentoId: id
       })
-    } else if (orcamento.status === 'Rascunho') {
-      const { error: envioLegadoError } = await supabaseServer
-        .from('orcamentos')
-        .update({ status: 'Enviado' })
-        .eq('id', id)
-        .eq('empresa_id', acesso.vinculo.empresa_id)
-      if (envioLegadoError) throw envioLegadoError
-    } else if (!['ENVIADA', 'Enviado'].includes(orcamento.status)) {
+    } else if (orcamento.status !== 'ENVIADA') {
       return NextResponse.json(
         { error: 'A proposta respondida ou encerrada não pode ser enviada novamente.' },
         { status: 409 }

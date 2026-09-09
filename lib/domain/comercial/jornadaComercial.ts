@@ -97,3 +97,15 @@ export function podeConfirmarReserva(
 ) {
   return pendenciasParaConfirmarReserva(requisitos).length === 0
 }
+
+export function statusAposContratoEPagamento(input: {
+  contratoAssinado: boolean
+  pagamentoConfirmado: boolean
+}): StatusFormalizacao {
+  if (input.contratoAssinado && input.pagamentoConfirmado) {
+    return 'RESERVA_CONFIRMADA'
+  }
+  if (input.contratoAssinado) return 'AGUARDANDO_PAGAMENTO'
+  if (input.pagamentoConfirmado) return 'AGUARDANDO_ASSINATURA'
+  return 'AGUARDANDO_ASSINATURA'
+}

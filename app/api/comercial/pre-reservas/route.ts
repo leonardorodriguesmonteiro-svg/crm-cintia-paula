@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
         { status: error.statusHttp }
       )
     }
+    console.error('[api/comercial/pre-reservas] falha inesperada', error)
     const falha = respostaErroAdministrativo(error)
     return NextResponse.json(
       { sucesso: false, erro: falha.mensagem },

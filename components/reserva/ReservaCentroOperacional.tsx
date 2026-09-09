@@ -19,6 +19,7 @@ type OrdemServico = {
   data_retirada: string | null
   horario_retirada: string | null
   observacoes: string | null
+  tipo: string | null
 }
 
 type ItemOS = {
@@ -51,6 +52,7 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
   const [dataRetirada, setDataRetirada] = useState('')
   const [horarioRetirada, setHorarioRetirada] = useState('')
   const [observacoes, setObservacoes] = useState('')
+  const [modalidade, setModalidade] = useState('Cliente vem buscar')
   const [novaEtapa, setNovaEtapa] = useState('Separação')
   const [novaTarefa, setNovaTarefa] = useState('')
 
@@ -85,6 +87,7 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
     setDataRetirada(osData?.data_retirada || osData?.data_prevista || dataPadrao)
     setHorarioRetirada(osData?.horario_retirada || horarioPadrao)
     setObservacoes(osData?.observacoes || '')
+    setModalidade(osData?.tipo || 'Cliente vem buscar')
 
     if (osData) {
       const { data: itensData, error: itensError } = await supabase
@@ -150,6 +153,7 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
         reserva_id: reservaId,
         numero,
         status: 'Aberta',
+        tipo: modalidade,
         responsavel: responsavel.trim() || null,
         cliente_nome: clienteNome.trim(),
         data_retirada: dataRetirada,
@@ -200,6 +204,7 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
     const { error } = await supabase
       .from('ordens_servico')
       .update({
+        tipo: modalidade,
         responsavel: responsavel.trim() || null,
         cliente_nome: clienteNome.trim(),
         data_retirada: dataRetirada,
@@ -305,7 +310,13 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
             Esta reserva ainda não possui Ordem de Serviço.
           </p>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <Select label="Modalidade *" value={modalidade} onChange={e => setModalidade(e.target.value)}>
+              <option>Cliente vem buscar</option>
+              <option>Carro de aplicativo</option>
+              <option>Entrega pela equipe</option>
+              <option>Entrega em mãos a terceiro/empresa</option>
+            </Select>
             <Input label="Cliente / responsável pela retirada *" value={clienteNome} onChange={e => setClienteNome(e.target.value)} />
             <Input label="Responsável interno" value={responsavel} onChange={e => setResponsavel(e.target.value)} />
             <Input label="Data da retirada *" type="date" value={dataRetirada} onChange={e => setDataRetirada(e.target.value)} />
@@ -344,7 +355,13 @@ export function ReservaCentroOperacional({ reservaId }: { reservaId: string }) {
 
           <div className="rounded-2xl border border-pink-100 bg-pink-50/50 p-4">
             <h3 className="font-semibold text-slate-900">Retirada / atendimento</h3>
-            <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+              <Select label="Modalidade *" value={modalidade} onChange={e => setModalidade(e.target.value)}>
+                <option>Cliente vem buscar</option>
+                <option>Carro de aplicativo</option>
+                <option>Entrega pela equipe</option>
+                <option>Entrega em mãos a terceiro/empresa</option>
+              </Select>
               <Input label="Cliente / responsável pela retirada *" value={clienteNome} onChange={e => setClienteNome(e.target.value)} />
               <Input label="Responsável interno" value={responsavel} onChange={e => setResponsavel(e.target.value)} />
               <Input label="Data da retirada *" type="date" value={dataRetirada} onChange={e => setDataRetirada(e.target.value)} />
