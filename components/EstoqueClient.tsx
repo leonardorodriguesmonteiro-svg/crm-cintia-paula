@@ -40,7 +40,7 @@ type Movimento = {
   } | null
   conferencias: {
     reservas: {
-      numero: string | null
+      id: string
     } | null
   } | null
 }
@@ -88,14 +88,18 @@ export function EstoqueClient() {
         .order('nome', { ascending: true }),
       supabase
         .from('movimentos_estoque')
-        .select('id,tipo,quantidade,saldo_total_depois,saldo_manutencao_depois,criado_em,estoque_itens!movimentos_estoque_item_id_fkey(codigo,nome),conferencias(reservas(numero))')
+        .select('id,tipo,quantidade,saldo_total_depois,saldo_manutencao_depois,criado_em,estoque_itens!movimentos_estoque_item_id_fkey(codigo,nome),conferencias(reservas(id))')
         .order('criado_em', { ascending: false })
         .limit(50)
     ])
 
     if (itensRes.error) return setErro(itensRes.error.message)
-    if (movimentosRes.error) return setErro(movimentosRes.error.message)
     setItens(itensRes.data || [])
+    if (movimentosRes.error) {
+      setMovimentos([])
+      return setErro(`Não foi possível carregar as movimentações: ${movimentosRes.error.message}`)
+    }
+    setErro('')
     setMovimentos((movimentosRes.data as any) || [])
   }
 
@@ -421,7 +425,7 @@ export function EstoqueClient() {
                 <tr key={movimento.id} className="border-b last:border-0">
                   <td className="p-3">{new Date(movimento.criado_em).toLocaleString('pt-BR')}</td>
                   <td>{movimento.estoque_itens?.codigo || '-'} — {movimento.estoque_itens?.nome || 'Item'}</td>
-                  <td>{movimento.conferencias?.reservas?.numero || '—'}</td>
+                  <td>{movimento.conferencias?.reservas?.id ? <a className="text-pink-700 underline" href={`/reservas/${movimento.conferencias.reservas.id}`}>Ver reserva</a> : '—'}</td>
                   <td>{movimento.tipo}</td>
                   <td>{movimento.quantidade}</td>
                   <td>{movimento.saldo_total_depois} total · {movimento.saldo_manutencao_depois} manutenção</td>
