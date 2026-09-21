@@ -215,6 +215,8 @@ export function FeedbackButton() {
     return null
   }
 
+  if (pathname === '/acompanhar') return null
+
   return (
     <>
       <div className="flex justify-end px-4 pt-4 pb-28 md:p-0">

@@ -33,10 +33,14 @@ export default function SiteHomePage() {
                   Montar meu kit
                 </Link>
               </div>
+              <div className="mt-6 rounded-2xl border border-pink-200 bg-white p-4">
+                <p className="font-bold">Já enviou uma solicitação?</p>
+                <Link href="/acompanhar" className="mt-2 inline-block py-2 font-bold text-pink-700 underline underline-offset-4">Acompanhar meu pedido →</Link>
+              </div>
               <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm font-bold text-slate-500">
-                <span>✓ Catálogo conectado ao ERP</span>
-                <span>✓ Reserva online</span>
-                <span>✓ Contrato e pagamento integrados</span>
+                <span>✓ Kits e peças para sua festa</span>
+                <span>✓ Solicitação online</span>
+                <span>✓ Acompanhamento do pedido</span>
               </div>
             </div>
 
@@ -77,7 +81,7 @@ export default function SiteHomePage() {
             <div className="text-center">
               <p className="text-sm font-black uppercase tracking-[0.2em] text-pink-600">Como funciona</p>
               <h2 className="mt-3 text-3xl font-black md:text-5xl">Da escolha à reserva em poucos passos</h2>
-              <p className="mx-auto mt-4 max-w-2xl leading-7 text-slate-600">Você escolhe a composição e o sistema organiza a jornada até a confirmação definitiva.</p>
+              <p className="mx-auto mt-4 max-w-2xl leading-7 text-slate-600">Escolha seu kit, envie a solicitação e acompanhe a análise da equipe até a confirmação da reserva.</p>
             </div>
             <div className="mt-10 grid gap-4 md:grid-cols-4">
               {etapas.map(([numero, titulo, texto]) => (
@@ -97,9 +101,9 @@ export default function SiteHomePage() {
         <section className="px-4 py-16 md:px-8 md:py-20">
           <div className="mx-auto grid max-w-7xl gap-5 md:grid-cols-3">
             {[
-              ['Catálogo sempre conectado', 'Os kits exibidos no site vêm do mesmo catálogo usado na gestão da operação.'],
+              ['Escolha com clareza', 'Consulte os kits, veja os valores e envie a data da sua festa para análise.'],
               ['Escolha sem compromisso', 'A seleção inicial não bloqueia o estoque. A disponibilidade é revalidada antes da confirmação.'],
-              ['Jornada organizada', 'Pré-reserva, proposta, contrato e pagamento seguem um fluxo único e rastreável.']
+              ['Saiba o próximo passo', 'Use seu link privado para consultar o andamento e abrir os documentos liberados pela equipe.']
             ].map(([titulo, texto], index) => (
               <div key={titulo} className="rounded-[2rem] border border-slate-200 p-7">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-600">0{index + 1}</p>

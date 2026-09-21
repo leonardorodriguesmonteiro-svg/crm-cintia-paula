@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { CalendarDays, MessageCircle, PackageCheck, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -109,33 +109,87 @@ export function PreReservasPanel() {
     observacoes_item: ''
   })
 
-  async function carregar() {
-    setCarregando(true)
-    const [preReservasRes, clientesRes, kitsRes, estoqueRes] = await Promise.all([
-      supabase
-        .from('oportunidades')
-        .select('id,numero,cliente_id,nome_contato,celular,email,origem,interesse,data_evento,etapa,versao,recebida_em,oportunidade_itens(id,tipo,nome_snapshot,quantidade)')
-        .in('etapa', [...statusPreReserva])
-        .order('recebida_em', { ascending: false }),
-      supabase.from('clientes').select('id,nome,whatsapp,email').order('nome'),
-      supabase.from('kits').select('id,nome,codigo').neq('status', 'Inativo').order('nome'),
-      supabase.from('estoque_itens').select('id,nome,codigo').neq('status', 'Inativo').order('nome')
-    ])
+  const [atualizando, setAtualizando] = useState(false)
+  const [erroCarga, setErroCarga] = useState('')
+  const [avisoCadastros, setAvisoCadastros] = useState('')
+  const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null)
+  const [linkCliente, setLinkCliente] = useState<{ numero: number; url: string } | null>(null)
+  const [gerandoLink, setGerandoLink] = useState<string | null>(null)
+  const cargaAtiva = useRef(false)
+  const montado = useRef(true)
 
-    const falha = preReservasRes.error || clientesRes.error || kitsRes.error || estoqueRes.error
-    if (falha) setErro(falha.message)
-    else {
-      setPreReservas((preReservasRes.data || []) as PreReserva[])
-      setClientes(clientesRes.data || [])
-      setKits(kitsRes.data || [])
-      setEstoque(estoqueRes.data || [])
+  const carregar = useCallback(async () => {
+    if (cargaAtiva.current) return
+    cargaAtiva.current = true
+    setAtualizando(true)
+    try {
+      const resultados = await Promise.allSettled([
+        supabase.from('oportunidades')
+          .select('id,numero,cliente_id,nome_contato,celular,email,origem,interesse,data_evento,etapa,versao,recebida_em,oportunidade_itens(id,tipo,nome_snapshot,quantidade)')
+          .in('etapa', [...statusPreReserva]).order('recebida_em', { ascending: false }),
+        supabase.from('clientes').select('id,nome,whatsapp,email').order('nome'),
+        supabase.from('kits').select('id,nome,codigo').neq('status', 'Inativo').order('nome'),
+        supabase.from('estoque_itens').select('id,nome,codigo').neq('status', 'Inativo').order('nome')
+      ])
+      if (!montado.current) return
+      const pedidos = resultados[0]
+      if (pedidos.status === 'fulfilled' && !pedidos.value.error) {
+        setPreReservas((pedidos.value.data || []) as PreReserva[])
+        setErroCarga('')
+        setUltimaAtualizacao(new Date())
+      } else {
+        setErroCarga('Não foi possível atualizar as pré-reservas. Os dados anteriores foram mantidos. Tente atualizar ou entre novamente no ERP.')
+      }
+      const setters = [setClientes, setKits, setEstoque]
+      const nomes = ['clientes', 'kits', 'estoque']
+      const falhas: string[] = []
+      resultados.slice(1).forEach((resultado, i) => {
+        if (resultado.status === 'fulfilled' && !resultado.value.error) {
+          setters[i]((resultado.value.data || []) as any)
+        } else falhas.push(nomes[i])
+      })
+      setAvisoCadastros(falhas.length ? `Não foi possível atualizar ${falhas.join(', ')}. As pré-reservas são carregadas separadamente.` : '')
+    } catch {
+      if (montado.current) setErroCarga('Falha de conexão. Tente atualizar novamente.')
+    } finally {
+      cargaAtiva.current = false
+      if (montado.current) { setAtualizando(false); setCarregando(false) }
     }
-    setCarregando(false)
-  }
+  }, [])
 
   useEffect(() => {
-    carregar()
-  }, [])
+    montado.current = true
+    void carregar()
+    const atualizarVisivel = () => { if (document.visibilityState === 'visible') void carregar() }
+    const intervalo = window.setInterval(atualizarVisivel, 30000)
+    window.addEventListener('focus', atualizarVisivel)
+    document.addEventListener('visibilitychange', atualizarVisivel)
+    return () => {
+      montado.current = false
+      window.clearInterval(intervalo)
+      window.removeEventListener('focus', atualizarVisivel)
+      document.removeEventListener('visibilitychange', atualizarVisivel)
+    }
+  }, [carregar])
+
+  async function gerenciarLink(item: PreReserva, revogar = false) {
+    if (!window.confirm(revogar ? 'Revogar o link de acompanhamento deste pedido?' : 'Gerar um link privado? O link anterior de acompanhamento deixará de funcionar.')) return
+    setGerandoLink(item.id)
+    setErro('')
+    setLinkCliente(null)
+    try {
+      const { data } = await supabase.auth.getSession()
+      if (!data.session) throw new Error('Entre novamente no ERP.')
+      const resposta = await fetch(`/api/comercial/pre-reservas/${item.id}/acompanhamento`, {
+        method: revogar ? 'DELETE' : 'POST',
+        headers: { Authorization: `Bearer ${data.session.access_token}` }
+      })
+      const corpo = await resposta.json()
+      if (!resposta.ok) throw new Error(corpo.erro || 'Não foi possível gerenciar o link.')
+      if (!revogar) setLinkCliente({ numero: item.numero, url: corpo.url })
+    } catch (error) { setErro(error instanceof Error ? error.message : 'Falha ao gerenciar o link.') }
+    finally { setGerandoLink(null) }
+  }
 
   const exibidas = useMemo(
     () => filtro === 'TODAS'
@@ -260,6 +314,13 @@ export function PreReservasPanel() {
         </Button>
       </div>
 
+      <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
+        <Button variant="secondary" onClick={() => void carregar()} disabled={atualizando}>{atualizando ? 'Atualizando…' : 'Atualizar pré-reservas'}</Button>
+        <span role="status">{ultimaAtualizacao ? `Atualizado às ${ultimaAtualizacao.toLocaleTimeString('pt-BR')}. Atualização automática a cada 30 segundos.` : 'Aguardando carregamento.'}</span>
+      </div>
+      {erroCarga && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{erroCarga}</p>}
+      {avisoCadastros && <p role="status" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{avisoCadastros}</p>}
+      {linkCliente && <Card><p className="font-bold">Acompanhamento da pré-reserva #{linkCliente.numero}</p><p className="my-2 text-sm">Copie e envie somente ao cliente. Quem possui este link pode consultar o pedido e os documentos liberados.</p><input aria-label="Link privado do cliente" readOnly value={linkCliente.url} onFocus={e => e.target.select()} className="w-full rounded-lg border p-3 text-sm" /><Button variant="secondary" onClick={() => setLinkCliente(null)}>Fechar</Button></Card>}
       {erro && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
 
       {formAberto && (
@@ -344,6 +405,8 @@ export function PreReservasPanel() {
                   <button type="button" onClick={() => window.open(`https://wa.me/55${somenteDigitos(item.celular)}`, '_blank', 'noopener,noreferrer')} className="inline-flex items-center gap-1 rounded-xl border px-3 py-2 text-xs font-bold text-green-700">
                     <MessageCircle size={15} /> WhatsApp
                   </button>
+                  <Button variant="secondary" disabled={gerandoLink === item.id} onClick={() => void gerenciarLink(item)}>Gerar link do cliente</Button>
+                  <Button variant="secondary" disabled={gerandoLink === item.id} onClick={() => void gerenciarLink(item, true)}>Revogar link</Button>
                   {acoes.map(status => (
                     <Button key={status} variant="secondary" className="px-3 py-2 text-xs" onClick={() => transicionar(item, status)}>
                       {rotulos[status]}
@@ -358,7 +421,7 @@ export function PreReservasPanel() {
               </article>
             )
           })}
-          {!exibidas.length && <div className="rounded-2xl border border-dashed bg-white p-8 text-center text-sm text-slate-400">Nenhuma pré-reserva neste estado.</div>}
+          {!exibidas.length && !erroCarga && <div className="rounded-2xl border border-dashed bg-white p-8 text-center text-sm text-slate-400">Nenhuma pré-reserva neste estado.</div>}
         </div>
       )}
     </section>

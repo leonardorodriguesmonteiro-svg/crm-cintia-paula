@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { SitePublicoLayout } from '@/components/publico/SitePublicoLayout'
 
 const perguntas = [
+  ['Como acompanho minha pré-reserva ou reserva?', 'Acesse Acompanhar meu pedido no menu e cole o link privado exibido na confirmação da solicitação ou enviado pela equipe. Nessa página você consulta as etapas e os documentos liberados. Se perdeu o link ou fez um pedido antes dessa função, peça um novo à equipe.'],
   ['A seleção do kit já garante a reserva?', 'Não. A seleção inicia a solicitação. A reserva é confirmada somente depois da análise, aceite, contrato assinado e pagamento.'],
   ['O estoque fica bloqueado quando eu envio a solicitação?', 'Não. O bloqueio do estoque acontece somente na confirmação definitiva da reserva.'],
   ['Posso montar um kit personalizado?', 'Sim. Você pode selecionar itens do catálogo e nossa equipe prepara o orçamento da composição personalizada.'],

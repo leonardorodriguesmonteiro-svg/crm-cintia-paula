@@ -27,7 +27,8 @@ function hostnameDaRequisicao(request: NextRequest) {
 }
 
 function rotaPublicaPermitida(pathname: string) {
-  if (pathname === '/reservar') return true
+  if (pathname === '/reservar' || pathname === '/acompanhar') return true
+  if (pathname === '/api/publico/acompanhamento') return true
   if (pathname.startsWith('/proposta/')) return true
   if (pathname.startsWith('/contrato/')) return true
 
@@ -65,7 +66,13 @@ export function proxy(request: NextRequest) {
   }
 
   if (rotaPublicaPermitida(pathname)) {
-    return NextResponse.next()
+    const response = NextResponse.next()
+    if (pathname === '/acompanhar') {
+      response.headers.set('Cache-Control', 'private, no-store')
+      response.headers.set('Referrer-Policy', 'no-referrer')
+      response.headers.set('X-Robots-Tag', 'noindex, nofollow')
+    }
+    return response
   }
 
   const destino = request.nextUrl.clone()

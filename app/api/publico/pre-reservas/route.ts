@@ -1,3 +1,4 @@
+import { gerarLink } from '@/lib/server/acompanhamento'
 import { NextRequest, NextResponse } from 'next/server'
 import {
   criarPreReserva,
@@ -195,8 +196,15 @@ export async function POST(request: NextRequest) {
       itens: itensDoCorpo(corpo.itens)
     })
 
+    let acompanhamentoUrl: string | null = null
+    // A tracking failure must never turn a persisted order into an apparent failure.
+    if (preReserva.criada) {
+      try { acompanhamentoUrl = await gerarLink(preReserva.id, empresaId) }
+      catch { console.error('[acompanhamento] link indisponivel; pedido preservado') }
+    }
     return resposta(origem, {
       sucesso: true,
+      acompanhamento_url: acompanhamentoUrl,
       mensagem: preReserva.criada
         ? 'Pré-reserva recebida para análise.'
         : 'Esta pré-reserva já havia sido recebida.',
