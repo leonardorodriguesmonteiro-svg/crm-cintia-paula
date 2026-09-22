@@ -1,3 +1,4 @@
+import { consultarEnvios, enviarAcompanhamento } from '@/lib/server/acompanhamentoEnvios'
 import { NextRequest, NextResponse } from 'next/server'
 import { exigirPerfis, respostaErroAdministrativo } from '@/lib/server/adminAuth'
 import { gerarLink } from '@/lib/server/acompanhamento'
@@ -10,7 +11,14 @@ async function executar(request: NextRequest, contexto: { params: Promise<{ id: 
     const { vinculo } = await exigirPerfis(request, ['Comercial'])
     const { id } = await contexto.params
     if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ erro: 'Pedido inválido.' }, { status: 400, headers })
-    if (!revogar) return NextResponse.json({ url: await gerarLink(id, vinculo.empresa_id, true) }, { headers })
+    if (!revogar) {
+      const corpo = await request.json().catch(() => ({}))
+      const url = await gerarLink(id, vinculo.empresa_id, corpo.acao === 'substituir')
+      const envios = corpo.acao === 'enviar_email' || corpo.acao === 'enviar_whatsapp'
+        ? await enviarAcompanhamento(id, vinculo.empresa_id, [corpo.acao === 'enviar_email' ? 'email' : 'whatsapp'])
+        : await consultarEnvios(id)
+      return NextResponse.json({ url, envios, whatsapp_disponivel: Boolean(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_TEMPLATE_NAME && process.env.WHATSAPP_GRAPH_VERSION) }, { headers })
+    }
     const { data, error } = await supabaseServer.from('oportunidades').select('id').eq('id', id).eq('empresa_id', vinculo.empresa_id).maybeSingle()
     if (error || !data) return NextResponse.json({ erro: 'Pedido não encontrado.' }, { status: 404, headers })
     const resultado = await supabaseServer.from('acompanhamento_links').update({ revoked_at: new Date().toISOString() }).eq('oportunidade_id', id)
