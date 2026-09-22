@@ -25,6 +25,7 @@ type Formulario = {
   tipo_evento: string
   modalidade: 'Retirada' | 'Entrega'
   observacoes: string
+  whatsapp_consentimento: boolean
   website: string
 }
 
@@ -36,6 +37,7 @@ const formularioInicial: Formulario = {
   tipo_evento: '',
   modalidade: 'Retirada',
   observacoes: '',
+  whatsapp_consentimento: false,
   website: ''
 }
 
@@ -140,6 +142,7 @@ export function ReservaPublicaDireta() {
           data_evento: formulario.data_evento,
           interesse,
           website: formulario.website,
+          whatsapp_consentimento: formulario.whatsapp_consentimento,
           itens: [{ tipo: 'KIT', id: kit.id, quantidade: 1 }]
         })
       })
@@ -314,6 +317,7 @@ export function ReservaPublicaDireta() {
             <textarea value={formulario.observacoes} onChange={(event) => setFormulario({ ...formulario, observacoes: event.target.value })} rows={4} className="w-full resize-none rounded-2xl border border-slate-200 px-4 py-3.5 outline-none transition focus:border-pink-400 focus:ring-4 focus:ring-pink-100" placeholder="Conte algum detalhe importante sobre a festa..." />
           </label>
 
+          <label className="flex items-start gap-3 text-sm text-slate-600"><input type="checkbox" checked={formulario.whatsapp_consentimento} onChange={e => setFormulario({ ...formulario, whatsapp_consentimento: e.target.checked })} className="mt-1" />Quero receber o link e atualizações deste pedido pelo WhatsApp da Cintia Paula.</label>
           <input aria-hidden="true" tabIndex={-1} autoComplete="off" value={formulario.website} onChange={(event) => setFormulario({ ...formulario, website: event.target.value })} className="hidden" />
 
           {erro ? <div className="mt-5 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-800">{erro}</div> : null}

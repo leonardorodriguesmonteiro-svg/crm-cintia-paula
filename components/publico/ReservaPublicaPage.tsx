@@ -62,6 +62,7 @@ type FormContato = {
   tipo_evento: string
   modalidade: 'Retirada' | 'Entrega'
   observacoes: string
+  whatsapp_consentimento: boolean
   website: string
 }
 
@@ -73,6 +74,7 @@ const contatoInicial: FormContato = {
   tipo_evento: '',
   modalidade: 'Retirada',
   observacoes: '',
+  whatsapp_consentimento: false,
   website: ''
 }
 
@@ -224,6 +226,7 @@ export function ReservaPublicaPage() {
           data_evento: contato.data_evento,
           interesse: montarInteresse(),
           website: contato.website,
+          whatsapp_consentimento: contato.whatsapp_consentimento,
           itens: itens.map(item => ({ tipo: item.tipo, id: item.id, quantidade: item.quantidade }))
         })
       })
@@ -464,7 +467,8 @@ export function ReservaPublicaPage() {
                     ))}
                   </div>
                   <textarea className="min-h-24 w-full rounded-2xl border px-4 py-3 outline-none focus:border-pink-400" placeholder="Observações (opcional)" value={contato.observacoes} onChange={evento => setContato({ ...contato, observacoes: evento.target.value })} />
-                  <input tabIndex={-1} autoComplete="off" aria-hidden="true" className="hidden" value={contato.website} onChange={evento => setContato({ ...contato, website: evento.target.value })} />
+                  <label className="flex items-start gap-3 text-sm text-slate-600"><input type="checkbox" checked={contato.whatsapp_consentimento} onChange={e => setContato({ ...contato, whatsapp_consentimento: e.target.checked })} className="mt-1" />Quero receber o link e atualizações deste pedido pelo WhatsApp da Cintia Paula.</label>
+          <input tabIndex={-1} autoComplete="off" aria-hidden="true" className="hidden" value={contato.website} onChange={evento => setContato({ ...contato, website: evento.target.value })} />
                 </div>
 
                 {erro && <p className="mt-4 rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-700">{erro}</p>}
