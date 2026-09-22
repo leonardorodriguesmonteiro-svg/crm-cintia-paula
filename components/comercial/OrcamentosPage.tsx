@@ -734,10 +734,11 @@ export function OrcamentosPage() {
     setAcaoDocumento(`compartilhar:${orcamento.id}`)
 
     try {
+      await registrarEnvio(orcamento)
       const dados = await carregarDadosDocumento(orcamento)
       const { doc, nomeArquivo } = await criarDocumentoOrcamento(dados)
       const link_publico = orcamento.public_token
-        ? `${window.location.origin}/proposta/${orcamento.public_token}`
+        ? `https://www.cintiapaulafestaedecoracao.com.br/proposta/${orcamento.public_token}`
         : null
       const mensagem = mensagemWhatsAppOrcamento({ ...dados, link_publico })
       const arquivo = new File([doc.output('blob')], nomeArquivo, { type: 'application/pdf' })
@@ -762,7 +763,6 @@ export function OrcamentosPage() {
         setSucesso('PDF baixado. Anexe o arquivo à conversa aberta no WhatsApp.')
       }
 
-      await registrarEnvio(orcamento)
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return
       setErro(mensagemErroDocumento(error))
@@ -787,7 +787,7 @@ export function OrcamentosPage() {
       return
     }
 
-    const link = `${window.location.origin}/proposta/${orcamento.public_token}`
+    const link = `https://www.cintiapaulafestaedecoracao.com.br/proposta/${orcamento.public_token}`
     let copiado = false
 
     try {
@@ -1528,6 +1528,11 @@ export function OrcamentosPage() {
               >
                 <Copy size={17} /> Copiar link da proposta
               </button>
+              {orcamento.public_token && ['ENVIADA', 'ACEITA'].includes(orcamento.status) && <a
+                className="flex w-full items-center justify-center rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-sm font-bold text-green-800"
+                target="_blank" rel="noopener noreferrer"
+                href={`https://wa.me/${telefoneWhatsApp(orcamento.clientes?.whatsapp || orcamento.oportunidades?.celular || '')}?text=${encodeURIComponent(`Olá! Seu orçamento ORC-${String(orcamento.numero).padStart(4, '0')} da Cintia Paula está disponível para conferir: https://www.cintiapaulafestaedecoracao.com.br/proposta/${orcamento.public_token}`)}`}
+              >Abrir WhatsApp com orçamento</a>}
               {!emailClienteDo(orcamento) && (
                 <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">Cadastre o e-mail do cliente para habilitar o envio automático.</p>
               )}
