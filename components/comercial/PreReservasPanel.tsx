@@ -113,7 +113,7 @@ export function PreReservasPanel() {
   const [erroCarga, setErroCarga] = useState('')
   const [avisoCadastros, setAvisoCadastros] = useState('')
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null)
-  const [linkCliente, setLinkCliente] = useState<{ numero: number; url: string } | null>(null)
+  const [linkCliente, setLinkCliente] = useState<{ id: string; url: string; whatsappDisponivel: boolean; envios: { canal: string; status: string }[] } | null>(null)
   const [gerandoLink, setGerandoLink] = useState<string | null>(null)
   const cargaAtiva = useRef(false)
   const montado = useRef(true)
@@ -172,8 +172,9 @@ export function PreReservasPanel() {
     }
   }, [carregar])
 
-  async function gerenciarLink(item: PreReserva, revogar = false) {
-    if (!window.confirm(revogar ? 'Revogar o link de acompanhamento deste pedido?' : 'Gerar um link privado? O link anterior de acompanhamento deixará de funcionar.')) return
+  async function gerenciarLink(item: PreReserva, acao = 'consultar') {
+    const revogar = acao === 'revogar'
+    if ((revogar || acao === 'substituir') && !window.confirm(revogar ? 'Revogar o link deste pedido?' : 'Substituir o link? O anterior deixará de funcionar.')) return
     setGerandoLink(item.id)
     setErro('')
     setLinkCliente(null)
@@ -182,11 +183,12 @@ export function PreReservasPanel() {
       if (!data.session) throw new Error('Entre novamente no ERP.')
       const resposta = await fetch(`/api/comercial/pre-reservas/${item.id}/acompanhamento`, {
         method: revogar ? 'DELETE' : 'POST',
-        headers: { Authorization: `Bearer ${data.session.access_token}` }
+        headers: { Authorization: `Bearer ${data.session.access_token}`, 'Content-Type': 'application/json' },
+        ...(revogar ? {} : { body: JSON.stringify({ acao }) })
       })
       const corpo = await resposta.json()
       if (!resposta.ok) throw new Error(corpo.erro || 'Não foi possível gerenciar o link.')
-      if (!revogar) setLinkCliente({ numero: item.numero, url: corpo.url })
+      if (!revogar) setLinkCliente({ id: item.id, url: corpo.url, whatsappDisponivel: corpo.whatsapp_disponivel === true, envios: corpo.envios || [] })
     } catch (error) { setErro(error instanceof Error ? error.message : 'Falha ao gerenciar o link.') }
     finally { setGerandoLink(null) }
   }
@@ -320,7 +322,6 @@ export function PreReservasPanel() {
       </div>
       {erroCarga && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{erroCarga}</p>}
       {avisoCadastros && <p role="status" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{avisoCadastros}</p>}
-      {linkCliente && <Card><p className="font-bold">Acompanhamento da pré-reserva #{linkCliente.numero}</p><p className="my-2 text-sm">Copie e envie somente ao cliente. Quem possui este link pode consultar o pedido e os documentos liberados.</p><input aria-label="Link privado do cliente" readOnly value={linkCliente.url} onFocus={e => e.target.select()} className="w-full rounded-lg border p-3 text-sm" /><Button variant="secondary" onClick={() => setLinkCliente(null)}>Fechar</Button></Card>}
       {erro && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
 
       {formAberto && (
@@ -405,8 +406,9 @@ export function PreReservasPanel() {
                   <button type="button" onClick={() => window.open(`https://wa.me/55${somenteDigitos(item.celular)}`, '_blank', 'noopener,noreferrer')} className="inline-flex items-center gap-1 rounded-xl border px-3 py-2 text-xs font-bold text-green-700">
                     <MessageCircle size={15} /> WhatsApp
                   </button>
-                  <Button variant="secondary" disabled={gerandoLink === item.id} onClick={() => void gerenciarLink(item)}>Gerar link do cliente</Button>
-                  <Button variant="secondary" disabled={gerandoLink === item.id} onClick={() => void gerenciarLink(item, true)}>Revogar link</Button>
+                  <Button variant="secondary" disabled={gerandoLink === item.id} onClick={() => void gerenciarLink(item)}>Ver / copiar link do cliente</Button>
+                  <Button variant="secondary" disabled={gerandoLink === item.id} onClick={() => void gerenciarLink(item, 'revogar')}>Revogar link</Button>
+                  <Button variant="secondary" disabled={gerandoLink === item.id} onClick={() => void gerenciarLink(item, 'substituir')}>Substituir link</Button>
                   {acoes.map(status => (
                     <Button key={status} variant="secondary" className="px-3 py-2 text-xs" onClick={() => transicionar(item, status)}>
                       {rotulos[status]}
@@ -418,6 +420,19 @@ export function PreReservasPanel() {
                     </Link>
                   )}
                 </div>
+                {linkCliente?.id === item.id && <div className="mt-4 space-y-3 rounded-xl border border-pink-200 bg-pink-50 p-4">
+                  <p className="font-bold">Link privado do cliente</p>
+                  <input aria-label={`Link do pedido ${item.numero}`} readOnly value={linkCliente.url} onFocus={e => e.target.select()} className="w-full rounded-lg border p-3 text-sm" />
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="secondary" onClick={async () => { try { await navigator.clipboard.writeText(linkCliente.url) } catch { setErro('Selecione o link acima e copie manualmente.') } }}>Copiar link</Button>
+                    <a className="rounded-xl border bg-white px-3 py-2 text-sm font-bold text-green-700" target="_blank" rel="noopener noreferrer" href={`https://wa.me/${somenteDigitos(item.celular).length <= 11 ? '55' : ''}${somenteDigitos(item.celular)}?text=${encodeURIComponent(`Olá! Acompanhe seu pedido #${item.numero} da Cintia Paula: ${linkCliente.url}`)}`}>Abrir WhatsApp com link</a>
+                    <Button variant="secondary" disabled={gerandoLink === item.id} onClick={() => void gerenciarLink(item, 'enviar_email')}>Enviar link por e-mail</Button>
+                    {linkCliente.whatsappDisponivel && <Button variant="secondary" disabled={gerandoLink === item.id} onClick={() => void gerenciarLink(item, 'enviar_whatsapp')}>Enviar WhatsApp automático</Button>}
+                  </div>
+                  <p className="text-xs text-slate-600">O WhatsApp acima abre uma mensagem para você revisar e enviar. O link pode ser consultado novamente aqui.</p>
+                  {linkCliente.envios.length === 0 && <p className="text-sm">Nenhum envio automático registrado.</p>}
+                  {linkCliente.envios.map((envio, indice) => <p key={indice} className="text-sm">{envio.canal === 'email' ? 'E-mail' : 'WhatsApp'}: {({ aceito: 'Aceito pelo serviço (entrega não confirmada)', nao_configurado: 'Serviço ainda não configurado', sem_consentimento: 'Cliente não autorizou WhatsApp automático', sem_destino: 'Contato ausente ou inválido', falhou: 'Envio recusado; confira o serviço antes de tentar novamente', incerto: 'Resultado incerto; confira o serviço antes de repetir', processando: 'Envio iniciado; se persistir, confira o serviço', pendente: 'Aguardando envio' } as Record<string, string>)[envio.status] || envio.status}</p>)}
+                </div>}
               </article>
             )
           })}
