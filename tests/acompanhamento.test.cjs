@@ -64,12 +64,21 @@ test('rate limit and origin deny before database read', async () => {
 test('database errors remain generic',async () => { const r=await fixture({dbError:true}).run(token);assert.equal(r.status,503);assert.doesNotMatch(JSON.stringify(await r.json()),/private db error/) })
 test('issued token is random, hashed and not embedded in HTTP path', async () => {
   let saved
-  const { gerarLink } = moduleWithMocks('lib/server/acompanhamento.ts', {
+  process.env.ACOMPANHAMENTO_ENCRYPTION_KEY = 'test-key-not-a-real-secret'
+  const { gerarLink, decifrarToken } = moduleWithMocks('lib/server/acompanhamento.ts', {
     '@/lib/supabaseServer': { supabaseServer:{from(table){
-      if(table==='acompanhamento_links') return {insert: async r => {saved=r;return {error:null}}}
+      if(table==='acompanhamento_links') { const q = {select(){return q},eq(){return q},maybeSingle:async()=>({data:saved || null,error:null}),insert: async r => {saved=r;return {error:null}}}; return q }
       const q={select(){return q},eq(){return q},maybeSingle:async()=>({data:{id:'order-1'},error:null})};return q
     }}}
   })
   const url=new URL(await gerarLink('order-1','company-1'));assert.equal(url.pathname,'/acompanhar');assert.equal(url.hash.length,44)
   assert.equal(saved.token_hash,digest(url.hash.slice(1)));assert.equal(saved.token,undefined)
+  assert.notEqual(saved.token_cifrado,url.hash.slice(1))
+  assert.equal(decifrarToken(saved.token_cifrado,'order-1'),url.hash.slice(1))
+  assert.throws(()=>decifrarToken(saved.token_cifrado,'other-order'))
+  assert.equal(await gerarLink('order-1','company-1'),url.href)
+  saved.revoked_at = new Date().toISOString()
+  await assert.rejects(()=>gerarLink('order-1','company-1'),/revogado/)
+  saved.revoked_at = null; saved.token_cifrado = null
+  await assert.rejects(()=>gerarLink('order-1','company-1'),/antigo/)
 })
