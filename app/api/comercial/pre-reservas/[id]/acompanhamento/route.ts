@@ -14,10 +14,12 @@ async function executar(request: NextRequest, contexto: { params: Promise<{ id: 
     if (!revogar) {
       const corpo = await request.json().catch(() => ({}))
       const url = await gerarLink(id, vinculo.empresa_id, corpo.acao === 'substituir')
+      const { data: pedido } = await supabaseServer.from('oportunidades').select('etapa').eq('id', id).eq('empresa_id', vinculo.empresa_id).single()
+      const finalidade = ['APROVADA', 'CONVERTIDA_EM_PROPOSTA'].includes(pedido?.etapa) ? 'aprovacao' : 'recebimento'
       const envios = corpo.acao === 'enviar_email' || corpo.acao === 'enviar_whatsapp'
-        ? await enviarAcompanhamento(id, vinculo.empresa_id, [corpo.acao === 'enviar_email' ? 'email' : 'whatsapp'])
-        : await consultarEnvios(id)
-      return NextResponse.json({ url, envios, whatsapp_disponivel: Boolean(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_TEMPLATE_NAME && process.env.WHATSAPP_GRAPH_VERSION) }, { headers })
+        ? await enviarAcompanhamento(id, vinculo.empresa_id, [corpo.acao === 'enviar_email' ? 'email' : 'whatsapp'], finalidade)
+        : await consultarEnvios(id, finalidade)
+      return NextResponse.json({ url, envios, whatsapp_disponivel: finalidade === 'recebimento' && Boolean(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_TEMPLATE_NAME && process.env.WHATSAPP_GRAPH_VERSION) }, { headers })
     }
     const { data, error } = await supabaseServer.from('oportunidades').select('id').eq('id', id).eq('empresa_id', vinculo.empresa_id).maybeSingle()
     if (error || !data) return NextResponse.json({ erro: 'Pedido não encontrado.' }, { status: 404, headers })

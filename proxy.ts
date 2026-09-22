@@ -28,7 +28,7 @@ function hostnameDaRequisicao(request: NextRequest) {
 
 function rotaPublicaPermitida(pathname: string) {
   if (pathname === '/reservar' || pathname === '/acompanhar') return true
-  if (pathname === '/api/publico/acompanhamento') return true
+  if (pathname === '/api/publico/acompanhamento' || pathname === '/api/publico/acompanhamento/cadastro') return true
   if (pathname.startsWith('/proposta/')) return true
   if (pathname.startsWith('/contrato/')) return true
 

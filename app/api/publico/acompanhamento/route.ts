@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     if (erroLink) throw erroLink
     if (!link) return ausente()
     const { data: pedido, error: erroPedido } = await supabaseServer.from('oportunidades')
-      .select('id,numero,etapa,data_evento,updated_at').eq('id', link.oportunidade_id).eq('empresa_id', empresaId).maybeSingle()
+      .select('id,numero,etapa,data_evento,updated_at,cadastro_completo_em').eq('id', link.oportunidade_id).eq('empresa_id', empresaId).maybeSingle()
     if (erroPedido) throw erroPedido
     if (!pedido) return ausente()
     const { data: proposta, error: erroProposta } = await supabaseServer.from('orcamentos')
@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       numero: pedido.numero, etapa: pedido.etapa, data_evento: pedido.data_evento,
       proposta: proposta ? { status: proposta.status, formalizacao: proposta.formalizacao_status, url: proposta.public_token && ['ENVIADA','ACEITA'].includes(proposta.status) ? `/proposta/${proposta.public_token}` : null } : null,
+      cadastro: { completo: Boolean(pedido.cadastro_completo_em), disponivel: !proposta && ['APROVADA', 'CONVERTIDA_EM_PROPOSTA'].includes(pedido.etapa) && !pedido.cadastro_completo_em },
       contrato, reserva
     }, { headers })
   } catch {

@@ -47,6 +47,7 @@ type PreReserva = {
   data_evento: string | null
   etapa: StatusPreReserva
   versao: number
+  cadastro_completo_em: string | null
   recebida_em: string
   oportunidade_itens: ItemPreReserva[]
 }
@@ -125,7 +126,7 @@ export function PreReservasPanel() {
     try {
       const resultados = await Promise.allSettled([
         supabase.from('oportunidades')
-          .select('id,numero,cliente_id,nome_contato,celular,email,origem,interesse,data_evento,etapa,versao,recebida_em,oportunidade_itens(id,tipo,nome_snapshot,quantidade)')
+          .select('id,numero,cliente_id,nome_contato,celular,email,origem,interesse,data_evento,etapa,versao,recebida_em,cadastro_completo_em,oportunidade_itens(id,tipo,nome_snapshot,quantidade)')
           .in('etapa', [...statusPreReserva]).order('recebida_em', { ascending: false }),
         supabase.from('clientes').select('id,nome,whatsapp,email').order('nome'),
         supabase.from('kits').select('id,nome,codigo').neq('status', 'Inativo').order('nome'),
@@ -301,6 +302,7 @@ export function PreReservasPanel() {
       return
     }
     await carregar()
+    if (dados.aviso) setErro(dados.aviso)
   }
 
   return (
@@ -402,6 +404,7 @@ export function PreReservasPanel() {
                   </div>
                 </div>
 
+                {['APROVADA', 'CONVERTIDA_EM_PROPOSTA'].includes(item.etapa) && <p className="mt-3 text-sm font-semibold text-pink-700">{item.cadastro_completo_em ? 'Cadastro completo — pronto para orçamento' : 'Cadastro pendente — envie o link ao cliente'}</p>}
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button type="button" onClick={() => window.open(`https://wa.me/55${somenteDigitos(item.celular)}`, '_blank', 'noopener,noreferrer')} className="inline-flex items-center gap-1 rounded-xl border px-3 py-2 text-xs font-bold text-green-700">
                     <MessageCircle size={15} /> WhatsApp
@@ -425,7 +428,7 @@ export function PreReservasPanel() {
                   <input aria-label={`Link do pedido ${item.numero}`} readOnly value={linkCliente.url} onFocus={e => e.target.select()} className="w-full rounded-lg border p-3 text-sm" />
                   <div className="flex flex-wrap gap-2">
                     <Button variant="secondary" onClick={async () => { try { await navigator.clipboard.writeText(linkCliente.url) } catch { setErro('Selecione o link acima e copie manualmente.') } }}>Copiar link</Button>
-                    <a className="rounded-xl border bg-white px-3 py-2 text-sm font-bold text-green-700" target="_blank" rel="noopener noreferrer" href={`https://wa.me/${somenteDigitos(item.celular).length <= 11 ? '55' : ''}${somenteDigitos(item.celular)}?text=${encodeURIComponent(`Olá! Acompanhe seu pedido #${item.numero} da Cintia Paula: ${linkCliente.url}`)}`}>Abrir WhatsApp com link</a>
+                    <a className="rounded-xl border bg-white px-3 py-2 text-sm font-bold text-green-700" target="_blank" rel="noopener noreferrer" href={`https://wa.me/${somenteDigitos(item.celular).length <= 11 ? '55' : ''}${somenteDigitos(item.celular)}?text=${encodeURIComponent(['APROVADA', 'CONVERTIDA_EM_PROPOSTA'].includes(item.etapa) ? `Sua pré-reserva #${item.numero} foi aprovada! Complete seu cadastro para prepararmos o orçamento final: ${linkCliente.url}. A reserva depende da formalização.` : `Olá! Acompanhe seu pedido #${item.numero} da Cintia Paula: ${linkCliente.url}`)}`}>Abrir WhatsApp com link</a>
                     <Button variant="secondary" disabled={gerandoLink === item.id} onClick={() => void gerenciarLink(item, 'enviar_email')}>Enviar link por e-mail</Button>
                     {linkCliente.whatsappDisponivel && <Button variant="secondary" disabled={gerandoLink === item.id} onClick={() => void gerenciarLink(item, 'enviar_whatsapp')}>Enviar WhatsApp automático</Button>}
                   </div>

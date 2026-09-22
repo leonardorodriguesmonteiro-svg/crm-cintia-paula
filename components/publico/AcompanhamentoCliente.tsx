@@ -1,7 +1,9 @@
 'use client'
+import { CadastroPreReserva } from './CadastroPreReserva'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 type Pedido = {
+  cadastro: { completo: boolean; disponivel: boolean };
   numero: number; etapa: string; data_evento: string | null;
   proposta: { status: string; formalizacao: string; url: string | null } | null;
   contrato: { status: string; url: string | null } | null;
@@ -81,6 +83,8 @@ export function AcompanhamentoCliente() {
       {erro && <p role="alert" className="rounded-2xl border border-amber-200 bg-white p-5">{erro}</p>}
       {temLink && <div className="flex flex-wrap items-center gap-3"><button disabled={carregando} onClick={() => void atualizar()} className="rounded-xl bg-pink-600 px-5 py-3 font-bold text-white disabled:opacity-60">{carregando ? 'Consultando…' : 'Atualizar andamento'}</button><span role="status" className="text-sm text-slate-600">{atualizado && pedido ? `Consultado às ${atualizado}` : ''}</span></div>}
       {pedido && <>
+        {pedido.cadastro?.disponivel && <CadastroPreReserva onConcluido={() => void atualizar()} />}
+        {pedido.cadastro?.completo && <p role="status" className="rounded-2xl bg-green-50 p-5 text-green-900">Cadastro recebido. A equipe preparará o orçamento final; você poderá acessá-lo nesta página quando for enviado.</p>}
         <section className="rounded-2xl border border-pink-100 bg-white p-6"><p className="text-sm font-bold text-pink-700">Pedido #{String(pedido.numero).padStart(4, '0')}</p><h2 className="mt-2 text-xl font-bold">{rotulo(pedido.etapa)}</h2><p className="mt-3">Data do evento: {data(pedido.data_evento)}</p></section>
         <section className="rounded-2xl border bg-white p-6"><h2 className="text-xl font-bold">Proposta</h2><p className="mt-2">{pedido.proposta ? rotulo(pedido.proposta.status) : 'A equipe ainda não liberou uma proposta.'}</p>{pedido.proposta?.url && <a className="mt-4 inline-block rounded-xl border border-pink-300 px-4 py-3 font-bold text-pink-700" href={pedido.proposta.url}>Abrir proposta</a>}</section>
         <section className="rounded-2xl border bg-white p-6"><h2 className="text-xl font-bold">Contrato e confirmação</h2><p className="mt-2">{pedido.proposta ? rotulo(pedido.proposta.formalizacao) : 'Após a análise e o aceite da proposta.'}</p>{pedido.contrato && <p className="mt-2">Contrato: {rotulo(pedido.contrato.status)}</p>}{pedido.contrato?.url && <a className="mt-4 inline-block rounded-xl border border-pink-300 px-4 py-3 font-bold text-pink-700" href={pedido.contrato.url}>Abrir contrato</a>}</section>

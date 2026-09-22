@@ -8,8 +8,8 @@ function fixture({consent=true,response=200,configured=true}={}) {
   let filters=[],update=null,mode='read';
   const q={select(){return q},eq(k,v){filters.push(r=>r[k]===v);return q},in(k,v){filters.push(r=>v.includes(r[k]));return q},order(){return q},limit(){return q},
    update(v){update=v;mode='update';return q},
-   async upsert(v){if(!rows.some(r=>r.canal===v.canal)) rows.push({...v,id:v.canal});return{error:null}},
-   result(){if(table==='oportunidades')return{data:{numero:15,email:'test@example.com',celular:'11999999999'},error:null};if(table==='acompanhamento_links')return{data:{token_hash:'hash',whatsapp_consentido_em:consent?'2026-09-21':null},error:null};const found=rows.filter(r=>filters.every(f=>f(r)));if(mode==='update')found.forEach(r=>Object.assign(r,update));return{data:found,error:null}},
+   async upsert(v){if(!rows.some(r=>r.canal===v.canal && r.table===table)) rows.push({...v,id:table+v.canal,table});return{error:null}},
+   result(){if(table==='oportunidades')return{data:{numero:15,email:'test@example.com',celular:'11999999999'},error:null};if(table==='acompanhamento_links')return{data:{token_hash:'hash',whatsapp_consentido_em:consent?'2026-09-21':null},error:null};const found=rows.filter(r=>r.table===table && filters.every(f=>f(r)));if(mode==='update')found.forEach(r=>Object.assign(r,update));return{data:found,error:null}},
    async single(){return q.result()},async maybeSingle(){const r=q.result();return {...r,data:Array.isArray(r.data)?r.data[0]||null:r.data}},
    then(resolve,reject){return Promise.resolve(q.result()).then(resolve,reject)} };return q
  }}
@@ -27,3 +27,5 @@ test('no WhatsApp without explicit consent',async()=>{const f=fixture({consent:f
 test('missing configuration does not pretend to send',async()=>{const f=fixture({configured:false});await f.enviarAcompanhamento('order','company');assert.equal(f.calls.length,0);assert.ok(f.rows.every(r=>r.status==='nao_configurado'))})
 for(const response of [500,'timeout'])test(`uncertain ${response} is not retried`,async()=>{const f=fixture({response});await f.enviarAcompanhamento('order','company');await f.enviarAcompanhamento('order','company');assert.equal(f.calls.length,2);assert.ok(f.rows.every(r=>r.status==='incerto'))})
 test('concurrent sends claim each channel once',async()=>{const f=fixture();await Promise.all([f.enviarAcompanhamento('order','company'),f.enviarAcompanhamento('order','company')]);assert.equal(f.calls.length,2)})
+
+test('approval email is distinct from receipt, with registration copy, and idempotent',async()=>{const f=fixture();await f.enviarAcompanhamento('order','company',['email']);await f.enviarAcompanhamento('order','company',['email'],'aprovacao');await f.enviarAcompanhamento('order','company',['email'],'aprovacao');assert.equal(f.calls.length,2);assert.match(f.calls[1].options.body,/Complete seu cadastro/);assert.notEqual(f.calls[0].options.headers['Idempotency-Key'],f.calls[1].options.headers['Idempotency-Key'])})

@@ -82,3 +82,8 @@ test('issued token is random, hashed and not embedded in HTTP path', async () =>
   saved.revoked_at = null; saved.token_cifrado = null
   await assert.rejects(()=>gerarLink('order-1','company-1'),/antigo/)
 })
+test('approved pre-reservation offers intake; completed and legacy sent proposals do not', async () => {
+ const pending=await(await fixture({order:{etapa:'APROVADA'}}).run(token)).json();assert.equal(pending.cadastro.disponivel,true)
+ const complete=await(await fixture({order:{etapa:'APROVADA',cadastro_completo_em:'2026-09-22'}}).run(token)).json();assert.deepEqual(complete.cadastro,{completo:true,disponivel:false})
+ const legacy=await(await fixture({order:{etapa:'CONVERTIDA_EM_PROPOSTA'},proposals:[{oportunidade_id:'order-1',empresa_id:'company-1',status:'ENVIADA'}]}).run(token)).json();assert.equal(legacy.cadastro.disponivel,false)
+})
