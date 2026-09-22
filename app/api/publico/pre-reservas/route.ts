@@ -1,3 +1,6 @@
+import { after } from 'next/server'
+import { enviarAcompanhamento } from '@/lib/server/acompanhamentoEnvios'
+import { supabaseServer } from '@/lib/supabaseServer'
 import { gerarLink } from '@/lib/server/acompanhamento'
 import { NextRequest, NextResponse } from 'next/server'
 import {
@@ -20,6 +23,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 type CorpoPreReserva = {
+  whatsapp_consentimento?: unknown
   nome?: unknown
   celular?: unknown
   email?: unknown
@@ -199,7 +203,18 @@ export async function POST(request: NextRequest) {
     let acompanhamentoUrl: string | null = null
     // A tracking failure must never turn a persisted order into an apparent failure.
     if (preReserva.criada) {
-      try { acompanhamentoUrl = await gerarLink(preReserva.id, empresaId) }
+      try {
+        acompanhamentoUrl = await gerarLink(preReserva.id, empresaId)
+        if (corpo.whatsapp_consentimento === true) {
+          const consentimento = await supabaseServer.from('acompanhamento_links')
+            .update({ whatsapp_consentido_em: new Date().toISOString() }).eq('oportunidade_id', preReserva.id)
+          if (consentimento.error) console.error('[acompanhamento] consentimento nao registrado')
+        }
+        after(async () => {
+          try { await enviarAcompanhamento(preReserva.id, empresaId) }
+          catch { console.error('[acompanhamento] envio pendente; pedido preservado') }
+        })
+      }
       catch { console.error('[acompanhamento] link indisponivel; pedido preservado') }
     }
     return resposta(origem, {
