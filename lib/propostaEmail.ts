@@ -82,7 +82,8 @@ export async function enviarPropostaPorEmail(
 
   const resposta = await fetch('https://api.resend.com/emails', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(15000),
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', ...(!opcoes.reenviar ? { 'Idempotency-Key': `proposta-${orcamento.id}-${orcamento.public_token}` } : {}) },
     body: JSON.stringify({
       from: remetente,
       to: [emailDestino],

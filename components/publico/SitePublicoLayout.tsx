@@ -16,9 +16,9 @@ export function SitePublicoLayout({ children }: { children: ReactNode }) {
             <SitePublicoMenu />
             <Link
               href="/reservar"
-              className="hidden rounded-full bg-pink-600 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-pink-700 md:inline-flex"
+              className="hidden rounded-full bg-pink-600 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-pink-700 xl:inline-flex"
             >
-              Reservar agora
+              Solicitar orçamento
             </Link>
           </div>
         </div>
@@ -32,7 +32,7 @@ export function SitePublicoLayout({ children }: { children: ReactNode }) {
             <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-400">Cintia Paula</p>
             <p className="mt-2 text-xl font-black">Festas &amp; Decorações</p>
             <p className="mt-3 max-w-sm text-sm leading-6 text-slate-300">
-              Pegue e Monte com escolha de kits, orçamento e reserva conectados ao nosso sistema de gestão.
+              Decorações para você escolher, retirar e montar. Nossa equipe acompanha cada etapa da sua festa.
             </p>
           </div>
 
@@ -42,7 +42,8 @@ export function SitePublicoLayout({ children }: { children: ReactNode }) {
               <Link href="/site/kits">Conhecer os kits</Link>
               <Link href="/site/como-funciona">Como funciona</Link>
               <Link href="/site/duvidas">Dúvidas frequentes</Link>
-              <Link href="/reservar">Solicitar reserva</Link>
+              <Link href="/reservar">Solicitar orçamento</Link>
+              <Link href="/acompanhar">Acompanhar meu pedido</Link>
             </div>
           </div>
 

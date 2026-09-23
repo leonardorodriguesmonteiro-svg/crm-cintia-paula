@@ -40,6 +40,54 @@ export type CompletarDadosClientePropostaV2Input = {
 export async function completarDadosClientePropostaV2(
   input: CompletarDadosClientePropostaV2Input
 ) {
+  const { cpf, cep, endereco, numero, complemento, bairro, cidade, estado, email } = validarCadastroCliente(input)
+
+  const { data, error } = await supabaseServer.rpc(
+    'completar_dados_cliente_proposta_v2_servidor',
+    {
+      p_token: input.token,
+      p_cpf: cpf,
+      p_cep: cep,
+      p_endereco: endereco,
+      p_numero: numero,
+      p_complemento: complemento,
+      p_bairro: bairro,
+      p_cidade: cidade,
+      p_estado: estado,
+      p_email: email
+    }
+  )
+
+  if (error) throw error
+
+  const resultado = data as {
+    orcamento_id: string
+    empresa_id: string | null
+    oportunidade_id: string | null
+    numero: number
+    status: string
+    ja_completo: boolean
+  }
+
+  if (!resultado.ja_completo) {
+    await publicarEvento({
+      codigo: ERPEvents.CLIENTE_DADOS_COMPLETOS,
+      titulo: `Dados cadastrais da proposta #${resultado.numero} concluídos`,
+      descricao: 'Cliente concluiu CPF, e-mail e endereço completo necessários para a formalização.',
+      empresaId: resultado.empresa_id,
+      entidadeTipo: 'Proposta',
+      entidadeId: resultado.orcamento_id,
+      modulo: 'Comercial',
+      origem: 'Site',
+      status: resultado.status,
+      metadados: { numero: resultado.numero }
+    })
+  }
+
+  return resultado
+}
+
+export function validarCadastroCliente(input: CompletarDadosClientePropostaV2Input) {
   const cpf = input.cpf.replace(/\D/g, '')
   const cep = input.cep.replace(/\D/g, '')
   const endereco = input.endereco.trim()
@@ -89,47 +137,5 @@ export async function completarDadosClientePropostaV2(
     )
   }
 
-  const { data, error } = await supabaseServer.rpc(
-    'completar_dados_cliente_proposta_v2_servidor',
-    {
-      p_token: input.token,
-      p_cpf: cpf,
-      p_cep: cep,
-      p_endereco: endereco,
-      p_numero: numero,
-      p_complemento: complemento,
-      p_bairro: bairro,
-      p_cidade: cidade,
-      p_estado: estado,
-      p_email: email
-    }
-  )
-
-  if (error) throw error
-
-  const resultado = data as {
-    orcamento_id: string
-    empresa_id: string | null
-    oportunidade_id: string | null
-    numero: number
-    status: string
-    ja_completo: boolean
-  }
-
-  if (!resultado.ja_completo) {
-    await publicarEvento({
-      codigo: ERPEvents.CLIENTE_DADOS_COMPLETOS,
-      titulo: `Dados cadastrais da proposta #${resultado.numero} concluídos`,
-      descricao: 'Cliente concluiu CPF, e-mail e endereço completo necessários para a formalização.',
-      empresaId: resultado.empresa_id,
-      entidadeTipo: 'Proposta',
-      entidadeId: resultado.orcamento_id,
-      modulo: 'Comercial',
-      origem: 'Site',
-      status: resultado.status,
-      metadados: { numero: resultado.numero }
-    })
-  }
-
-  return resultado
+  return { cpf, cep, endereco, numero, complemento, bairro, cidade, estado, email }
 }

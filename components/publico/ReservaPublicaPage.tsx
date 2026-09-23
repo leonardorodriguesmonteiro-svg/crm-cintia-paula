@@ -1,5 +1,7 @@
 'use client'
 
+import { LinkAcompanhamento } from './LinkAcompanhamento'
+
 import { useEffect, useMemo, useState } from 'react'
 
 type KitCatalogo = {
@@ -60,6 +62,7 @@ type FormContato = {
   tipo_evento: string
   modalidade: 'Retirada' | 'Entrega'
   observacoes: string
+  whatsapp_consentimento: boolean
   website: string
 }
 
@@ -71,6 +74,7 @@ const contatoInicial: FormContato = {
   tipo_evento: '',
   modalidade: 'Retirada',
   observacoes: '',
+  whatsapp_consentimento: false,
   website: ''
 }
 
@@ -102,7 +106,7 @@ export function ReservaPublicaPage() {
   const [carregando, setCarregando] = useState(true)
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState('')
-  const [sucesso, setSucesso] = useState<{ numero?: number; mensagem: string } | null>(null)
+  const [sucesso, setSucesso] = useState<{ numero?: number; mensagem: string; acompanhamentoUrl?: string | null } | null>(null)
 
   useEffect(() => {
     fetch('/api/catalogo', { cache: 'no-store' })
@@ -222,6 +226,7 @@ export function ReservaPublicaPage() {
           data_evento: contato.data_evento,
           interesse: montarInteresse(),
           website: contato.website,
+          whatsapp_consentimento: contato.whatsapp_consentimento,
           itens: itens.map(item => ({ tipo: item.tipo, id: item.id, quantidade: item.quantidade }))
         })
       })
@@ -231,6 +236,7 @@ export function ReservaPublicaPage() {
 
       setSucesso({
         numero: corpo.pre_reserva?.numero,
+        acompanhamentoUrl: corpo.acompanhamento_url,
         mensagem: corpo.mensagem || 'Sua solicitação foi recebida.'
       })
       setContato(contatoInicial)
@@ -250,6 +256,7 @@ export function ReservaPublicaPage() {
           <h1 className="mt-3 text-3xl font-black">Pedido recebido!</h1>
           {sucesso.numero && <p className="mt-2 text-lg font-bold text-pink-700">Pré-reserva #{String(sucesso.numero).padStart(4, '0')}</p>}
           <p className="mx-auto mt-4 max-w-xl text-slate-600">{sucesso.mensagem} Vamos analisar a composição e a disponibilidade para a data escolhida.</p>
+          <LinkAcompanhamento url={sucesso.acompanhamentoUrl} />
           <div className="mt-6 rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">
             <strong>Importante:</strong> nesta etapa nenhum item fica bloqueado. O estoque é comprometido somente quando a reserva for confirmada.
           </div>
@@ -460,7 +467,8 @@ export function ReservaPublicaPage() {
                     ))}
                   </div>
                   <textarea className="min-h-24 w-full rounded-2xl border px-4 py-3 outline-none focus:border-pink-400" placeholder="Observações (opcional)" value={contato.observacoes} onChange={evento => setContato({ ...contato, observacoes: evento.target.value })} />
-                  <input tabIndex={-1} autoComplete="off" aria-hidden="true" className="hidden" value={contato.website} onChange={evento => setContato({ ...contato, website: evento.target.value })} />
+                  <label className="flex items-start gap-3 text-sm text-slate-600"><input type="checkbox" checked={contato.whatsapp_consentimento} onChange={e => setContato({ ...contato, whatsapp_consentimento: e.target.checked })} className="mt-1" />Quero receber o link e atualizações deste pedido pelo WhatsApp da Cintia Paula.</label>
+          <input tabIndex={-1} autoComplete="off" aria-hidden="true" className="hidden" value={contato.website} onChange={evento => setContato({ ...contato, website: evento.target.value })} />
                 </div>
 
                 {erro && <p className="mt-4 rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-700">{erro}</p>}

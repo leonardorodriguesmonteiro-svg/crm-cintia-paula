@@ -1,3 +1,4 @@
+import { enviarAcompanhamento } from '@/lib/server/acompanhamentoEnvios'
 import { NextRequest, NextResponse } from 'next/server'
 import {
   JornadaComercialError,
@@ -42,7 +43,14 @@ export async function POST(
       observacao: typeof corpo.observacao === 'string' ? corpo.observacao : null
     })
 
-    return NextResponse.json({ sucesso: true, pre_reserva: resultado })
+    let aviso: string | null = null
+    if (proximoStatus === 'APROVADA') {
+      try {
+        const envios = await enviarAcompanhamento(id, vinculo.empresa_id, ['email'], 'aprovacao')
+        if (!envios.some(envio => envio.status === 'aceito')) aviso = 'Pré-reserva aprovada. Confira o status do e-mail no link do cliente ou envie pelo WhatsApp.'
+      } catch { aviso = 'Pré-reserva aprovada, mas não foi possível enviar o cadastro. Abra o link do cliente para tentar o e-mail ou enviar pelo WhatsApp.' }
+    }
+    return NextResponse.json({ sucesso: true, pre_reserva: resultado, aviso })
   } catch (error) {
     if (error instanceof JornadaComercialError) {
       return NextResponse.json(

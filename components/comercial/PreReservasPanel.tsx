@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { CalendarDays, MessageCircle, PackageCheck, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -47,6 +47,7 @@ type PreReserva = {
   data_evento: string | null
   etapa: StatusPreReserva
   versao: number
+  cadastro_completo_em: string | null
   recebida_em: string
   oportunidade_itens: ItemPreReserva[]
 }
@@ -109,33 +110,89 @@ export function PreReservasPanel() {
     observacoes_item: ''
   })
 
-  async function carregar() {
-    setCarregando(true)
-    const [preReservasRes, clientesRes, kitsRes, estoqueRes] = await Promise.all([
-      supabase
-        .from('oportunidades')
-        .select('id,numero,cliente_id,nome_contato,celular,email,origem,interesse,data_evento,etapa,versao,recebida_em,oportunidade_itens(id,tipo,nome_snapshot,quantidade)')
-        .in('etapa', [...statusPreReserva])
-        .order('recebida_em', { ascending: false }),
-      supabase.from('clientes').select('id,nome,whatsapp,email').order('nome'),
-      supabase.from('kits').select('id,nome,codigo').neq('status', 'Inativo').order('nome'),
-      supabase.from('estoque_itens').select('id,nome,codigo').neq('status', 'Inativo').order('nome')
-    ])
+  const [atualizando, setAtualizando] = useState(false)
+  const [erroCarga, setErroCarga] = useState('')
+  const [avisoCadastros, setAvisoCadastros] = useState('')
+  const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null)
+  const [linkCliente, setLinkCliente] = useState<{ id: string; url: string; whatsappDisponivel: boolean; envios: { canal: string; status: string }[] } | null>(null)
+  const [gerandoLink, setGerandoLink] = useState<string | null>(null)
+  const cargaAtiva = useRef(false)
+  const montado = useRef(true)
 
-    const falha = preReservasRes.error || clientesRes.error || kitsRes.error || estoqueRes.error
-    if (falha) setErro(falha.message)
-    else {
-      setPreReservas((preReservasRes.data || []) as PreReserva[])
-      setClientes(clientesRes.data || [])
-      setKits(kitsRes.data || [])
-      setEstoque(estoqueRes.data || [])
+  const carregar = useCallback(async () => {
+    if (cargaAtiva.current) return
+    cargaAtiva.current = true
+    setAtualizando(true)
+    try {
+      const resultados = await Promise.allSettled([
+        supabase.from('oportunidades')
+          .select('id,numero,cliente_id,nome_contato,celular,email,origem,interesse,data_evento,etapa,versao,recebida_em,cadastro_completo_em,oportunidade_itens(id,tipo,nome_snapshot,quantidade)')
+          .in('etapa', [...statusPreReserva]).order('recebida_em', { ascending: false }),
+        supabase.from('clientes').select('id,nome,whatsapp,email').order('nome'),
+        supabase.from('kits').select('id,nome,codigo').neq('status', 'Inativo').order('nome'),
+        supabase.from('estoque_itens').select('id,nome,codigo').neq('status', 'Inativo').order('nome')
+      ])
+      if (!montado.current) return
+      const pedidos = resultados[0]
+      if (pedidos.status === 'fulfilled' && !pedidos.value.error) {
+        setPreReservas((pedidos.value.data || []) as PreReserva[])
+        setErroCarga('')
+        setUltimaAtualizacao(new Date())
+      } else {
+        setErroCarga('Não foi possível atualizar as pré-reservas. Os dados anteriores foram mantidos. Tente atualizar ou entre novamente no ERP.')
+      }
+      const setters = [setClientes, setKits, setEstoque]
+      const nomes = ['clientes', 'kits', 'estoque']
+      const falhas: string[] = []
+      resultados.slice(1).forEach((resultado, i) => {
+        if (resultado.status === 'fulfilled' && !resultado.value.error) {
+          setters[i]((resultado.value.data || []) as any)
+        } else falhas.push(nomes[i])
+      })
+      setAvisoCadastros(falhas.length ? `Não foi possível atualizar ${falhas.join(', ')}. As pré-reservas são carregadas separadamente.` : '')
+    } catch {
+      if (montado.current) setErroCarga('Falha de conexão. Tente atualizar novamente.')
+    } finally {
+      cargaAtiva.current = false
+      if (montado.current) { setAtualizando(false); setCarregando(false) }
     }
-    setCarregando(false)
-  }
+  }, [])
 
   useEffect(() => {
-    carregar()
-  }, [])
+    montado.current = true
+    void carregar()
+    const atualizarVisivel = () => { if (document.visibilityState === 'visible') void carregar() }
+    const intervalo = window.setInterval(atualizarVisivel, 30000)
+    window.addEventListener('focus', atualizarVisivel)
+    document.addEventListener('visibilitychange', atualizarVisivel)
+    return () => {
+      montado.current = false
+      window.clearInterval(intervalo)
+      window.removeEventListener('focus', atualizarVisivel)
+      document.removeEventListener('visibilitychange', atualizarVisivel)
+    }
+  }, [carregar])
+
+  async function gerenciarLink(item: PreReserva, acao = 'consultar') {
+    const revogar = acao === 'revogar'
+    if ((revogar || acao === 'substituir') && !window.confirm(revogar ? 'Revogar o link deste pedido?' : 'Substituir o link? O anterior deixará de funcionar.')) return
+    setGerandoLink(item.id)
+    setErro('')
+    setLinkCliente(null)
+    try {
+      const { data } = await supabase.auth.getSession()
+      if (!data.session) throw new Error('Entre novamente no ERP.')
+      const resposta = await fetch(`/api/comercial/pre-reservas/${item.id}/acompanhamento`, {
+        method: revogar ? 'DELETE' : 'POST',
+        headers: { Authorization: `Bearer ${data.session.access_token}`, 'Content-Type': 'application/json' },
+        ...(revogar ? {} : { body: JSON.stringify({ acao }) })
+      })
+      const corpo = await resposta.json()
+      if (!resposta.ok) throw new Error(corpo.erro || 'Não foi possível gerenciar o link.')
+      if (!revogar) setLinkCliente({ id: item.id, url: corpo.url, whatsappDisponivel: corpo.whatsapp_disponivel === true, envios: corpo.envios || [] })
+    } catch (error) { setErro(error instanceof Error ? error.message : 'Falha ao gerenciar o link.') }
+    finally { setGerandoLink(null) }
+  }
 
   const exibidas = useMemo(
     () => filtro === 'TODAS'
@@ -245,6 +302,7 @@ export function PreReservasPanel() {
       return
     }
     await carregar()
+    if (dados.aviso) setErro(dados.aviso)
   }
 
   return (
@@ -260,6 +318,12 @@ export function PreReservasPanel() {
         </Button>
       </div>
 
+      <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
+        <Button variant="secondary" onClick={() => void carregar()} disabled={atualizando}>{atualizando ? 'Atualizando…' : 'Atualizar pré-reservas'}</Button>
+        <span role="status">{ultimaAtualizacao ? `Atualizado às ${ultimaAtualizacao.toLocaleTimeString('pt-BR')}. Atualização automática a cada 30 segundos.` : 'Aguardando carregamento.'}</span>
+      </div>
+      {erroCarga && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{erroCarga}</p>}
+      {avisoCadastros && <p role="status" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{avisoCadastros}</p>}
       {erro && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
 
       {formAberto && (
@@ -340,10 +404,14 @@ export function PreReservasPanel() {
                   </div>
                 </div>
 
+                {['APROVADA', 'CONVERTIDA_EM_PROPOSTA'].includes(item.etapa) && <p className="mt-3 text-sm font-semibold text-pink-700">{item.cadastro_completo_em ? 'Cadastro completo — pronto para orçamento' : 'Cadastro pendente — envie o link ao cliente'}</p>}
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button type="button" onClick={() => window.open(`https://wa.me/55${somenteDigitos(item.celular)}`, '_blank', 'noopener,noreferrer')} className="inline-flex items-center gap-1 rounded-xl border px-3 py-2 text-xs font-bold text-green-700">
                     <MessageCircle size={15} /> WhatsApp
                   </button>
+                  <Button variant="secondary" disabled={gerandoLink === item.id} onClick={() => void gerenciarLink(item)}>Ver / copiar link do cliente</Button>
+                  <Button variant="secondary" disabled={gerandoLink === item.id} onClick={() => void gerenciarLink(item, 'revogar')}>Revogar link</Button>
+                  <Button variant="secondary" disabled={gerandoLink === item.id} onClick={() => void gerenciarLink(item, 'substituir')}>Substituir link</Button>
                   {acoes.map(status => (
                     <Button key={status} variant="secondary" className="px-3 py-2 text-xs" onClick={() => transicionar(item, status)}>
                       {rotulos[status]}
@@ -355,10 +423,23 @@ export function PreReservasPanel() {
                     </Link>
                   )}
                 </div>
+                {linkCliente?.id === item.id && <div className="mt-4 space-y-3 rounded-xl border border-pink-200 bg-pink-50 p-4">
+                  <p className="font-bold">Link privado do cliente</p>
+                  <input aria-label={`Link do pedido ${item.numero}`} readOnly value={linkCliente.url} onFocus={e => e.target.select()} className="w-full rounded-lg border p-3 text-sm" />
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="secondary" onClick={async () => { try { await navigator.clipboard.writeText(linkCliente.url) } catch { setErro('Selecione o link acima e copie manualmente.') } }}>Copiar link</Button>
+                    <a className="rounded-xl border bg-white px-3 py-2 text-sm font-bold text-green-700" target="_blank" rel="noopener noreferrer" href={`https://wa.me/${somenteDigitos(item.celular).length <= 11 ? '55' : ''}${somenteDigitos(item.celular)}?text=${encodeURIComponent(['APROVADA', 'CONVERTIDA_EM_PROPOSTA'].includes(item.etapa) ? `Sua pré-reserva #${item.numero} foi aprovada! Complete seu cadastro para prepararmos o orçamento final: ${linkCliente.url}. A reserva depende da formalização.` : `Olá! Acompanhe seu pedido #${item.numero} da Cintia Paula: ${linkCliente.url}`)}`}>Abrir WhatsApp com link</a>
+                    <Button variant="secondary" disabled={gerandoLink === item.id} onClick={() => void gerenciarLink(item, 'enviar_email')}>Enviar link por e-mail</Button>
+                    {linkCliente.whatsappDisponivel && <Button variant="secondary" disabled={gerandoLink === item.id} onClick={() => void gerenciarLink(item, 'enviar_whatsapp')}>Enviar WhatsApp automático</Button>}
+                  </div>
+                  <p className="text-xs text-slate-600">O WhatsApp acima abre uma mensagem para você revisar e enviar. O link pode ser consultado novamente aqui.</p>
+                  {linkCliente.envios.length === 0 && <p className="text-sm">Nenhum envio automático registrado.</p>}
+                  {linkCliente.envios.map((envio, indice) => <p key={indice} className="text-sm">{envio.canal === 'email' ? 'E-mail' : 'WhatsApp'}: {({ aceito: 'Aceito pelo serviço (entrega não confirmada)', nao_configurado: 'Serviço ainda não configurado', sem_consentimento: 'Cliente não autorizou WhatsApp automático', sem_destino: 'Contato ausente ou inválido', falhou: 'Envio recusado; confira o serviço antes de tentar novamente', incerto: 'Resultado incerto; confira o serviço antes de repetir', processando: 'Envio iniciado; se persistir, confira o serviço', pendente: 'Aguardando envio' } as Record<string, string>)[envio.status] || envio.status}</p>)}
+                </div>}
               </article>
             )
           })}
-          {!exibidas.length && <div className="rounded-2xl border border-dashed bg-white p-8 text-center text-sm text-slate-400">Nenhuma pré-reserva neste estado.</div>}
+          {!exibidas.length && !erroCarga && <div className="rounded-2xl border border-dashed bg-white p-8 text-center text-sm text-slate-400">Nenhuma pré-reserva neste estado.</div>}
         </div>
       )}
     </section>

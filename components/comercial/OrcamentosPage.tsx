@@ -22,6 +22,7 @@ type Oportunidade = {
   data_evento: string | null
   etapa: string
   versao: number
+  cadastro_completo_em: string | null
 }
 
 type Cliente = {
@@ -55,6 +56,7 @@ type AcessorioEstoque = {
   nome: string
   codigo: string | null
   categoria: string | null
+  valor_locacao: number | null
   quantidade_disponivel: number | null
 }
 
@@ -290,7 +292,7 @@ export function OrcamentosPage() {
       supabase.from('clientes').select('id,nome,whatsapp,email').order('nome'),
       supabase
         .from('oportunidades')
-        .select('id,numero,cliente_id,nome_contato,celular,email,interesse,data_evento,etapa,versao')
+        .select('id,numero,cliente_id,nome_contato,celular,email,interesse,data_evento,etapa,versao,cadastro_completo_em')
         .in('etapa', ['APROVADA', 'CONVERTIDA_EM_PROPOSTA'])
         .order('updated_at', { ascending: false }),
       supabase.from('kits').select('id,codigo,nome,valor').order('nome'),
@@ -299,7 +301,7 @@ export function OrcamentosPage() {
         .select('id,kit_id,quantidade,valor_ajuste,estoque_itens(nome,codigo,categoria)'),
       supabase
         .from('estoque_itens')
-        .select('id,nome,codigo,categoria,quantidade_disponivel')
+        .select('id,nome,codigo,categoria,quantidade_disponivel,valor_locacao')
         .or('status.is.null,status.neq.Inativo')
         .order('nome'),
       supabase
@@ -420,7 +422,7 @@ export function OrcamentosPage() {
         estoque_item_id: item.estoque_item_id || '',
         descricao: item.nome_snapshot,
         quantidade: item.quantidade,
-        valor_unitario: Number(item.valor_referencia || 0)
+        valor_unitario: item.valor_referencia ?? (item.kit_id ? kits.find(kit => kit.id === item.kit_id)?.valor : acessorios.find(acessorio => acessorio.id === item.estoque_item_id)?.valor_locacao) ?? ''
       })))
     }
   }
@@ -464,6 +466,7 @@ export function OrcamentosPage() {
       const novo = {
         ...novoItem(),
         estoque_item_id: acessorio.id,
+        valor_unitario: acessorio.valor_locacao ?? '',
         descricao: `${acessorio.codigo ? `${acessorio.codigo} - ` : ''}${acessorio.nome}`
       }
       return vazio ? [novo] : [...atuais, novo]
@@ -519,7 +522,7 @@ export function OrcamentosPage() {
     return resultado
   }
 
-  async function salvar(evento: React.FormEvent) {
+  async function salvar(evento: React.FormEvent, finalizar = false) {
     evento.preventDefault()
     setErro('')
     setSucesso('')
@@ -529,6 +532,8 @@ export function OrcamentosPage() {
 
     const itensValidos = itens.filter(item => item.descricao.trim() && Number(item.quantidade) > 0)
     if (!itensValidos.length) return setErro('Escolha um KIT pronto ou monte um KIT personalizado com itens do estoque.')
+
+    if (itensValidos.some(item => item.valor_unitario === '' || !Number.isFinite(Number(item.valor_unitario)) || Number(item.valor_unitario) < 0)) return setErro('Preencha o preço de cada item. Itens sem preço cadastrado precisam de um valor neste orçamento.')
 
     setSalvando(true)
 
@@ -629,11 +634,24 @@ export function OrcamentosPage() {
       return
     }
 
-    setSucesso('Orçamento salvo e totais recalculados com sucesso.')
+    let avisoEnvio = ''
+    if (finalizar && orcamentoId) {
+      try {
+        const { data: sessao } = await supabase.auth.getSession()
+        if (!sessao.session) throw new Error('Sua sessão expirou.')
+        const resposta = await fetch(`/api/orcamentos/${orcamentoId}/enviar-email`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessao.session.access_token}` }, body: '{}'
+        })
+        const corpo = await resposta.json()
+        if (!resposta.ok) throw new Error(corpo.error || 'Não foi possível enviar o e-mail.')
+        setSucesso(corpo.mensagem || 'Orçamento finalizado. Envio aceito pelo serviço de e-mail.')
+      } catch (error) { avisoEnvio = `Orçamento salvo. ${error instanceof Error ? error.message : 'Não foi possível enviar.'} Consulte o orçamento abaixo para continuar.` }
+    } else setSucesso('Rascunho salvo. Finalize e envie quando estiver pronto.')
     setFormAberto(false)
     setEditandoId(null)
     setSalvando(false)
     await carregar()
+    if (avisoEnvio) setErro(avisoEnvio)
   }
 
   async function carregarDadosDocumento(orcamento: Orcamento): Promise<DadosDocumento> {
@@ -716,10 +734,11 @@ export function OrcamentosPage() {
     setAcaoDocumento(`compartilhar:${orcamento.id}`)
 
     try {
+      await registrarEnvio(orcamento)
       const dados = await carregarDadosDocumento(orcamento)
       const { doc, nomeArquivo } = await criarDocumentoOrcamento(dados)
       const link_publico = orcamento.public_token
-        ? `${window.location.origin}/proposta/${orcamento.public_token}`
+        ? `https://www.cintiapaulafestaedecoracao.com.br/proposta/${orcamento.public_token}`
         : null
       const mensagem = mensagemWhatsAppOrcamento({ ...dados, link_publico })
       const arquivo = new File([doc.output('blob')], nomeArquivo, { type: 'application/pdf' })
@@ -744,7 +763,6 @@ export function OrcamentosPage() {
         setSucesso('PDF baixado. Anexe o arquivo à conversa aberta no WhatsApp.')
       }
 
-      await registrarEnvio(orcamento)
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return
       setErro(mensagemErroDocumento(error))
@@ -769,7 +787,7 @@ export function OrcamentosPage() {
       return
     }
 
-    const link = `${window.location.origin}/proposta/${orcamento.public_token}`
+    const link = `https://www.cintiapaulafestaedecoracao.com.br/proposta/${orcamento.public_token}`
     let copiado = false
 
     try {
@@ -1146,7 +1164,7 @@ export function OrcamentosPage() {
 
       {formAberto && (
         <Card className="border-pink-200">
-          <form onSubmit={salvar} className="space-y-6">
+          <form onSubmit={evento => void salvar(evento, (evento.nativeEvent as SubmitEvent).submitter?.getAttribute("value") === "finalizar")} className="space-y-6">
             <div>
               <h2 className="text-xl font-bold text-slate-900">{editandoId ? 'Editar orçamento' : 'Novo orçamento'}</h2>
               <p className="text-sm text-slate-500">Escolha a pré-reserva ou um cliente cadastrado, consulte a disponibilidade e revise os itens. O estoque só é bloqueado na confirmação definitiva.</p>
@@ -1246,7 +1264,7 @@ export function OrcamentosPage() {
                       </Select>
                       <Input label="Descrição *" className="xl:col-span-2" value={item.descricao} onChange={evento => atualizarItem(item.chave, { descricao: evento.target.value })} />
                       <Input label="Quantidade" type="number" min="0.01" step="0.01" value={item.quantidade} disabled={Boolean(item.kit_id)} onChange={evento => atualizarItem(item.chave, { quantidade: evento.target.value })} />
-                      <Input label="Valor unitário" type="number" min="0" step="0.01" value={item.valor_unitario} onChange={evento => atualizarItem(item.chave, { valor_unitario: evento.target.value })} />
+                      <Input placeholder="Informe o preço de locação" required label="Valor unitário" type="number" min="0" step="0.01" value={item.valor_unitario} onChange={evento => atualizarItem(item.chave, { valor_unitario: evento.target.value })} />
                     </div>
 
                     {item.estoque_item_id && !item.kit_id && (
@@ -1302,7 +1320,9 @@ export function OrcamentosPage() {
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button type="submit" disabled={salvando} className="flex items-center justify-center gap-2"><Send size={17} /> {salvando ? 'Salvando...' : 'Salvar orçamento'}</Button>
+              {form.oportunidade_id && !oportunidades.find(item => item.id === form.oportunidade_id)?.cadastro_completo_em && <p className="text-sm text-amber-800">Você pode preparar o rascunho. Para finalizar, aguarde o cadastro do cliente pelo link da pré-reserva.</p>}
+              <Button type="submit" variant="secondary" disabled={salvando}>Salvar rascunho</Button>
+              <Button type="submit" value="finalizar" disabled={salvando} className="flex items-center justify-center gap-2"><Send size={17} /> {salvando ? 'Salvando...' : 'Finalizar e enviar por e-mail'}</Button>
               <Button variant="secondary" onClick={() => { setFormAberto(false); setEditandoId(null); setErro('') }}>Cancelar</Button>
             </div>
           </form>
@@ -1508,6 +1528,11 @@ export function OrcamentosPage() {
               >
                 <Copy size={17} /> Copiar link da proposta
               </button>
+              {orcamento.public_token && ['ENVIADA', 'ACEITA'].includes(orcamento.status) && <a
+                className="flex w-full items-center justify-center rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-sm font-bold text-green-800"
+                target="_blank" rel="noopener noreferrer"
+                href={`https://wa.me/${telefoneWhatsApp(orcamento.clientes?.whatsapp || orcamento.oportunidades?.celular || '')}?text=${encodeURIComponent(`Olá! Seu orçamento ORC-${String(orcamento.numero).padStart(4, '0')} da Cintia Paula está disponível para conferir: https://www.cintiapaulafestaedecoracao.com.br/proposta/${orcamento.public_token}`)}`}
+              >Abrir WhatsApp com orçamento</a>}
               {!emailClienteDo(orcamento) && (
                 <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">Cadastre o e-mail do cliente para habilitar o envio automático.</p>
               )}

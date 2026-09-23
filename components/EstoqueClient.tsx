@@ -20,6 +20,7 @@ type Item = {
   quantidade_total: number | null
   quantidade_disponivel: number | null
   quantidade_manutencao: number | null
+  valor_locacao: number | null
   valor_reposicao: number | null
   localizacao: string | null
   observacoes: string | null
@@ -53,6 +54,7 @@ const vazio = {
   quantidade_total: 0,
   quantidade_disponivel: 0,
   quantidade_manutencao: 0,
+  valor_locacao: '' as number | string,
   valor_reposicao: 0,
   localizacao: '',
   observacoes: '',
@@ -148,6 +150,7 @@ export function EstoqueClient() {
       foto_url: fotoRemovida ? null : form.foto_url || null,
       quantidade_total: Number(form.quantidade_total) || 0,
       quantidade_manutencao: Number(form.quantidade_manutencao) || 0,
+      valor_locacao: form.valor_locacao === '' ? null : Number(form.valor_locacao),
       valor_reposicao: Number(form.valor_reposicao) || 0
     }
 
@@ -209,6 +212,7 @@ export function EstoqueClient() {
       quantidade_total: item.quantidade_total || 0,
       quantidade_disponivel: item.quantidade_disponivel || 0,
       quantidade_manutencao: item.quantidade_manutencao || 0,
+      valor_locacao: item.valor_locacao ?? '',
       valor_reposicao: item.valor_reposicao || 0,
       localizacao: item.localizacao || '',
       observacoes: item.observacoes || '',
@@ -310,6 +314,7 @@ export function EstoqueClient() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Input label="Preço de locação (R$)" type="number" min="0" step="0.01" placeholder="Ainda não cadastrado" value={form.valor_locacao} onChange={e => setForm({ ...form, valor_locacao: e.target.value })} />
             <Input label="Valor de reposição" type="number" placeholder="0,00" value={form.valor_reposicao} onChange={e => setForm({ ...form, valor_reposicao: Number(e.target.value) })} />
             <Input label="Localização" placeholder="Ex.: Depósito A" value={form.localizacao} onChange={e => setForm({ ...form, localizacao: e.target.value })} />
             <Select label="Status" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>

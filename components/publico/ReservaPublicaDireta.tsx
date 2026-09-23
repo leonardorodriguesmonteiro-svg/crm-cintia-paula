@@ -1,5 +1,7 @@
 'use client'
 
+import { LinkAcompanhamento } from './LinkAcompanhamento'
+
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { ReservaPublicaPage } from '@/components/publico/ReservaPublicaPage'
@@ -23,6 +25,7 @@ type Formulario = {
   tipo_evento: string
   modalidade: 'Retirada' | 'Entrega'
   observacoes: string
+  whatsapp_consentimento: boolean
   website: string
 }
 
@@ -34,6 +37,7 @@ const formularioInicial: Formulario = {
   tipo_evento: '',
   modalidade: 'Retirada',
   observacoes: '',
+  whatsapp_consentimento: false,
   website: ''
 }
 
@@ -63,7 +67,7 @@ export function ReservaPublicaDireta() {
   const [carregando, setCarregando] = useState(true)
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState('')
-  const [sucesso, setSucesso] = useState<{ numero?: number; mensagem: string } | null>(null)
+  const [sucesso, setSucesso] = useState<{ numero?: number; mensagem: string; acompanhamentoUrl?: string | null } | null>(null)
 
   useEffect(() => {
     const parametros = new URLSearchParams(window.location.search)
@@ -138,6 +142,7 @@ export function ReservaPublicaDireta() {
           data_evento: formulario.data_evento,
           interesse,
           website: formulario.website,
+          whatsapp_consentimento: formulario.whatsapp_consentimento,
           itens: [{ tipo: 'KIT', id: kit.id, quantidade: 1 }]
         })
       })
@@ -147,6 +152,7 @@ export function ReservaPublicaDireta() {
 
       setSucesso({
         numero: corpo.pre_reserva?.numero,
+        acompanhamentoUrl: corpo.acompanhamento_url,
         mensagem: corpo.mensagem || 'Sua solicitação foi recebida.'
       })
       setFormulario(formularioInicial)
@@ -204,6 +210,7 @@ export function ReservaPublicaDireta() {
           <h1 className="mt-3 text-3xl font-black">Solicitação recebida!</h1>
           {sucesso.numero ? <p className="mt-2 text-lg font-black text-pink-700">Pré-reserva #{String(sucesso.numero).padStart(4, '0')}</p> : null}
           <p className="mx-auto mt-4 max-w-xl leading-7 text-slate-600">{sucesso.mensagem}</p>
+          <LinkAcompanhamento url={sucesso.acompanhamentoUrl} />
           <div className="mt-6 rounded-2xl bg-slate-50 p-5 text-left">
             <p className="text-sm font-black text-slate-900">Kit solicitado</p>
             <p className="mt-1 text-sm text-slate-600">{kit.nome} · {moeda(Number(kit.preco || 0))}</p>
@@ -310,6 +317,7 @@ export function ReservaPublicaDireta() {
             <textarea value={formulario.observacoes} onChange={(event) => setFormulario({ ...formulario, observacoes: event.target.value })} rows={4} className="w-full resize-none rounded-2xl border border-slate-200 px-4 py-3.5 outline-none transition focus:border-pink-400 focus:ring-4 focus:ring-pink-100" placeholder="Conte algum detalhe importante sobre a festa..." />
           </label>
 
+          <label className="flex items-start gap-3 text-sm text-slate-600"><input type="checkbox" checked={formulario.whatsapp_consentimento} onChange={e => setFormulario({ ...formulario, whatsapp_consentimento: e.target.checked })} className="mt-1" />Quero receber o link e atualizações deste pedido pelo WhatsApp da Cintia Paula.</label>
           <input aria-hidden="true" tabIndex={-1} autoComplete="off" value={formulario.website} onChange={(event) => setFormulario({ ...formulario, website: event.target.value })} className="hidden" />
 
           {erro ? <div className="mt-5 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-800">{erro}</div> : null}
