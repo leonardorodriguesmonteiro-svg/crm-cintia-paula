@@ -450,7 +450,7 @@ export function PreReservasPanel() {
                   <Button variant="secondary" disabled={gerandoLink === item.id} onClick={() => void gerenciarLink(item, 'substituir')}>Substituir link</Button>
                   {acoes.map(status => (
                     <Button key={status} variant="secondary" className="px-3 py-2 text-xs" onClick={() => transicionar(item, status)}>
-                      {rotulos[status]}
+                      {status === 'AJUSTE_SOLICITADO' ? 'Solicitar ajuste' : rotulos[status]}
                     </Button>
                   ))}
                   {item.etapa === 'APROVADA' && (
