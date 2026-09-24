@@ -116,8 +116,8 @@ export function validarCadastroCliente(input: CompletarDadosClientePropostaV2Inp
   const estado = input.estado.trim().toUpperCase()
   const email = input.email.trim().toLowerCase()
 
-  if (!cpfValido(cpf)) {
-    throw new JornadaComercialError('Informe um CPF válido.', 'CPF_INVALIDO')
+  if (!documentoFiscalValido(cpf)) {
+    throw new JornadaComercialError('Informe um CPF ou CNPJ válido.', 'DOCUMENTO_INVALIDO')
   }
 
   if (!/^\d{8}$/.test(cep)) {
