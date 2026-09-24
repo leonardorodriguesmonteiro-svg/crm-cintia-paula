@@ -262,6 +262,7 @@ export function OrcamentosPage() {
   const [buscaAcessorio, setBuscaAcessorio] = useState('')
   const [orcamentos, setOrcamentos] = useState<Orcamento[]>([])
   const [form, setForm] = useState<FormOrcamento>(formVazio)
+  const [tipoDesconto, setTipoDesconto] = useState<'VALOR' | 'PERCENTUAL'>('VALOR')
   const [itens, setItens] = useState<ItemForm[]>([novoItem()])
   const [disponibilidades, setDisponibilidades] = useState<Record<string, Disponibilidade>>({})
   const [formAberto, setFormAberto] = useState(false)
@@ -375,13 +376,17 @@ export function OrcamentosPage() {
     )
   }, [acessorios, buscaAcessorio])
 
+  const descontoEmReais = tipoDesconto === 'PERCENTUAL'
+    ? Math.round(subtotal * Number(form.desconto || 0)) / 100
+    : Number(form.desconto || 0)
   const total = Math.max(
-    subtotal - Number(form.desconto || 0) + Number(form.acrescimos || 0) + Number(form.frete || 0),
+    subtotal - descontoEmReais + Number(form.acrescimos || 0) + Number(form.frete || 0),
     0
   )
 
   function iniciarNovo() {
     setForm({ ...formVazio, validade: dataValidadeInicial() })
+    setTipoDesconto('VALOR')
     setItens([novoItem()])
     setDisponibilidades({})
     setEditandoId(null)
@@ -534,6 +539,7 @@ export function OrcamentosPage() {
     if (!itensValidos.length) return setErro('Escolha um KIT pronto ou monte um KIT personalizado com itens do estoque.')
 
     if (itensValidos.some(item => item.valor_unitario === '' || !Number.isFinite(Number(item.valor_unitario)) || Number(item.valor_unitario) < 0)) return setErro('Preencha o preço de cada item. Itens sem preço cadastrado precisam de um valor neste orçamento.')
+    if (!Number.isFinite(Number(form.desconto)) || Number(form.desconto) < 0 || (tipoDesconto === 'PERCENTUAL' && Number(form.desconto) > 100) || descontoEmReais > subtotal) return setErro('Informe um desconto válido, sem ultrapassar o subtotal do pedido.')
 
     setSalvando(true)
 
@@ -579,7 +585,7 @@ export function OrcamentosPage() {
       horario_retirada: form.horario_retirada || null,
       data_devolucao: form.data_devolucao || form.data_evento,
       endereco_evento: form.endereco_evento.trim() || null,
-      desconto: Number(form.desconto) || 0,
+      desconto: descontoEmReais,
       acrescimos: Number(form.acrescimos) || 0,
       frete: Number(form.frete) || 0,
       observacoes: form.observacoes.trim() || null,
@@ -1134,6 +1140,7 @@ export function OrcamentosPage() {
       frete: orcamento.frete || 0,
       observacoes: orcamento.observacoes || ''
     })
+    setTipoDesconto('VALOR')
     setItens((data || []).map(item => ({
       chave: item.id,
       kit_id: item.kit_id || '',
@@ -1311,7 +1318,15 @@ export function OrcamentosPage() {
                 <h3 className="font-bold">Resumo financeiro</h3>
                 <div className="mt-4 space-y-3">
                   <p className="flex justify-between text-sm text-slate-300"><span>Subtotal</span><strong>{moeda(subtotal)}</strong></p>
-                  <Input label="Desconto" type="number" min="0" step="0.01" className="bg-white text-slate-900" value={form.desconto} onChange={evento => setForm({ ...form, desconto: evento.target.value })} />
+                  <div className="space-y-2">
+                     <label htmlFor="tipo-desconto" className="block text-sm font-semibold text-slate-200">Tipo de desconto na proposta</label>
+                     <select id="tipo-desconto" value={tipoDesconto} onChange={evento => { setTipoDesconto(evento.target.value as 'VALOR' | 'PERCENTUAL'); setForm(atual => ({ ...atual, desconto: 0 })) }} className="w-full rounded-xl border border-slate-300 bg-white p-3 text-slate-900">
+                       <option value="VALOR">Valor em reais (R$)</option>
+                       <option value="PERCENTUAL">Percentual (%)</option>
+                     </select>
+                     <Input label={tipoDesconto === 'PERCENTUAL' ? 'Desconto (%)' : 'Desconto (R$)'} type="number" min="0" max={tipoDesconto === 'PERCENTUAL' ? 100 : subtotal} step="0.01" className="bg-white text-slate-900" value={form.desconto} onChange={evento => setForm({ ...form, desconto: evento.target.value })} />
+                     <p className="text-sm text-slate-300">Desconto aplicado: {moeda(descontoEmReais)}. O valor em reais será registrado na proposta.</p>
+                   </div>
                   <Input label="Acréscimos" type="number" min="0" step="0.01" className="bg-white text-slate-900" value={form.acrescimos} onChange={evento => setForm({ ...form, acrescimos: evento.target.value })} />
                   <Input label="Frete / entrega" type="number" min="0" step="0.01" className="bg-white text-slate-900" value={form.frete} onChange={evento => setForm({ ...form, frete: evento.target.value })} />
                   <div className="border-t border-slate-700 pt-4"><p className="flex items-end justify-between"><span>Total</span><strong className="text-2xl text-pink-300">{moeda(total)}</strong></p></div>
