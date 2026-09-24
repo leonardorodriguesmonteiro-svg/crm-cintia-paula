@@ -12,6 +12,16 @@ test('cadastro validates CPF, address and email before any write',()=>{
  assert.equal(validarCadastroCliente(valido).estado,'RJ');assert.equal(validarCadastroCliente(valido).email,'test@example.com')
  for(const [k,v] of [['cpf','11111111111'],['cpf','52998224726'],['cep','123'],['email','invalid'],['estado','XX'],['endereco',''],['numero',''],['bairro',''],['cidade','']])assert.throws(()=>validarCadastroCliente({...valido,[k]:v}))
 })
+test('cadastro aceita CPF e CNPJ validos e rejeita documentos invalidos',()=>{
+ const cnpj='11222333000181'
+ assert.equal(validarCadastroCliente({...valido,cpf:cnpj}).cpf,cnpj)
+ assert.equal(validarCadastroCliente({...valido,cpf:'11.222.333/0001-81'}).cpf,cnpj)
+ assert.equal(validarCadastroCliente({...valido,cpf:'529.982.247-25'}).cpf,'52998224725')
+ for(const documento of ['00000000000000','11222333000182','12345678901234','11111111111']) {
+   assert.throws(()=>validarCadastroCliente({...valido,cpf:documento}))
+ }
+})
+
 function fixture({origin=true,rate=true,error=null}={}){
  const calls=[]
  const route=load('app/api/publico/acompanhamento/cadastro/route.ts',{

@@ -33,6 +33,8 @@ type ItemPreReserva = {
   tipo: 'KIT' | 'ITEM_ESTOQUE'
   nome_snapshot: string
   quantidade: number
+  valor_referencia: number | null
+  observacoes: string | null
 }
 
 type PreReserva = {
@@ -82,6 +84,16 @@ function formatarCelular(valor = '') {
   return `${digitos.slice(0, 2)} ${digitos.slice(2, inicioNumero)}-${digitos.slice(inicioNumero)}`
 }
 
+function moeda(valor: number) {
+  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+function valorDoPedido(itens: ItemPreReserva[]) {
+  const semPreco = itens.some(item => item.valor_referencia === null || !Number.isFinite(Number(item.valor_referencia)))
+  const subtotal = itens.reduce((soma, item) => soma + Number(item.quantidade) * Number(item.valor_referencia || 0), 0)
+  return { subtotal, semPreco }
+}
+
 function dataCurta(valor: string | null) {
   if (!valor) return 'Não informada'
   return new Date(`${valor}T12:00:00`).toLocaleDateString('pt-BR')
@@ -94,6 +106,7 @@ export function PreReservasPanel() {
   const [estoque, setEstoque] = useState<Catalogo[]>([])
   const [filtro, setFiltro] = useState<StatusPreReserva | 'TODAS'>('TODAS')
   const [formAberto, setFormAberto] = useState(false)
+  const [pedidoAberto, setPedidoAberto] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
@@ -126,7 +139,7 @@ export function PreReservasPanel() {
     try {
       const resultados = await Promise.allSettled([
         supabase.from('oportunidades')
-          .select('id,numero,cliente_id,nome_contato,celular,email,origem,interesse,data_evento,etapa,versao,recebida_em,cadastro_completo_em,oportunidade_itens(id,tipo,nome_snapshot,quantidade)')
+          .select('id,numero,cliente_id,nome_contato,celular,email,origem,interesse,data_evento,etapa,versao,recebida_em,cadastro_completo_em,oportunidade_itens(id,tipo,nome_snapshot,quantidade,valor_referencia,observacoes)')
           .in('etapa', [...statusPreReserva]).order('recebida_em', { ascending: false }),
         supabase.from('clientes').select('id,nome,whatsapp,email').order('nome'),
         supabase.from('kits').select('id,nome,codigo').neq('status', 'Inativo').order('nome'),
@@ -331,7 +344,7 @@ export function PreReservasPanel() {
           <form className="space-y-4" onSubmit={criar}>
             <div>
               <h3 className="font-bold text-slate-900">Dados mínimos da pré-reserva</h3>
-              <p className="text-sm text-slate-500">CPF, endereço e dados contratuais serão solicitados somente após o aceite da proposta.</p>
+              <p className="text-sm text-slate-500">CPF ou CNPJ, endereço e dados contratuais serão solicitados somente após o aceite da proposta.</p>
             </div>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <Select label="Cliente já cadastrado" value={form.cliente_id} onChange={evento => selecionarCliente(evento.target.value)}>
@@ -381,6 +394,7 @@ export function PreReservasPanel() {
           {exibidas.map(item => {
             const acoes = proximosStatusPreReserva(item.etapa)
               .filter(status => status !== 'CONVERTIDA_EM_PROPOSTA')
+            const { subtotal, semPreco } = valorDoPedido(item.oportunidade_itens || [])
             return (
               <article key={item.id} className="rounded-2xl border bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
@@ -396,11 +410,33 @@ export function PreReservasPanel() {
                   <p className="flex items-center gap-1.5"><CalendarDays size={14} /> Evento: {dataCurta(item.data_evento)}</p>
                   <p>Origem: {item.origem}</p>
                   <div className="rounded-xl bg-slate-50 p-3">
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <strong className="text-sm text-slate-900">Itens do pedido</strong>
+                      <button type="button" aria-expanded={pedidoAberto === item.id} onClick={() => setPedidoAberto(atual => atual === item.id ? null : item.id)} className="rounded-lg border border-pink-200 bg-white px-3 py-2 font-bold text-pink-700">
+                        {pedidoAberto === item.id ? 'Fechar detalhes' : 'Visualizar pedido'}
+                      </button>
+                    </div>
                     {(item.oportunidade_itens || []).map(produto => (
-                      <p key={produto.id} className="flex items-center gap-1.5">
-                        <PackageCheck size={14} /> {Number(produto.quantidade)}× {produto.nome_snapshot}
-                      </p>
+                      <div key={produto.id} className="flex items-start justify-between gap-3 border-b border-slate-200 py-2 last:border-0">
+                        <span className="flex min-w-0 items-start gap-1.5"><PackageCheck size={14} className="mt-0.5 shrink-0" /> {Number(produto.quantidade)}× {produto.nome_snapshot}</span>
+                        <span className="shrink-0 text-right font-semibold">{produto.valor_referencia === null ? 'Preço a definir' : moeda(Number(produto.quantidade) * Number(produto.valor_referencia))}</span>
+                      </div>
                     ))}
+                    <div className="mt-3 flex justify-between border-t border-slate-200 pt-3 text-sm font-bold text-slate-900">
+                      <span>{semPreco ? 'Subtotal parcial' : 'Total de referência'}</span><span>{moeda(subtotal)}</span>
+                    </div>
+                    {semPreco && <p className="mt-2 text-xs font-semibold text-amber-800">Há itens sem preço cadastrado. Defina seus valores antes de enviar a proposta.</p>}
+                    {pedidoAberto === item.id && (
+                      <div className="mt-3 space-y-2 rounded-lg border border-pink-100 bg-white p-3 text-sm">
+                        <p><strong>Contato:</strong> {item.nome_contato} · {item.celular}</p>
+                        <p><strong>E-mail:</strong> {item.email || 'Não informado'}</p>
+                        <p><strong>Evento:</strong> {dataCurta(item.data_evento)} · {item.interesse || 'Sem descrição adicional'}</p>
+                        {(item.oportunidade_itens || []).map(produto => (
+                          <p key={produto.id}><strong>{produto.nome_snapshot}:</strong> {Number(produto.quantidade)} × {produto.valor_referencia === null ? 'Preço a definir' : moeda(Number(produto.valor_referencia))}{produto.observacoes ? ` · ${produto.observacoes}` : ''}</p>
+                        ))}
+                        <p className="text-xs text-slate-500">Valores de referência sujeitos a revisão na proposta. Nenhum desconto é aplicado nesta etapa.</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -414,7 +450,7 @@ export function PreReservasPanel() {
                   <Button variant="secondary" disabled={gerandoLink === item.id} onClick={() => void gerenciarLink(item, 'substituir')}>Substituir link</Button>
                   {acoes.map(status => (
                     <Button key={status} variant="secondary" className="px-3 py-2 text-xs" onClick={() => transicionar(item, status)}>
-                      {rotulos[status]}
+                      {status === 'AJUSTE_SOLICITADO' ? 'Solicitar ajuste' : rotulos[status]}
                     </Button>
                   ))}
                   {item.etapa === 'APROVADA' && (

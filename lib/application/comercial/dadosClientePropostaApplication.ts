@@ -24,6 +24,24 @@ function cpfValido(cpfInformado: string) {
   return digito(9) === Number(cpf[9]) && digito(10) === Number(cpf[10])
 }
 
+function cnpjValido(documento: string) {
+  const cnpj = documento.replace(/\D/g, '')
+  if (!/^\d{14}$/.test(cnpj) || /^(\d)\1{13}$/.test(cnpj)) return false
+  const digito = (base: string, pesos: number[]) => {
+    const soma = [...base].reduce((total, algarismo, indice) => total + Number(algarismo) * pesos[indice], 0)
+    const resto = soma % 11
+    return resto < 2 ? 0 : 11 - resto
+  }
+  const primeiro = digito(cnpj.slice(0, 12), [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+  const segundo = digito(cnpj.slice(0, 13), [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+  return primeiro === Number(cnpj[12]) && segundo === Number(cnpj[13])
+}
+
+export function documentoFiscalValido(documento: string) {
+  const digitos = documento.replace(/\D/g, '')
+  return digitos.length === 11 ? cpfValido(digitos) : digitos.length === 14 && cnpjValido(digitos)
+}
+
 export type CompletarDadosClientePropostaV2Input = {
   token: string
   cpf: string
@@ -73,7 +91,7 @@ export async function completarDadosClientePropostaV2(
     await publicarEvento({
       codigo: ERPEvents.CLIENTE_DADOS_COMPLETOS,
       titulo: `Dados cadastrais da proposta #${resultado.numero} concluídos`,
-      descricao: 'Cliente concluiu CPF, e-mail e endereço completo necessários para a formalização.',
+      descricao: 'Cliente concluiu documento fiscal, e-mail e endereço completo necessários para a formalização.',
       empresaId: resultado.empresa_id,
       entidadeTipo: 'Proposta',
       entidadeId: resultado.orcamento_id,
@@ -98,8 +116,8 @@ export function validarCadastroCliente(input: CompletarDadosClientePropostaV2Inp
   const estado = input.estado.trim().toUpperCase()
   const email = input.email.trim().toLowerCase()
 
-  if (!cpfValido(cpf)) {
-    throw new JornadaComercialError('Informe um CPF válido.', 'CPF_INVALIDO')
+  if (!documentoFiscalValido(cpf)) {
+    throw new JornadaComercialError('Informe um CPF ou CNPJ válido.', 'DOCUMENTO_INVALIDO')
   }
 
   if (!/^\d{8}$/.test(cep)) {

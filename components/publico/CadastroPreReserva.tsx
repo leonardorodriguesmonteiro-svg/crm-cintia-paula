@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 const campos = [
-  ['cpf', 'CPF', 'text', 14, 'off'], ['email', 'E-mail para receber o orçamento', 'email', 254, 'email'],
+  ['cpf', 'CPF ou CNPJ', 'text', 18, 'off'], ['email', 'E-mail para receber o orçamento', 'email', 254, 'email'],
   ['cep', 'CEP', 'text', 9, 'postal-code'], ['endereco', 'Logradouro', 'text', 300, 'address-line1'],
   ['numero', 'Número', 'text', 30, 'off'], ['complemento', 'Complemento (opcional)', 'text', 120, 'address-line2'],
   ['bairro', 'Bairro', 'text', 120, 'off'], ['cidade', 'Cidade', 'text', 120, 'address-level2'],
