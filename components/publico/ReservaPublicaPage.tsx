@@ -3,6 +3,7 @@
 import { LinkAcompanhamento } from './LinkAcompanhamento'
 
 import { useEffect, useMemo, useState } from 'react'
+import { correspondeBusca } from '@/lib/catalogoBusca'
 
 type KitCatalogo = {
   id: string
@@ -125,26 +126,23 @@ export function ReservaPublicaPage() {
   }, [catalogo, modo])
 
   const kitsFiltrados = useMemo(() => {
-    const termo = busca.trim().toLocaleLowerCase('pt-BR')
     return catalogo.kits.filter(kit => {
-      const atendeBusca = !termo || [kit.codigo, kit.nome, kit.tema, kit.categoria, kit.descricao]
-        .filter(Boolean)
-        .join(' ')
-        .toLocaleLowerCase('pt-BR')
-        .includes(termo)
+      const atendeBusca = correspondeBusca(busca, [
+        kit.codigo,
+        kit.nome,
+        kit.tema,
+        kit.categoria,
+        kit.descricao,
+        ...kit.composicao.flatMap(parte => [parte.item?.nome, parte.item?.categoria])
+      ])
       const atendeCategoria = !categoria || kit.categoria === categoria
       return atendeBusca && atendeCategoria
     })
   }, [busca, categoria, catalogo.kits])
 
   const estoqueFiltrado = useMemo(() => {
-    const termo = busca.trim().toLocaleLowerCase('pt-BR')
     return catalogo.estoque.filter(item => {
-      const atendeBusca = !termo || [item.codigo, item.nome, item.categoria, item.cor]
-        .filter(Boolean)
-        .join(' ')
-        .toLocaleLowerCase('pt-BR')
-        .includes(termo)
+      const atendeBusca = correspondeBusca(busca, [item.codigo, item.nome, item.categoria, item.cor])
       const atendeCategoria = !categoria || item.categoria === categoria
       return atendeBusca && atendeCategoria
     })

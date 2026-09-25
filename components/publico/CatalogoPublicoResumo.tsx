@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { correspondeBusca } from '@/lib/catalogoBusca'
 
 type ItemComposicao = {
   quantidade?: number
@@ -32,13 +33,6 @@ function moeda(valor: number) {
     style: 'currency',
     currency: 'BRL'
   })
-}
-
-function textoNormalizado(valor?: string | null) {
-  return (valor || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('pt-BR')
 }
 
 function hrefReserva(kit: Kit) {
@@ -124,15 +118,15 @@ export function CatalogoPublicoResumo() {
   )
 
   const filtrados = useMemo(() => {
-    const termo = textoNormalizado(busca.trim())
     const lista = publicados.filter((kit) => {
-      const atendeBusca = !termo || textoNormalizado([
+      const atendeBusca = correspondeBusca(busca, [
         kit.nome,
         kit.tema,
         kit.categoria,
         kit.descricao,
-        kit.codigo
-      ].filter(Boolean).join(' ')).includes(termo)
+        kit.codigo,
+        ...(kit.composicao || []).flatMap((parte) => [parte.item?.nome, parte.item?.categoria])
+      ])
       const atendeCategoria = !categoria || kit.categoria === categoria
       const atendeTema = !tema || kit.tema === tema
       return atendeBusca && atendeCategoria && atendeTema
