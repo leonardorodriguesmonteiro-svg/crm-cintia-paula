@@ -457,9 +457,11 @@ export function PreReservasPanel() {
               .filter(status => status !== 'CONVERTIDA_EM_PROPOSTA')
             const { subtotal, semPreco } = valorDoPedido(item.oportunidade_itens || [])
             const descontoAtual = Number(item.desconto_calculado || 0)
+            const totalPersistido = Number(item.valor_estimado)
             const totalAtual = item.valor_estimado === null
+              || (totalPersistido === 0 && descontoAtual === 0 && subtotal > 0)
               ? Math.max(subtotal - descontoAtual, 0)
-              : Number(item.valor_estimado)
+              : totalPersistido
             const ajusteAtual = ajustePedido?.id === item.id ? ajustePedido : null
             const previaAjuste = calcularAjusteComercial({
               subtotal,
