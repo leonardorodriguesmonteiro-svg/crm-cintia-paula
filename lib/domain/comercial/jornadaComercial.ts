@@ -32,6 +32,34 @@ export type StatusPreReserva = (typeof statusPreReserva)[number]
 export type StatusProposta = (typeof statusProposta)[number]
 export type StatusFormalizacao = (typeof statusFormalizacao)[number]
 
+export type TipoDescontoPreReserva = 'VALOR' | 'PERCENTUAL'
+
+export function calcularAjusteComercial(input: {
+  subtotal: number
+  tipo: TipoDescontoPreReserva
+  valor: number
+}) {
+  const subtotal = Number(input.subtotal)
+  const valor = Number(input.valor)
+  const tipoValido = input.tipo === 'VALOR' || input.tipo === 'PERCENTUAL'
+  const numerosValidos = Number.isFinite(subtotal) && subtotal >= 0
+    && Number.isFinite(valor) && valor >= 0
+  const percentualValido = input.tipo !== 'PERCENTUAL' || valor <= 100
+  const descontoCalculado = tipoValido && numerosValidos && percentualValido
+    ? input.tipo === 'PERCENTUAL'
+      ? Math.round(subtotal * valor) / 100
+      : Math.round(valor * 100) / 100
+    : 0
+  const valido = tipoValido && numerosValidos && percentualValido
+    && descontoCalculado <= subtotal
+
+  return {
+    valido,
+    descontoCalculado: valido ? descontoCalculado : 0,
+    total: valido ? Math.max(subtotal - descontoCalculado, 0) : subtotal
+  }
+}
+
 const transicoesPreReserva: Record<StatusPreReserva, readonly StatusPreReserva[]> = {
   RECEBIDA: ['EM_ANALISE', 'RECUSADA'],
   EM_ANALISE: ['AJUSTE_SOLICITADO', 'APROVADA', 'RECUSADA'],

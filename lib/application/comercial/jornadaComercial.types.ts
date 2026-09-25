@@ -1,4 +1,7 @@
-import type { StatusPreReserva } from '@/lib/domain/comercial/jornadaComercial'
+import type {
+  StatusPreReserva,
+  TipoDescontoPreReserva
+} from '@/lib/domain/comercial/jornadaComercial'
 
 export type ItemPreReservaInput =
   | {
@@ -51,6 +54,28 @@ export type PreReservaTransicionada = {
   statusAnterior: StatusPreReserva
   status: StatusPreReserva
   versao: number
+  avisos: string[]
+}
+
+export type AjustarValoresPreReservaInput = {
+  empresaId: string
+  oportunidadeId: string
+  usuarioId: string
+  versaoEsperada: number
+  descontoTipo: TipoDescontoPreReserva
+  descontoValor: number
+}
+
+export type ValoresPreReservaAjustados = {
+  id: string
+  numero: number
+  status: StatusPreReserva
+  versao: number
+  subtotal: number
+  desconto_tipo: TipoDescontoPreReserva
+  desconto_valor: number
+  desconto_calculado: number
+  total: number
   avisos: string[]
 }
 

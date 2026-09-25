@@ -23,6 +23,8 @@ type Oportunidade = {
   etapa: string
   versao: number
   cadastro_completo_em: string | null
+  desconto_tipo: 'VALOR' | 'PERCENTUAL'
+  desconto_valor: number
 }
 
 type Cliente = {
@@ -293,7 +295,7 @@ export function OrcamentosPage() {
       supabase.from('clientes').select('id,nome,whatsapp,email').order('nome'),
       supabase
         .from('oportunidades')
-        .select('id,numero,cliente_id,nome_contato,celular,email,interesse,data_evento,etapa,versao,cadastro_completo_em')
+        .select('id,numero,cliente_id,nome_contato,celular,email,interesse,data_evento,etapa,versao,cadastro_completo_em,desconto_tipo,desconto_valor')
         .in('etapa', ['APROVADA', 'CONVERTIDA_EM_PROPOSTA'])
         .order('updated_at', { ascending: false }),
       supabase.from('kits').select('id,codigo,nome,valor').order('nome'),
@@ -397,13 +399,15 @@ export function OrcamentosPage() {
 
   async function selecionarOportunidade(id: string) {
     const oportunidade = oportunidades.find(item => item.id === id)
+    setTipoDesconto(oportunidade?.desconto_tipo || 'VALOR')
     setForm(atual => ({
       ...atual,
       oportunidade_id: id,
       cliente_id: oportunidade?.cliente_id || atual.cliente_id,
       data_evento: oportunidade?.data_evento || atual.data_evento,
       data_retirada: oportunidade?.data_evento || atual.data_retirada,
-      data_devolucao: oportunidade?.data_evento || atual.data_devolucao
+      data_devolucao: oportunidade?.data_evento || atual.data_devolucao,
+      desconto: oportunidade?.desconto_valor || 0
     }))
     setDisponibilidades({})
 

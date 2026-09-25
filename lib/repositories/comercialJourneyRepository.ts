@@ -1,5 +1,6 @@
 import { supabaseServer } from '@/lib/supabaseServer'
 import type {
+  AjustarValoresPreReservaInput,
   CriarPreReservaInput,
   PreReservaPersistida,
   TransicionarPreReservaInput
@@ -77,6 +78,33 @@ export const comercialJourneyRepository = {
 
     if (error) throw error
     return data as PreReservaPersistida | null
+  },
+
+  async ajustarValoresPreReserva(input: AjustarValoresPreReservaInput) {
+    const { data, error } = await supabaseServer.rpc(
+      'ajustar_valores_pre_reserva_servidor',
+      {
+        p_empresa_id: input.empresaId,
+        p_oportunidade_id: input.oportunidadeId,
+        p_usuario_id: input.usuarioId,
+        p_versao_esperada: input.versaoEsperada,
+        p_desconto_tipo: input.descontoTipo,
+        p_desconto_valor: input.descontoValor
+      }
+    )
+
+    if (error) throw error
+    return data as {
+      id: string
+      numero: number
+      status: string
+      versao: number
+      subtotal: number
+      desconto_tipo: 'VALOR' | 'PERCENTUAL'
+      desconto_valor: number
+      desconto_calculado: number
+      total: number
+    }
   },
 
   async transicionarPreReserva(input: TransicionarPreReservaInput) {

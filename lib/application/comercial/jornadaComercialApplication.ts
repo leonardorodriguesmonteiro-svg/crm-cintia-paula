@@ -7,6 +7,7 @@ import { ERPEvents, type ERPEventCode } from '@/lib/events/catalog'
 import { publicarEvento } from '@/lib/events/eventBus'
 import { comercialJourneyRepository } from '@/lib/repositories/comercialJourneyRepository'
 import type {
+  AjustarValoresPreReservaInput,
   CriarPreReservaInput,
   PreReservaCriada,
   PreReservaTransicionada,
@@ -244,6 +245,61 @@ export async function transicionarPreReserva(
     statusAnterior: persistida.status_anterior as StatusPreReserva,
     status: persistida.status as StatusPreReserva,
     versao: persistida.versao,
+    avisos: avisosDoEvento(evento)
+  }
+}
+
+export async function ajustarValoresPreReserva(
+  input: AjustarValoresPreReservaInput
+) {
+  if (!Number.isInteger(input.versaoEsperada) || input.versaoEsperada < 1) {
+    throw new JornadaComercialError(
+      'Versão da pré-reserva inválida.',
+      'VERSAO_INVALIDA'
+    )
+  }
+  if (!['VALOR', 'PERCENTUAL'].includes(input.descontoTipo)) {
+    throw new JornadaComercialError(
+      'Tipo de desconto inválido.',
+      'TIPO_DESCONTO_INVALIDO'
+    )
+  }
+  if (!Number.isFinite(input.descontoValor) || input.descontoValor < 0
+    || (input.descontoTipo === 'PERCENTUAL' && input.descontoValor > 100)) {
+    throw new JornadaComercialError(
+      'Informe um desconto válido.',
+      'DESCONTO_INVALIDO'
+    )
+  }
+
+  const resultado = await comercialJourneyRepository.ajustarValoresPreReserva(input)
+  const evento = await publicarEvento({
+    codigo: ERPEvents.PRE_RESERVA_VALOR_AJUSTADO,
+    titulo: `Valores da pré-reserva #${resultado.numero} ajustados`,
+    descricao: resultado.desconto_calculado > 0
+      ? `Desconto comercial de R$ ${Number(resultado.desconto_calculado).toFixed(2)} aplicado.`
+      : 'Valores comerciais revisados sem desconto.',
+    empresaId: input.empresaId,
+    entidadeTipo: 'PreReserva',
+    entidadeId: resultado.id,
+    modulo: 'Comercial',
+    origem: 'ERP',
+    status: resultado.status,
+    usuarioId: input.usuarioId,
+    metadados: {
+      numero: resultado.numero,
+      subtotal: resultado.subtotal,
+      descontoTipo: resultado.desconto_tipo,
+      descontoValor: resultado.desconto_valor,
+      descontoCalculado: resultado.desconto_calculado,
+      total: resultado.total,
+      versao: resultado.versao
+    }
+  })
+
+  return {
+    ...resultado,
+    status: resultado.status as StatusPreReserva,
     avisos: avisosDoEvento(evento)
   }
 }
