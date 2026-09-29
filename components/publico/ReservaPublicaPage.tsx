@@ -101,6 +101,8 @@ export function ReservaPublicaPage() {
   const [itens, setItens] = useState<ItemSelecionado[]>([])
   const [busca, setBusca] = useState('')
   const [categoria, setCategoria] = useState('')
+  const [limiteKits, setLimiteKits] = useState(8)
+  const [limiteEstoque, setLimiteEstoque] = useState(12)
   const [contato, setContato] = useState<FormContato>(contatoInicial)
   const [carregando, setCarregando] = useState(true)
   const [enviando, setEnviando] = useState(false)
@@ -145,6 +147,14 @@ export function ReservaPublicaPage() {
       return atendeBusca && atendeCategoria
     })
   }, [busca, categoria, catalogo.estoque])
+
+  useEffect(() => {
+    setLimiteKits(8)
+    setLimiteEstoque(12)
+  }, [busca, categoria])
+
+  const kitsVisiveis = kitsFiltrados.slice(0, limiteKits)
+  const estoqueVisivel = estoqueFiltrado.slice(0, limiteEstoque)
 
   const totalConhecido = useMemo(
     () => itens.reduce((total, item) => total + Number(item.preco || 0) * item.quantidade, 0),
@@ -322,20 +332,20 @@ export function ReservaPublicaPage() {
               {!carregando && (
                 <div>
                   <h3 className="mb-3 text-lg font-black text-slate-900">Kits prontos</h3>
-                <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                  {kitsFiltrados.map(kit => {
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  {kitsVisiveis.map(kit => {
                     const selecionado = itens.some(item => item.tipo === 'KIT' && item.id === kit.id)
                     return (
                       <article key={kit.id} className={`overflow-hidden rounded-3xl border bg-white shadow-sm transition ${selecionado ? 'border-pink-500 ring-2 ring-pink-100' : 'border-slate-200'}`}>
-                        <div className="aspect-[4/3] bg-slate-100">
+                        <div className="aspect-[16/10] bg-slate-100">
                           {kit.foto_url
-                            ? <img src={kit.foto_url} alt={kit.nome} className="h-full w-full object-cover" />
+                            ? <img src={kit.foto_url} alt={kit.nome} className="h-full w-full object-cover" loading="lazy" decoding="async" />
                             : <div className="flex h-full items-center justify-center text-5xl">🎈</div>}
                         </div>
                         <div className="p-5">
                           <p className="text-xs font-bold uppercase text-pink-600">{kit.categoria || kit.tema || 'KIT'}</p>
                           <h3 className="mt-1 text-lg font-black">{kit.nome}</h3>
-                          {kit.descricao && <p className="mt-2 line-clamp-2 text-sm text-slate-500">{kit.descricao}</p>}
+                          {kit.descricao && <p className="mt-2 line-clamp-1 text-sm text-slate-500">{kit.descricao}</p>}
                           <p className="mt-4 text-xl font-black text-slate-900">{moeda(kit.preco)}</p>
                           <p className={`mt-1 text-xs font-bold ${kit.disponivel ? 'text-green-700' : 'text-amber-700'}`}>{kit.disponivel ? 'Disponível no catálogo' : 'Consulte disponibilidade para a data'}</p>
                           <button
@@ -350,20 +360,25 @@ export function ReservaPublicaPage() {
                     )
                   })}
                 </div>
+                {kitsFiltrados.length > limiteKits && (
+                  <button type="button" onClick={() => setLimiteKits(atual => atual + 8)} className="mt-4 w-full rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm font-bold text-pink-700 hover:bg-pink-50">
+                    Ver mais kits ({kitsFiltrados.length - limiteKits})
+                  </button>
+                )}
                 </div>
               )}
 
               {!carregando && (
                 <div>
                   <h3 className="mb-3 text-lg font-black text-slate-900">Peças avulsas</h3>
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {estoqueFiltrado.map(item => {
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  {estoqueVisivel.map(item => {
                     const selecionado = itens.find(selecionado => selecionado.tipo === 'ITEM_ESTOQUE' && selecionado.id === item.id)
                     return (
                       <article key={item.id} className={`overflow-hidden rounded-3xl border bg-white shadow-sm ${selecionado ? 'border-pink-400' : 'border-slate-200'}`}>
-                        <div className="aspect-[4/3] bg-slate-100">
+                        <div className="aspect-[16/10] bg-slate-100">
                           {item.foto_url
-                            ? <img src={item.foto_url} alt={item.nome} className="h-full w-full object-cover" />
+                            ? <img src={item.foto_url} alt={item.nome} className="h-full w-full object-cover" loading="lazy" decoding="async" />
                             : <div className="flex h-full items-center justify-center text-4xl">✨</div>}
                         </div>
                         <div className="p-4">
@@ -384,6 +399,11 @@ export function ReservaPublicaPage() {
                     )
                   })}
                 </div>
+                {estoqueFiltrado.length > limiteEstoque && (
+                  <button type="button" onClick={() => setLimiteEstoque(atual => atual + 12)} className="mt-4 w-full rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm font-bold text-pink-700 hover:bg-pink-50">
+                    Ver mais peças ({estoqueFiltrado.length - limiteEstoque})
+                  </button>
+                )}
                 </div>
               )}
 
@@ -401,7 +421,7 @@ export function ReservaPublicaPage() {
                   {itens.map(item => (
                     <div key={`${item.tipo}:${item.id}`} className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
                       <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-white">
-                        {item.foto_url ? <img src={item.foto_url} alt="" className="h-full w-full object-cover" /> : null}
+                        {item.foto_url ? <img src={item.foto_url} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" /> : null}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold">{item.nome}</p>
