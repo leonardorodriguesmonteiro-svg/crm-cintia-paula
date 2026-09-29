@@ -36,6 +36,7 @@ type ItemEstoque = {
   categoria: string | null
   cor: string | null
   foto_url: string | null
+  preco: number | null
   disponivel: boolean
 }
 
@@ -52,8 +53,6 @@ type ItemSelecionado = {
   preco?: number
   foto_url?: string | null
 }
-
-type Modo = 'KIT' | 'PERSONALIZADO' | null
 
 type FormContato = {
   nome: string
@@ -99,7 +98,6 @@ function criarChaveIdempotencia() {
 
 export function ReservaPublicaPage() {
   const [catalogo, setCatalogo] = useState<Catalogo>({ kits: [], estoque: [] })
-  const [modo, setModo] = useState<Modo>(null)
   const [itens, setItens] = useState<ItemSelecionado[]>([])
   const [busca, setBusca] = useState('')
   const [categoria, setCategoria] = useState('')
@@ -121,9 +119,9 @@ export function ReservaPublicaPage() {
   }, [])
 
   const categorias = useMemo(() => {
-    const origem = modo === 'KIT' ? catalogo.kits : catalogo.estoque
+    const origem = [...catalogo.kits, ...catalogo.estoque]
     return [...new Set(origem.map(item => item.categoria).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, 'pt-BR'))
-  }, [catalogo, modo])
+  }, [catalogo])
 
   const kitsFiltrados = useMemo(() => {
     return catalogo.kits.filter(kit => {
@@ -148,22 +146,21 @@ export function ReservaPublicaPage() {
     })
   }, [busca, categoria, catalogo.estoque])
 
-  const totalKits = useMemo(
-    () => itens.reduce((total, item) => total + (item.tipo === 'KIT' ? Number(item.preco || 0) * item.quantidade : 0), 0),
+  const totalConhecido = useMemo(
+    () => itens.reduce((total, item) => total + Number(item.preco || 0) * item.quantidade, 0),
     [itens]
   )
 
-  function escolherModo(novoModo: Exclude<Modo, null>) {
-    setModo(novoModo)
-    setItens([])
-    setBusca('')
-    setCategoria('')
-    setErro('')
-    setSucesso(null)
-  }
-
   function adicionarKit(kit: KitCatalogo) {
-    setItens([{ id: kit.id, tipo: 'KIT', nome: kit.nome, quantidade: 1, preco: kit.preco, foto_url: kit.foto_url }])
+    setItens(atuais => {
+      const existente = atuais.find(item => item.tipo === 'KIT' && item.id === kit.id)
+      if (existente) {
+        return atuais.map(item => item.tipo === 'KIT' && item.id === kit.id
+          ? { ...item, quantidade: item.quantidade + 1 }
+          : item)
+      }
+      return [...atuais, { id: kit.id, tipo: 'KIT', nome: kit.nome, quantidade: 1, preco: kit.preco, foto_url: kit.foto_url }]
+    })
   }
 
   function adicionarItem(item: ItemEstoque) {
@@ -174,23 +171,23 @@ export function ReservaPublicaPage() {
           ? { ...selecionado, quantidade: selecionado.quantidade + 1 }
           : selecionado)
       }
-      return [...atuais, { id: item.id, tipo: 'ITEM_ESTOQUE', nome: item.nome, quantidade: 1, foto_url: item.foto_url }]
+      return [...atuais, { id: item.id, tipo: 'ITEM_ESTOQUE', nome: item.nome, quantidade: 1, preco: item.preco ?? undefined, foto_url: item.foto_url }]
     })
   }
 
-  function alterarQuantidade(id: string, quantidade: number) {
+  function alterarQuantidade(tipo: ItemSelecionado['tipo'], id: string, quantidade: number) {
     if (quantidade <= 0) {
-      setItens(atuais => atuais.filter(item => item.id !== id))
+      setItens(atuais => atuais.filter(item => item.tipo !== tipo || item.id !== id))
       return
     }
-    setItens(atuais => atuais.map(item => item.id === id ? { ...item, quantidade } : item))
+    setItens(atuais => atuais.map(item => item.tipo === tipo && item.id === id ? { ...item, quantidade } : item))
   }
 
   function montarInteresse() {
     const partes = [
       contato.tipo_evento ? `Tipo de evento: ${contato.tipo_evento}` : null,
       `Modalidade: ${contato.modalidade}`,
-      modo === 'KIT' ? 'Escolha: KIT pronto e precificado' : 'Escolha: Monte seu KIT pelo estoque',
+      'Escolha: composição livre com kits e peças do catálogo',
       contato.observacoes.trim() ? `Observações: ${contato.observacoes.trim()}` : null
     ].filter(Boolean)
     return partes.join(' | ')
@@ -201,8 +198,7 @@ export function ReservaPublicaPage() {
     setErro('')
     setSucesso(null)
 
-    if (!modo) return setErro('Escolha como deseja montar sua festa.')
-    if (!itens.length) return setErro(modo === 'KIT' ? 'Escolha um KIT.' : 'Adicione pelo menos um item ao seu KIT.')
+    if (!itens.length) return setErro('Adicione pelo menos um kit ou uma peça à sua festa.')
     if (contato.nome.trim().length < 2) return setErro('Informe seu nome.')
     if (normalizarCelular(contato.celular).length < 10) return setErro('Informe um WhatsApp válido.')
     if (!/^\S+@\S+\.\S+$/.test(contato.email.trim())) return setErro('Informe um e-mail válido.')
@@ -260,7 +256,7 @@ export function ReservaPublicaPage() {
           </div>
           <button
             type="button"
-            onClick={() => { setSucesso(null); setModo(null); setItens([]) }}
+            onClick={() => { setSucesso(null); setItens([]) }}
             className="mt-8 rounded-2xl bg-pink-600 px-6 py-3 font-bold text-white transition hover:bg-pink-700"
           >
             Fazer outra solicitação
@@ -285,8 +281,8 @@ export function ReservaPublicaPage() {
       <section className="bg-gradient-to-br from-pink-50 via-white to-rose-50 px-4 py-12 md:px-8 md:py-16">
         <div className="mx-auto max-w-5xl text-center">
           <p className="text-sm font-black uppercase tracking-[0.22em] text-pink-600">Sua festa, do seu jeito</p>
-          <h1 className="mt-4 text-4xl font-black tracking-tight md:text-6xl">Escolha um KIT pronto ou monte o seu</h1>
-          <p className="mx-auto mt-5 max-w-3xl text-base leading-7 text-slate-600 md:text-lg">Você pode escolher uma composição já pronta e precificada ou selecionar os itens do nosso estoque para criar um KIT personalizado.</p>
+          <h1 className="mt-4 text-4xl font-black tracking-tight md:text-6xl">Monte sua festa em um só lugar</h1>
+          <p className="mx-auto mt-5 max-w-3xl text-base leading-7 text-slate-600 md:text-lg">Misture kits prontos e peças avulsas livremente. Escolha o que gostou, informe a data e nós confirmaremos disponibilidade e valores.</p>
           <div className="mx-auto mt-6 max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
             A seleção abaixo consulta o catálogo, mas <strong>não bloqueia o estoque</strong>. O bloqueio acontece somente na confirmação definitiva da reserva.
           </div>
@@ -294,39 +290,20 @@ export function ReservaPublicaPage() {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-8 md:px-8 md:py-12">
-        <div className="grid gap-5 md:grid-cols-2">
-          <button
-            type="button"
-            onClick={() => escolherModo('KIT')}
-            className={`rounded-3xl border p-7 text-left transition hover:-translate-y-1 hover:shadow-lg ${modo === 'KIT' ? 'border-pink-500 bg-pink-50 shadow-md' : 'border-slate-200 bg-white'}`}
-          >
-            <span className="text-4xl">🎉</span>
-            <h2 className="mt-4 text-2xl font-black">Escolher um KIT</h2>
-            <p className="mt-2 text-slate-600">Kits já montados, com composição definida e preço cadastrado. Escolha o tema e avance rapidamente.</p>
-            <span className="mt-5 inline-block font-bold text-pink-700">Ver KITs prontos →</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => escolherModo('PERSONALIZADO')}
-            className={`rounded-3xl border p-7 text-left transition hover:-translate-y-1 hover:shadow-lg ${modo === 'PERSONALIZADO' ? 'border-pink-500 bg-pink-50 shadow-md' : 'border-slate-200 bg-white'}`}
-          >
-            <span className="text-4xl">✨</span>
-            <h2 className="mt-4 text-2xl font-black">Monte seu KIT</h2>
-            <p className="mt-2 text-slate-600">Escolha peças diretamente do estoque e crie uma composição personalizada. O valor será preparado no orçamento.</p>
-            <span className="mt-5 inline-block font-bold text-pink-700">Montar meu KIT →</span>
-          </button>
+        <div className="rounded-3xl border border-pink-100 bg-white p-6 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-pink-600">1. Escolha sua decoração</p>
+          <h2 className="mt-2 text-2xl font-black">Kits e peças no mesmo catálogo</h2>
+          <p className="mt-2 text-slate-600">Você não precisa decidir entre dois caminhos. Adicione qualquer combinação e acompanhe tudo em uma única seleção.</p>
         </div>
 
-        {modo && (
-          <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_380px]">
+        <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_380px]">
             <div className="space-y-5">
               <div className="rounded-3xl border bg-white p-5 shadow-sm">
                 <div className="grid gap-3 sm:grid-cols-[1fr_220px]">
                   <input
                     value={busca}
                     onChange={evento => setBusca(evento.target.value)}
-                    placeholder={modo === 'KIT' ? 'Buscar por tema, nome ou categoria...' : 'Buscar item, cor ou categoria...'}
+                    placeholder="Buscar kit, peça, tema, cor ou categoria..."
                     className="rounded-2xl border border-slate-200 px-4 py-3 outline-none transition focus:border-pink-400 focus:ring-2 focus:ring-pink-100"
                   />
                   <select
@@ -342,7 +319,9 @@ export function ReservaPublicaPage() {
 
               {carregando && <div className="rounded-3xl border bg-white p-10 text-center text-slate-500">Carregando catálogo...</div>}
 
-              {!carregando && modo === 'KIT' && (
+              {!carregando && (
+                <div>
+                  <h3 className="mb-3 text-lg font-black text-slate-900">Kits prontos</h3>
                 <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                   {kitsFiltrados.map(kit => {
                     const selecionado = itens.some(item => item.tipo === 'KIT' && item.id === kit.id)
@@ -364,19 +343,22 @@ export function ReservaPublicaPage() {
                             onClick={() => adicionarKit(kit)}
                             className={`mt-4 w-full rounded-2xl px-4 py-3 text-sm font-bold transition ${selecionado ? 'bg-green-600 text-white' : 'bg-pink-600 text-white hover:bg-pink-700'}`}
                           >
-                            {selecionado ? 'KIT selecionado ✓' : 'Escolher este KIT'}
+                            {selecionado ? `Adicionar mais · ${itens.find(item => item.tipo === 'KIT' && item.id === kit.id)?.quantidade}` : 'Adicionar à festa'}
                           </button>
                         </div>
                       </article>
                     )
                   })}
                 </div>
+                </div>
               )}
 
-              {!carregando && modo === 'PERSONALIZADO' && (
+              {!carregando && (
+                <div>
+                  <h3 className="mb-3 text-lg font-black text-slate-900">Peças avulsas</h3>
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {estoqueFiltrado.map(item => {
-                    const selecionado = itens.find(selecionado => selecionado.id === item.id)
+                    const selecionado = itens.find(selecionado => selecionado.tipo === 'ITEM_ESTOQUE' && selecionado.id === item.id)
                     return (
                       <article key={item.id} className={`overflow-hidden rounded-3xl border bg-white shadow-sm ${selecionado ? 'border-pink-400' : 'border-slate-200'}`}>
                         <div className="aspect-[4/3] bg-slate-100">
@@ -388,22 +370,24 @@ export function ReservaPublicaPage() {
                           <p className="text-xs font-bold uppercase text-pink-600">{item.categoria || 'Decoração'}</p>
                           <h3 className="mt-1 font-black">{item.nome}</h3>
                           {item.cor && <p className="mt-1 text-xs text-slate-500">Cor: {item.cor}</p>}
+                          <p className="mt-2 text-sm font-black text-slate-900">{item.preco == null ? 'Valor sob consulta' : moeda(item.preco)}</p>
                           <p className={`mt-3 text-xs font-bold ${item.disponivel ? 'text-green-700' : 'text-amber-700'}`}>{item.disponivel ? 'Disponível no catálogo' : 'Sujeito à confirmação'}</p>
                           <button
                             type="button"
                             onClick={() => adicionarItem(item)}
                             className="mt-4 w-full rounded-2xl bg-pink-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-pink-700"
                           >
-                            {selecionado ? `Adicionar mais · ${selecionado.quantidade}` : 'Adicionar ao meu KIT'}
+                            {selecionado ? `Adicionar mais · ${selecionado.quantidade}` : 'Adicionar à festa'}
                           </button>
                         </div>
                       </article>
                     )
                   })}
                 </div>
+                </div>
               )}
 
-              {!carregando && ((modo === 'KIT' && kitsFiltrados.length === 0) || (modo === 'PERSONALIZADO' && estoqueFiltrado.length === 0)) && (
+              {!carregando && kitsFiltrados.length === 0 && estoqueFiltrado.length === 0 && (
                 <div className="rounded-3xl border border-dashed bg-white p-10 text-center text-slate-500">Nenhum item encontrado com esses filtros.</div>
               )}
             </div>
@@ -411,44 +395,39 @@ export function ReservaPublicaPage() {
             <aside className="h-fit space-y-5 lg:sticky lg:top-5">
               <div className="rounded-3xl border bg-white p-5 shadow-sm">
                 <p className="text-xs font-black uppercase tracking-[0.15em] text-pink-600">Sua seleção</p>
-                <h3 className="mt-1 text-xl font-black">{modo === 'KIT' ? 'KIT escolhido' : 'Seu KIT personalizado'}</h3>
+                <h3 className="mt-1 text-xl font-black">Sua festa</h3>
 
                 <div className="mt-4 space-y-3">
                   {itens.map(item => (
-                    <div key={item.id} className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
+                    <div key={`${item.tipo}:${item.id}`} className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
                       <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-white">
                         {item.foto_url ? <img src={item.foto_url} alt="" className="h-full w-full object-cover" /> : null}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold">{item.nome}</p>
-                        {item.tipo === 'KIT' && <p className="text-xs text-slate-500">{moeda(Number(item.preco || 0))}</p>}
+                        <p className="text-xs text-slate-500">{item.preco == null ? 'Valor sob consulta' : moeda(Number(item.preco || 0))}</p>
                       </div>
-                      {item.tipo === 'ITEM_ESTOQUE' && (
-                        <div className="flex items-center gap-1">
-                          <button type="button" onClick={() => alterarQuantidade(item.id, item.quantidade - 1)} className="h-8 w-8 rounded-lg border bg-white font-bold">−</button>
+                      <div className="flex items-center gap-1">
+                          <button type="button" aria-label={`Diminuir ${item.nome}`} onClick={() => alterarQuantidade(item.tipo, item.id, item.quantidade - 1)} className="h-8 w-8 rounded-lg border bg-white font-bold">−</button>
                           <span className="w-7 text-center text-sm font-bold">{item.quantidade}</span>
-                          <button type="button" onClick={() => alterarQuantidade(item.id, item.quantidade + 1)} className="h-8 w-8 rounded-lg border bg-white font-bold">+</button>
-                        </div>
-                      )}
+                          <button type="button" aria-label={`Aumentar ${item.nome}`} onClick={() => alterarQuantidade(item.tipo, item.id, item.quantidade + 1)} className="h-8 w-8 rounded-lg border bg-white font-bold">+</button>
+                      </div>
                     </div>
                   ))}
                   {itens.length === 0 && <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">Sua seleção aparecerá aqui.</p>}
                 </div>
 
-                {modo === 'KIT' ? (
-                  <div className="mt-5 flex items-center justify-between border-t pt-4">
-                    <span className="font-bold">Valor do KIT</span>
-                    <strong className="text-xl text-pink-700">{moeda(totalKits)}</strong>
+                <div className="mt-5 border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold">Subtotal conhecido</span>
+                    <strong className="text-xl text-pink-700">{moeda(totalConhecido)}</strong>
                   </div>
-                ) : (
-                  <div className="mt-5 rounded-2xl bg-pink-50 p-4 text-sm text-pink-900">
-                    <strong>Orçamento personalizado.</strong> Após receber sua seleção, vamos precificar a composição e enviar a proposta.
-                  </div>
-                )}
+                  <p className="mt-2 text-xs leading-5 text-slate-500">Peças sem preço cadastrado serão calculadas pela equipe antes do envio da proposta.</p>
+                </div>
               </div>
 
               <form onSubmit={enviar} className="rounded-3xl border bg-white p-5 shadow-sm">
-                <h3 className="text-xl font-black">Dados para a reserva</h3>
+                <h3 className="text-xl font-black">2. Seus dados</h3>
                 <p className="mt-1 text-sm text-slate-500">Preencha somente os dados necessários nesta primeira etapa.</p>
 
                 <div className="mt-5 space-y-3">
@@ -477,8 +456,7 @@ export function ReservaPublicaPage() {
                 <p className="mt-3 text-center text-xs leading-5 text-slate-500">Ao enviar, sua solicitação entra na nossa análise. A confirmação final depende da disponibilidade e da formalização da reserva.</p>
               </form>
             </aside>
-          </div>
-        )}
+        </div>
       </section>
     </main>
   )

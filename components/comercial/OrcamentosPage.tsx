@@ -73,6 +73,7 @@ type ItemForm = {
 
 type Orcamento = {
   id: string
+  empresa_id: string | null
   numero: number
   oportunidade_id: string | null
   cliente_id: string | null
@@ -154,6 +155,24 @@ type Disponibilidade = {
 }
 
 type DadosDocumento = Orcamento & {
+  empresa: {
+    nome: string
+    nome_fantasia: string | null
+    razao_social: string | null
+    cnpj: string | null
+    email: string | null
+    telefone: string | null
+    whatsapp: string | null
+    site: string | null
+    logradouro: string | null
+    numero: string | null
+    complemento: string | null
+    bairro: string | null
+    cidade: string | null
+    estado: string | null
+    cep: string | null
+    logo_url: string | null
+  }
   cliente: {
     nome: string
     whatsapp: string | null
@@ -547,15 +566,6 @@ export function OrcamentosPage() {
 
     setSalvando(true)
 
-    for (const item of itensValidos) {
-      const disponibilidade = await verificarDisponibilidade(item)
-      if (!disponibilidade.disponivel) {
-        setErro(`Não foi possível salvar: ${disponibilidade.motivo}`)
-        setSalvando(false)
-        return
-      }
-    }
-
     const {
       data: { user },
       error: usuarioError
@@ -679,13 +689,40 @@ export function OrcamentosPage() {
           .maybeSingle()
       : Promise.resolve({ data: null, error: null })
 
-    const [itensRes, clienteRes] = await Promise.all([itensPromise, clientePromise])
+    const empresaPromise = orcamento.empresa_id
+      ? supabase
+          .from('empresas')
+          .select('nome,nome_fantasia,razao_social,cnpj,email,telefone,whatsapp,site,logradouro,numero,complemento,bairro,cidade,estado,cep,logo_url')
+          .eq('id', orcamento.empresa_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null })
+
+    const [itensRes, clienteRes, empresaRes] = await Promise.all([itensPromise, clientePromise, empresaPromise])
 
     if (itensRes.error) throw itensRes.error
     if (clienteRes.error) throw clienteRes.error
+    if (empresaRes.error) throw empresaRes.error
 
     return {
       ...orcamento,
+      empresa: empresaRes.data || {
+        nome: 'Cintia Paula Festas e Decorações',
+        nome_fantasia: 'Cintia Paula Festas e Decorações',
+        razao_social: null,
+        cnpj: null,
+        email: null,
+        telefone: null,
+        whatsapp: null,
+        site: null,
+        logradouro: null,
+        numero: null,
+        complemento: null,
+        bairro: null,
+        cidade: null,
+        estado: null,
+        cep: null,
+        logo_url: null
+      },
       cliente: clienteRes.data || {
         nome: orcamento.oportunidades?.nome_contato || 'Cliente',
         whatsapp: orcamento.oportunidades?.celular || null,
@@ -1165,7 +1202,7 @@ export function OrcamentosPage() {
         <div>
           <p className="text-sm font-semibold text-pink-700">COMERCIAL</p>
           <h1 className="text-3xl font-bold text-slate-900">Orçamentos</h1>
-          <p className="mt-1 text-slate-500">Escolha um KIT pronto e precificado ou monte um KIT personalizado com itens do estoque.</p>
+          <p className="mt-1 text-slate-500">Monte a festa em uma única proposta, combinando kits prontos e peças avulsas.</p>
         </div>
         <Button onClick={iniciarNovo} className="flex items-center justify-center gap-2"><Plus size={18} /> Novo orçamento</Button>
       </div>
@@ -1178,7 +1215,7 @@ export function OrcamentosPage() {
           <form onSubmit={evento => void salvar(evento, (evento.nativeEvent as SubmitEvent).submitter?.getAttribute("value") === "finalizar")} className="space-y-6">
             <div>
               <h2 className="text-xl font-bold text-slate-900">{editandoId ? 'Editar orçamento' : 'Novo orçamento'}</h2>
-              <p className="text-sm text-slate-500">Escolha a pré-reserva ou um cliente cadastrado, consulte a disponibilidade e revise os itens. O estoque só é bloqueado na confirmação definitiva.</p>
+              <p className="text-sm text-slate-500">Escolha a pré-reserva ou um cliente, revise os itens e salve a proposta. A consulta de disponibilidade é informativa; o bloqueio só ocorre na confirmação da reserva.</p>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -1226,14 +1263,14 @@ export function OrcamentosPage() {
 
             <div className="space-y-4">
               <div>
-                <h3 className="font-bold text-slate-900">1. KIT pronto e precificado</h3>
-                <p className="text-sm text-slate-500">Selecione um KIT cadastrado. O preço do KIT entra automaticamente na proposta.</p>
+                <h3 className="font-bold text-slate-900">Itens da festa</h3>
+                <p className="text-sm text-slate-500">Combine livremente kits prontos, peças avulsas e itens livres na mesma proposta.</p>
               </div>
 
               <div className="rounded-2xl border border-pink-100 bg-pink-50/50 p-4">
                 <div className="mb-3">
-                  <h4 className="font-semibold text-slate-900">2. Monte seu KIT pelo estoque</h4>
-                  <p className="text-xs text-slate-500">Pesquise os itens físicos escolhidos pelo cliente. Defina a quantidade e o valor de locação na proposta.</p>
+                  <h4 className="font-semibold text-slate-900">Adicionar peças do catálogo</h4>
+                  <p className="text-xs text-slate-500">Pesquise, adicione e ajuste quantidade e preço. Uma peça comprometida em outra data não impede criar o orçamento.</p>
                 </div>
                 <Input
                   aria-label="Buscar item do estoque"
@@ -1269,8 +1306,8 @@ export function OrcamentosPage() {
                 return (
                   <div key={item.chave} className="rounded-2xl border bg-slate-50 p-4">
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-                      <Select label="KIT pronto (opcional)" className="xl:col-span-2" value={item.kit_id} onChange={evento => selecionarKit(item.chave, evento.target.value)}>
-                        <option value="">KIT personalizado / item avulso</option>
+                      <Select label="Kit pronto (opcional)" className="xl:col-span-2" value={item.kit_id} onChange={evento => selecionarKit(item.chave, evento.target.value)}>
+                        <option value="">Peça avulsa / item livre</option>
                         {kits.map(kit => <option key={kit.id} value={kit.id}>{kit.codigo ? `${kit.codigo} - ` : ''}{kit.nome} · {moeda(kit.valor || 0)}</option>)}
                       </Select>
                       <Input label="Descrição *" className="xl:col-span-2" value={item.descricao} onChange={evento => atualizarItem(item.chave, { descricao: evento.target.value })} />

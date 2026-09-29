@@ -29,7 +29,7 @@ export async function GET() {
       .order('nome'),
     supabaseServer
       .from('estoque_itens')
-      .select('id,codigo,nome,categoria,cor,status,foto_url,quantidade_disponivel')
+      .select('id,codigo,nome,categoria,cor,status,foto_url,quantidade_disponivel,valor_locacao')
       .or('status.is.null,status.neq.Inativo')
       .order('nome')
   ])
@@ -81,6 +81,7 @@ export async function GET() {
     cor: item.cor,
     status: item.status,
     foto_url: item.foto_url,
+    preco: item.valor_locacao == null ? null : Number(item.valor_locacao),
     disponivel: item.status === 'Disponível' && Number(item.quantidade_disponivel || 0) > 0
   }))
 
