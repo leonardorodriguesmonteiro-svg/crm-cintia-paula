@@ -108,7 +108,6 @@ function dataCurta(valor: string | null) {
 export function PreReservasPanel() {
   const [preReservas, setPreReservas] = useState<PreReserva[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
-  const [kits, setKits] = useState<Catalogo[]>([])
   const [estoque, setEstoque] = useState<Catalogo[]>([])
   const [filtro, setFiltro] = useState<StatusPreReserva | 'TODAS'>('TODAS')
   const [formAberto, setFormAberto] = useState(false)
@@ -154,7 +153,6 @@ export function PreReservasPanel() {
           .select('id,numero,cliente_id,nome_contato,celular,email,origem,interesse,data_evento,etapa,versao,recebida_em,cadastro_completo_em,valor_estimado,desconto_tipo,desconto_valor,desconto_calculado,oportunidade_itens(id,tipo,nome_snapshot,quantidade,valor_referencia,observacoes)')
           .in('etapa', [...statusPreReserva]).order('recebida_em', { ascending: false }),
         supabase.from('clientes').select('id,nome,whatsapp,email').order('nome'),
-        supabase.from('kits').select('id,nome,codigo').neq('status', 'Inativo').order('nome'),
         supabase.from('estoque_itens').select('id,nome,codigo').neq('status', 'Inativo').order('nome')
       ])
       if (!montado.current) return
@@ -164,17 +162,17 @@ export function PreReservasPanel() {
         setErroCarga('')
         setUltimaAtualizacao(new Date())
       } else {
-        setErroCarga('Não foi possível atualizar as pré-reservas. Os dados anteriores foram mantidos. Tente atualizar ou entre novamente no ERP.')
+        setErroCarga('Não foi possível atualizar as solicitações de orçamento. Os dados anteriores foram mantidos. Tente atualizar ou entre novamente no ERP.')
       }
-      const setters = [setClientes, setKits, setEstoque]
-      const nomes = ['clientes', 'kits', 'estoque']
+      const setters = [setClientes, setEstoque]
+      const nomes = ['clientes', 'estoque']
       const falhas: string[] = []
       resultados.slice(1).forEach((resultado, i) => {
         if (resultado.status === 'fulfilled' && !resultado.value.error) {
           setters[i]((resultado.value.data || []) as any)
         } else falhas.push(nomes[i])
       })
-      setAvisoCadastros(falhas.length ? `Não foi possível atualizar ${falhas.join(', ')}. As pré-reservas são carregadas separadamente.` : '')
+      setAvisoCadastros(falhas.length ? `Não foi possível atualizar ${falhas.join(', ')}. As solicitações de orçamento são carregadas separadamente.` : '')
     } catch {
       if (montado.current) setErroCarga('Falha de conexão. Tente atualizar novamente.')
     } finally {
@@ -283,7 +281,7 @@ export function PreReservasPanel() {
     const dados = await resposta.json().catch(() => ({}))
 
     if (!resposta.ok) {
-      setErro(dados.erro || 'Não foi possível criar a pré-reserva.')
+      setErro(dados.erro || 'Não foi possível criar a solicitação de orçamento.')
       setSalvando(false)
       return
     }
@@ -323,7 +321,7 @@ export function PreReservasPanel() {
     })
     const dados = await resposta.json().catch(() => ({}))
     if (!resposta.ok) {
-      setErro(dados.erro || 'Não foi possível atualizar a pré-reserva.')
+      setErro(dados.erro || 'Não foi possível atualizar a solicitação de orçamento.')
       return
     }
     await carregar()
@@ -383,17 +381,17 @@ export function PreReservasPanel() {
     <section className="space-y-4">
       <div className="flex flex-col gap-3 rounded-3xl border border-pink-100 bg-gradient-to-r from-pink-50 to-white p-5 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-pink-700">Nova jornada</p>
-          <h2 className="text-xl font-bold text-slate-900">Pré-reservas</h2>
-          <p className="text-sm text-slate-600">Entrada mínima, análise da empresa e decisão antes da proposta.</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-pink-700">Entrada única</p>
+          <h2 className="text-xl font-bold text-slate-900">Solicitações de orçamento</h2>
+          <p className="text-sm text-slate-600">Pedidos recebidos pelo site ou atendimento, prontos para análise e ajuste.</p>
         </div>
         <Button onClick={abrirFormulario} className="flex items-center justify-center gap-2">
-          <Plus size={17} /> Nova pré-reserva
+          <Plus size={17} /> Nova solicitação
         </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
-        <Button variant="secondary" onClick={() => void carregar()} disabled={atualizando}>{atualizando ? 'Atualizando…' : 'Atualizar pré-reservas'}</Button>
+        <Button variant="secondary" onClick={() => void carregar()} disabled={atualizando}>{atualizando ? 'Atualizando…' : 'Atualizar solicitações'}</Button>
         <span role="status">{ultimaAtualizacao ? `Atualizado às ${ultimaAtualizacao.toLocaleTimeString('pt-BR')}. Atualização automática a cada 30 segundos.` : 'Aguardando carregamento.'}</span>
       </div>
       {erroCarga && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{erroCarga}</p>}
@@ -404,8 +402,8 @@ export function PreReservasPanel() {
         <Card className="border-pink-200">
           <form className="space-y-4" onSubmit={criar}>
             <div>
-              <h3 className="font-bold text-slate-900">Dados mínimos da pré-reserva</h3>
-              <p className="text-sm text-slate-500">CPF ou CNPJ, endereço e dados contratuais serão solicitados somente após o aceite da proposta.</p>
+              <h3 className="font-bold text-slate-900">Dados iniciais do orçamento</h3>
+              <p className="text-sm text-slate-500">CPF ou CNPJ, endereço e dados contratuais serão solicitados somente quando o orçamento estiver pronto.</p>
             </div>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <Select label="Cliente já cadastrado" value={form.cliente_id} onChange={evento => selecionarCliente(evento.target.value)}>
@@ -417,12 +415,9 @@ export function PreReservasPanel() {
               <Input label="E-mail" type="email" value={form.email} onChange={evento => setForm({ ...form, email: evento.target.value })} />
               <Input label="Data do evento" type="date" value={form.data_evento} onChange={evento => setForm({ ...form, data_evento: evento.target.value })} />
               <Input label="Tema ou interesse" value={form.interesse} onChange={evento => setForm({ ...form, interesse: evento.target.value })} />
-              <Select label="Kit ou item solicitado *" value={form.item} onChange={evento => setForm({ ...form, item: evento.target.value })}>
+              <Select label="Item do estoque *" value={form.item} onChange={evento => setForm({ ...form, item: evento.target.value })}>
                 <option value="">Selecione</option>
-                <optgroup label="Kits prontos">
-                  {kits.map(item => <option key={`KIT:${item.id}`} value={`KIT:${item.id}`}>{item.codigo} — {item.nome}</option>)}
-                </optgroup>
-                <optgroup label="Itens para kit personalizado">
+                <optgroup label="Itens disponíveis">
                   {estoque.map(item => <option key={`ITEM_ESTOQUE:${item.id}`} value={`ITEM_ESTOQUE:${item.id}`}>{item.codigo} — {item.nome}</option>)}
                 </optgroup>
               </Select>
@@ -430,7 +425,7 @@ export function PreReservasPanel() {
               <Input label="Observação do item" value={form.observacoes_item} onChange={evento => setForm({ ...form, observacoes_item: evento.target.value })} />
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button type="submit" disabled={salvando}>{salvando ? 'Registrando...' : 'Registrar pré-reserva'}</Button>
+              <Button type="submit" disabled={salvando}>{salvando ? 'Registrando...' : 'Registrar solicitação'}</Button>
               <Button variant="secondary" onClick={() => setFormAberto(false)} disabled={salvando}>Cancelar</Button>
             </div>
           </form>
@@ -449,7 +444,7 @@ export function PreReservasPanel() {
       </div>
 
       {carregando ? (
-        <div className="rounded-2xl border bg-white p-8 text-center text-sm text-slate-500">Carregando pré-reservas...</div>
+        <div className="rounded-2xl border bg-white p-8 text-center text-sm text-slate-500">Carregando solicitações de orçamento...</div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
           {exibidas.map(item => {
@@ -473,7 +468,7 @@ export function PreReservasPanel() {
               <article key={item.id} className="rounded-2xl border bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-pink-700">PRÉ-{String(item.numero).padStart(4, '0')}</p>
+                    <p className="text-xs font-bold text-pink-700">SOL-{String(item.numero).padStart(4, '0')}</p>
                     <h3 className="truncate font-bold text-slate-900">{item.nome_contato}</h3>
                     <p className="truncate text-sm text-slate-500">{item.interesse || 'Interesse não informado'}</p>
                   </div>
@@ -562,7 +557,7 @@ export function PreReservasPanel() {
                   </div>
                 </div>
 
-                {['APROVADA', 'CONVERTIDA_EM_PROPOSTA'].includes(item.etapa) && <p className="mt-3 text-sm font-semibold text-pink-700">{item.cadastro_completo_em ? 'Cadastro completo — pronto para orçamento' : 'Cadastro pendente — envie o link ao cliente'}</p>}
+                {['APROVADA', 'CONVERTIDA_EM_PROPOSTA'].includes(item.etapa) && <p className="mt-3 text-sm font-semibold text-pink-700">{item.cadastro_completo_em ? 'Cadastro completo — pronto para contrato' : 'Orçamento aprovado — envie o link para completar o cadastro'}</p>}
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button type="button" onClick={() => window.open(`https://wa.me/55${somenteDigitos(item.celular)}`, '_blank', 'noopener,noreferrer')} className="inline-flex items-center gap-1 rounded-xl border px-3 py-2 text-xs font-bold text-green-700">
                     <MessageCircle size={15} /> WhatsApp
@@ -577,7 +572,7 @@ export function PreReservasPanel() {
                   ))}
                   {item.etapa === 'APROVADA' && (
                     <Link href={`/orcamentos?oportunidade=${item.id}`} className="rounded-xl bg-pink-600 px-3 py-2 text-xs font-bold text-white">
-                      Preparar proposta
+                      Abrir e editar orçamento
                     </Link>
                   )}
                 </div>
@@ -586,7 +581,7 @@ export function PreReservasPanel() {
                   <input aria-label={`Link do pedido ${item.numero}`} readOnly value={linkCliente.url} onFocus={e => e.target.select()} className="w-full rounded-lg border p-3 text-sm" />
                   <div className="flex flex-wrap gap-2">
                     <Button variant="secondary" onClick={async () => { try { await navigator.clipboard.writeText(linkCliente.url) } catch { setErro('Selecione o link acima e copie manualmente.') } }}>Copiar link</Button>
-                    <a className="rounded-xl border bg-white px-3 py-2 text-sm font-bold text-green-700" target="_blank" rel="noopener noreferrer" href={`https://wa.me/${somenteDigitos(item.celular).length <= 11 ? '55' : ''}${somenteDigitos(item.celular)}?text=${encodeURIComponent(['APROVADA', 'CONVERTIDA_EM_PROPOSTA'].includes(item.etapa) ? `Sua pré-reserva #${item.numero} foi aprovada! Complete seu cadastro para prepararmos o orçamento final: ${linkCliente.url}. A reserva depende da formalização.` : `Olá! Acompanhe seu pedido #${item.numero} da Cintia Paula: ${linkCliente.url}`)}`}>Abrir WhatsApp com link</a>
+                    <a className="rounded-xl border bg-white px-3 py-2 text-sm font-bold text-green-700" target="_blank" rel="noopener noreferrer" href={`https://wa.me/${somenteDigitos(item.celular).length <= 11 ? '55' : ''}${somenteDigitos(item.celular)}?text=${encodeURIComponent(['APROVADA', 'CONVERTIDA_EM_PROPOSTA'].includes(item.etapa) ? `Seu orçamento SOL-${String(item.numero).padStart(4, '0')} foi aprovado! Complete seus dados para gerarmos o contrato: ${linkCliente.url}. A reserva será confirmada após assinatura e pagamento.` : `Olá! Acompanhe sua solicitação de orçamento SOL-${String(item.numero).padStart(4, '0')} da Cintia Paula: ${linkCliente.url}`)}`}>Abrir WhatsApp com link</a>
                     <Button variant="secondary" disabled={gerandoLink === item.id} onClick={() => void gerenciarLink(item, 'enviar_email')}>Enviar link por e-mail</Button>
                     {linkCliente.whatsappDisponivel && <Button variant="secondary" disabled={gerandoLink === item.id} onClick={() => void gerenciarLink(item, 'enviar_whatsapp')}>Enviar WhatsApp automático</Button>}
                   </div>
@@ -597,7 +592,7 @@ export function PreReservasPanel() {
               </article>
             )
           })}
-          {!exibidas.length && !erroCarga && <div className="rounded-2xl border border-dashed bg-white p-8 text-center text-sm text-slate-400">Nenhuma pré-reserva neste estado.</div>}
+          {!exibidas.length && !erroCarga && <div className="rounded-2xl border border-dashed bg-white p-8 text-center text-sm text-slate-400">Nenhuma solicitação de orçamento neste estado.</div>}
         </div>
       )}
     </section>

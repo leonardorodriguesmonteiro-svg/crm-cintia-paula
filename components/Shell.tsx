@@ -6,18 +6,13 @@ import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import {
   LayoutDashboard,
-  Users,
-  Package,
   Boxes,
   CalendarDays,
-  FileText,
   Wallet,
   Settings,
   LogOut,
-  Layers3,
   ClipboardList,
   MessageSquareText,
-  Briefcase,
   ReceiptText,
   UserCog,
   Building2,
@@ -45,19 +40,14 @@ const grupos: Array<{ titulo: string; items: ItemMenu[] }> = [
   {
     titulo: 'Comercial',
     items: [
-      { label: 'Funil Comercial', href: '/comercial', icon: Briefcase, modulo: 'comercial' },
-      { label: 'Orçamentos', href: '/orcamentos', icon: ReceiptText, modulo: 'orcamentos' },
-      { label: 'Clientes', href: '/clientes', icon: Users, modulo: 'clientes' },
+      { label: 'Solicitações e orçamentos', href: '/orcamentos', icon: ReceiptText, modulo: 'orcamentos' },
       { label: 'Reservas', href: '/reservas', icon: ClipboardList, modulo: 'reservas' },
-      { label: 'Agenda', href: '/agenda', icon: CalendarDays, modulo: 'agenda' },
-      { label: 'Contratos', href: '/contratos', icon: FileText, modulo: 'contratos' }
+      { label: 'Agenda', href: '/agenda', icon: CalendarDays, modulo: 'agenda' }
     ]
   },
   {
     titulo: 'Operação',
     items: [
-      { label: 'Kits', href: '/kits', icon: Package, modulo: 'kits' },
-      { label: 'Composição', href: '/kits/composicao', icon: Layers3, modulo: 'kits' },
       { label: 'Estoque', href: '/estoque', icon: Boxes, modulo: 'estoque' }
     ]
   },
@@ -76,13 +66,10 @@ const grupos: Array<{ titulo: string; items: ItemMenu[] }> = [
 
 const mobileItems: ItemMenu[] = [
   { label: 'Início', href: '/dashboard', icon: LayoutDashboard, modulo: 'dashboard' },
-  { label: 'Funil', href: '/comercial', icon: Briefcase, modulo: 'comercial' },
   { label: 'Orçamentos', href: '/orcamentos', icon: ReceiptText, modulo: 'orcamentos' },
-  { label: 'Clientes', href: '/clientes', icon: Users, modulo: 'clientes' },
   { label: 'Reservas', href: '/reservas', icon: ClipboardList, modulo: 'reservas' },
-  { label: 'Agenda', href: '/agenda', icon: CalendarDays, modulo: 'agenda' },
-  { label: 'Kits', href: '/kits', icon: Package, modulo: 'kits' },
   { label: 'Estoque', href: '/estoque', icon: Boxes, modulo: 'estoque' },
+  { label: 'Agenda', href: '/agenda', icon: CalendarDays, modulo: 'agenda' },
   { label: 'Financeiro', href: '/financeiro', icon: Wallet, modulo: 'financeiro' },
   { label: 'Config.', href: '/configuracoes', icon: Settings, modulo: 'configuracoes' }
 ]

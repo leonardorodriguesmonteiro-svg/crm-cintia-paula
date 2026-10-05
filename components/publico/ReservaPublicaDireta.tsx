@@ -207,8 +207,8 @@ export function ReservaPublicaDireta() {
         <div className="mx-auto max-w-2xl rounded-[2rem] border border-pink-100 bg-white p-8 text-center shadow-xl shadow-pink-100/50 md:p-12">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-3xl text-green-700">✓</div>
           <p className="mt-6 text-xs font-black uppercase tracking-[0.2em] text-pink-600">Cintia Paula Festas &amp; Decorações</p>
-          <h1 className="mt-3 text-3xl font-black">Solicitação recebida!</h1>
-          {sucesso.numero ? <p className="mt-2 text-lg font-black text-pink-700">Pré-reserva #{String(sucesso.numero).padStart(4, '0')}</p> : null}
+          <h1 className="mt-3 text-3xl font-black">Orçamento solicitado!</h1>
+          {sucesso.numero ? <p className="mt-2 text-lg font-black text-pink-700">Código SOL-{String(sucesso.numero).padStart(4, '0')}</p> : null}
           <p className="mx-auto mt-4 max-w-xl leading-7 text-slate-600">{sucesso.mensagem}</p>
           <LinkAcompanhamento url={sucesso.acompanhamentoUrl} />
           <div className="mt-6 rounded-2xl bg-slate-50 p-5 text-left">
@@ -241,7 +241,7 @@ export function ReservaPublicaDireta() {
 
       <section className="bg-gradient-to-br from-pink-50 via-white to-rose-50 px-4 py-10 md:px-8 md:py-14">
         <div className="mx-auto max-w-5xl text-center">
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-pink-600">Reserva expressa</p>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-pink-600">Orçamento rápido</p>
           <h1 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">Seu kit já está selecionado.</h1>
           <p className="mx-auto mt-4 max-w-2xl leading-7 text-slate-600">Agora informe os dados da festa. Nossa equipe valida a data e segue com proposta, contrato e pagamento.</p>
         </div>
@@ -323,9 +323,9 @@ export function ReservaPublicaDireta() {
           {erro ? <div className="mt-5 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-800">{erro}</div> : null}
 
           <button type="submit" disabled={enviando} className="mt-6 w-full rounded-2xl bg-pink-600 px-6 py-4 text-base font-black text-white shadow-sm transition hover:bg-pink-700 disabled:cursor-not-allowed disabled:opacity-60">
-            {enviando ? 'Enviando solicitação...' : `Solicitar reserva · ${moeda(Number(kit.preco || 0))}`}
+            {enviando ? 'Enviando orçamento...' : `Solicitar orçamento · ${moeda(Number(kit.preco || 0))}`}
           </button>
-          <p className="mt-3 text-center text-xs leading-5 text-slate-400">Ao enviar, você solicita a análise de disponibilidade. A reserva só é confirmada depois das etapas de formalização.</p>
+          <p className="mt-3 text-center text-xs leading-5 text-slate-400">Ao enviar, você recebe um código e um link de acompanhamento. A reserva só é confirmada depois do contrato e do pagamento.</p>
         </form>
       </section>
     </main>

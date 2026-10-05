@@ -3,7 +3,7 @@ import { SitePublicoLayout } from '@/components/publico/SitePublicoLayout'
 
 const etapas = [
   ['Escolha', 'Selecione um kit pronto ou monte sua própria composição com itens do catálogo.'],
-  ['Pré-reserva', 'Informe seus dados, data da festa e preferência de retirada ou entrega.'],
+  ['Solicite o orçamento', 'Informe apenas seus dados de contato, a data e a preferência de retirada ou entrega.'],
   ['Análise', 'Nossa equipe verifica disponibilidade, composição e condições da solicitação.'],
   ['Proposta', 'Você recebe o orçamento com os itens e valores definidos para aprovação.'],
   ['Contrato', 'Após o aceite e complemento dos dados, o contrato é preparado para assinatura digital.'],
@@ -38,7 +38,7 @@ export default function ComoFuncionaPage() {
           </div>
           <div className="mt-10 text-center">
             <Link href="/reservar" className="inline-flex rounded-full bg-pink-600 px-6 py-3 font-black text-white hover:bg-pink-700">
-              Começar minha reserva
+              Solicitar meu orçamento
             </Link>
           </div>
         </section>

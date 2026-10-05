@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
     if (typeof corpo.website === 'string' && corpo.website.trim()) {
       return resposta(origem, {
         sucesso: true,
-        mensagem: 'Pré-reserva recebida para análise.'
+        mensagem: 'Solicitação de orçamento recebida para análise.'
       }, 202)
     }
 
@@ -221,8 +221,8 @@ export async function POST(request: NextRequest) {
       sucesso: true,
       acompanhamento_url: acompanhamentoUrl,
       mensagem: preReserva.criada
-        ? 'Pré-reserva recebida para análise.'
-        : 'Esta pré-reserva já havia sido recebida.',
+        ? 'Solicitação de orçamento recebida para análise.'
+        : 'Esta solicitação de orçamento já havia sido recebida.',
       pre_reserva: {
         numero: preReserva.numero,
         status: preReserva.status,
@@ -240,7 +240,7 @@ export async function POST(request: NextRequest) {
       detalhesSegurosDoErro(error)
     )
     return resposta(origem, {
-      erro: 'Não foi possível registrar a pré-reserva agora.'
+      erro: 'Não foi possível registrar a solicitação de orçamento agora.'
     }, 500)
   }
 }

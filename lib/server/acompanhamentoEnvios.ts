@@ -56,8 +56,8 @@ export async function enviarAcompanhamento(id: string, empresaId: string, canais
               body: JSON.stringify(canal === 'email' ? {
                 from: process.env.EMAIL_REMETENTE, to: [destino],
                 ...(process.env.EMAIL_RESPOSTA ? { reply_to: process.env.EMAIL_RESPOSTA } : {}),
-                subject: finalidade === 'aprovacao' ? `Pré-reserva #${pedido.numero} aprovada — complete seu cadastro` : `Acompanhe seu pedido #${pedido.numero} — Cintia Paula`,
-                text: finalidade === 'aprovacao' ? `Sua pré-reserva #${pedido.numero} foi aprovada!\n\nComplete seu cadastro neste link privado para prepararmos o orçamento final: ${url}\n\nA aprovação da pré-reserva ainda não confirma a reserva. Você receberá o orçamento para conferir e aceitar.\nCintia Paula Festas e Decorações` : `Recebemos sua solicitação #${pedido.numero}.\n\nAcompanhe seu pedido: ${url}\n\nGuarde este link privado. A solicitação ainda depende de análise e confirmação da equipe.\nCintia Paula Festas e Decorações`
+                subject: finalidade === 'aprovacao' ? `Orçamento SOL-${String(pedido.numero).padStart(4, '0')} aprovado — complete seus dados` : `Acompanhe seu orçamento SOL-${String(pedido.numero).padStart(4, '0')} — Cintia Paula`,
+                text: finalidade === 'aprovacao' ? `Seu orçamento SOL-${String(pedido.numero).padStart(4, '0')} foi aprovado!\n\nComplete seu cadastro neste link privado para gerarmos o contrato: ${url}\n\nA reserva será confirmada após assinatura e pagamento.\nCintia Paula Festas e Decorações` : `Recebemos sua solicitação de orçamento SOL-${String(pedido.numero).padStart(4, '0')}.\n\nAcompanhe o andamento: ${url}\n\nGuarde este link privado. A solicitação ainda depende da análise da equipe.\nCintia Paula Festas e Decorações`
               } : { messaging_product: 'whatsapp', to: destino, type: 'template', template: {
                 name: process.env.WHATSAPP_TEMPLATE_NAME,
                 language: { code: process.env.WHATSAPP_TEMPLATE_LANGUAGE || 'pt_BR' },

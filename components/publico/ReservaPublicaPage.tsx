@@ -257,8 +257,8 @@ export function ReservaPublicaPage() {
         <div className="mx-auto max-w-2xl rounded-3xl border border-pink-100 bg-white p-8 text-center shadow-xl shadow-pink-100/50 md:p-12">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-3xl">✓</div>
           <p className="mt-6 text-sm font-black uppercase tracking-[0.2em] text-pink-600">Cintia Paula Festas & Decorações</p>
-          <h1 className="mt-3 text-3xl font-black">Pedido recebido!</h1>
-          {sucesso.numero && <p className="mt-2 text-lg font-bold text-pink-700">Pré-reserva #{String(sucesso.numero).padStart(4, '0')}</p>}
+          <h1 className="mt-3 text-3xl font-black">Orçamento solicitado!</h1>
+          {sucesso.numero && <p className="mt-2 text-lg font-bold text-pink-700">Orçamento SOL-{String(sucesso.numero).padStart(4, '0')}</p>}
           <p className="mx-auto mt-4 max-w-xl text-slate-600">{sucesso.mensagem} Vamos analisar a composição e a disponibilidade para a data escolhida.</p>
           <LinkAcompanhamento url={sucesso.acompanhamentoUrl} />
           <div className="mt-6 rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">
@@ -269,7 +269,7 @@ export function ReservaPublicaPage() {
             onClick={() => { setSucesso(null); setItens([]) }}
             className="mt-8 rounded-2xl bg-pink-600 px-6 py-3 font-bold text-white transition hover:bg-pink-700"
           >
-            Fazer outra solicitação
+            Solicitar outro orçamento
           </button>
         </div>
       </main>
@@ -471,9 +471,9 @@ export function ReservaPublicaPage() {
                 {erro && <p className="mt-4 rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-700">{erro}</p>}
 
                 <button type="submit" disabled={enviando || itens.length === 0} className="mt-5 w-full rounded-2xl bg-pink-600 px-5 py-3.5 font-black text-white transition hover:bg-pink-700 disabled:cursor-not-allowed disabled:opacity-50">
-                  {enviando ? 'Enviando...' : 'Solicitar reserva'}
+                  {enviando ? 'Enviando...' : 'Solicitar orçamento'}
                 </button>
-                <p className="mt-3 text-center text-xs leading-5 text-slate-500">Ao enviar, sua solicitação entra na nossa análise. A confirmação final depende da disponibilidade e da formalização da reserva.</p>
+                <p className="mt-3 text-center text-xs leading-5 text-slate-500">Ao enviar, você recebe um código e um link para acompanhar seu orçamento. A reserva será confirmada somente após contrato e pagamento.</p>
               </form>
             </aside>
         </div>

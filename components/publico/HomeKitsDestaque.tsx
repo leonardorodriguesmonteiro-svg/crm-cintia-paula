@@ -59,7 +59,7 @@ export function HomeKitsDestaque() {
               Kits que já podem começar a sua festa.
             </h2>
             <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 md:text-lg">
-              As fotos, temas e valores abaixo vêm diretamente do nosso catálogo. Escolha uma inspiração e avance para a pré-reserva.
+              As fotos, temas e valores abaixo vêm diretamente do nosso catálogo. Escolha uma inspiração e solicite seu orçamento.
             </p>
           </div>
           <Link

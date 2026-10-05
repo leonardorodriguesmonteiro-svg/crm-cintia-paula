@@ -11,7 +11,7 @@ type Pedido = {
 }
 const rotulos: Record<string, string> = {
   RECEBIDA: 'Solicitação recebida', EM_ANALISE: 'Em análise', AJUSTE_SOLICITADO: 'Ajuste solicitado',
-  APROVADA: 'Solicitação aprovada para proposta', RECUSADA: 'Recusada', CONVERTIDA_EM_PROPOSTA: 'Preparação da proposta',
+  APROVADA: 'Orçamento aprovado — complete seus dados', RECUSADA: 'Orçamento recusado', CONVERTIDA_EM_PROPOSTA: 'Orçamento pronto',
   RASCUNHO: 'Em preparação', ENVIADA: 'Enviada', ACEITA: 'Aceita', EXPIRADA: 'Expirada', CANCELADA: 'Cancelada',
   AGUARDANDO_DADOS: 'Aguardando seus dados', DADOS_COMPLETOS: 'Dados recebidos', CONTRATO_GERADO: 'Contrato em preparação',
   CONTRATO_ENVIADO: 'Contrato enviado', AGUARDANDO_ASSINATURA: 'Aguardando assinatura', AGUARDANDO_PAGAMENTO: 'Aguardando pagamento',
@@ -70,12 +70,12 @@ export function AcompanhamentoCliente() {
   return <main className="min-h-screen bg-pink-50 px-4 py-10 text-slate-900">
     <div className="mx-auto max-w-2xl space-y-5">
       <a href="/" className="text-sm font-bold text-pink-700">Cintia Paula Festas &amp; Decorações</a>
-      <h1 className="text-3xl font-bold">Acompanhe seu pedido</h1>
-      <p className="text-base text-slate-600">Consulte as atualizações da equipe e os documentos liberados para você.</p>
+      <h1 className="text-3xl font-bold">Acompanhe seu orçamento</h1>
+      <p className="text-base text-slate-600">Consulte o andamento pelo código e acesse os próximos passos em um único lugar.</p>
       {!pedido && !carregando && <form onSubmit={abrirLink} className="space-y-4 rounded-2xl border border-pink-100 bg-white p-6">
         <h2 className="text-xl font-bold">Abra seu acompanhamento</h2>
         <p className="leading-7 text-slate-600">Cole o link privado que apareceu ao enviar sua solicitação ou que a equipe enviou para você.</p>
-        <label htmlFor="link-pedido" className="block font-bold">Link do pedido</label>
+        <label htmlFor="link-pedido" className="block font-bold">Link do orçamento</label>
         <input id="link-pedido" type="url" required autoComplete="off" value={linkInformado} onChange={e => setLinkInformado(e.target.value)} placeholder="https://www.cintiapaulafestaedecoracao.com.br/acompanhar#…" className="w-full rounded-xl border border-slate-300 p-3 text-base" />
         <button className="rounded-xl bg-pink-600 px-5 py-3 font-bold text-white" type="submit">Consultar meu pedido</button>
         <p className="text-sm leading-6 text-slate-600">Não recebeu ou perdeu o link? <a className="font-bold text-pink-700 underline" href="/contato">Fale com a equipe</a> e informe o número do pedido. Para proteger seus dados, o número sozinho não abre a consulta.</p>
@@ -84,8 +84,8 @@ export function AcompanhamentoCliente() {
       {temLink && <div className="flex flex-wrap items-center gap-3"><button disabled={carregando} onClick={() => void atualizar()} className="rounded-xl bg-pink-600 px-5 py-3 font-bold text-white disabled:opacity-60">{carregando ? 'Consultando…' : 'Atualizar andamento'}</button><span role="status" className="text-sm text-slate-600">{atualizado && pedido ? `Consultado às ${atualizado}` : ''}</span></div>}
       {pedido && <>
         {pedido.cadastro?.disponivel && <CadastroPreReserva onConcluido={() => void atualizar()} />}
-        {pedido.cadastro?.completo && <p role="status" className="rounded-2xl bg-green-50 p-5 text-green-900">Cadastro recebido. A equipe preparará o orçamento final; você poderá acessá-lo nesta página quando for enviado.</p>}
-        <section className="rounded-2xl border border-pink-100 bg-white p-6"><p className="text-sm font-bold text-pink-700">Pedido #{String(pedido.numero).padStart(4, '0')}</p><h2 className="mt-2 text-xl font-bold">{rotulo(pedido.etapa)}</h2><p className="mt-3">Data do evento: {data(pedido.data_evento)}</p></section>
+        {pedido.cadastro?.completo && <p role="status" className="rounded-2xl bg-green-50 p-5 text-green-900">Dados recebidos. A equipe já pode gerar o contrato da sua reserva.</p>}
+        <section className="rounded-2xl border border-pink-100 bg-white p-6"><p className="text-sm font-bold text-pink-700">Orçamento SOL-{String(pedido.numero).padStart(4, '0')}</p><h2 className="mt-2 text-xl font-bold">{rotulo(pedido.etapa)}</h2><p className="mt-3">Data do evento: {data(pedido.data_evento)}</p></section>
         <section className="rounded-2xl border bg-white p-6"><h2 className="text-xl font-bold">Proposta</h2><p className="mt-2">{pedido.proposta ? rotulo(pedido.proposta.status) : 'A equipe ainda não liberou uma proposta.'}</p>{pedido.proposta?.url && <a className="mt-4 inline-block rounded-xl border border-pink-300 px-4 py-3 font-bold text-pink-700" href={pedido.proposta.url}>Abrir proposta</a>}</section>
         <section className="rounded-2xl border bg-white p-6"><h2 className="text-xl font-bold">Contrato e confirmação</h2><p className="mt-2">{pedido.proposta ? rotulo(pedido.proposta.formalizacao) : 'Após a análise e o aceite da proposta.'}</p>{pedido.contrato && <p className="mt-2">Contrato: {rotulo(pedido.contrato.status)}</p>}{pedido.contrato?.url && <a className="mt-4 inline-block rounded-xl border border-pink-300 px-4 py-3 font-bold text-pink-700" href={pedido.contrato.url}>Abrir contrato</a>}</section>
         {pedido.reserva && <section className="rounded-2xl border bg-white p-6"><h2 className="text-xl font-bold">Reserva e entrega</h2><dl className="mt-4 grid grid-cols-2 gap-3"><dt>Reserva</dt><dd>{rotulo(pedido.reserva.status)}</dd><dt>Pagamento registrado</dt><dd>{rotulo(pedido.reserva.status_pagamento)}</dd><dt>Operação</dt><dd>{rotulo(pedido.reserva.status_operacional)}</dd><dt>Retirada prevista</dt><dd>{data(pedido.reserva.data_retirada)}</dd><dt>Devolução prevista</dt><dd>{data(pedido.reserva.data_devolucao)}</dd></dl></section>}

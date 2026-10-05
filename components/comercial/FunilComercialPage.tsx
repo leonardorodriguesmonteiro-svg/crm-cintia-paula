@@ -9,23 +9,23 @@ export function FunilComercialPage() {
     <div className="space-y-6 p-4 pb-32 md:p-8">
       <header className="rounded-3xl border border-pink-100 bg-white p-5 shadow-sm md:p-7">
         <p className="text-sm font-semibold text-pink-700">COMERCIAL</p>
-        <h1 className="mt-1 text-3xl font-bold text-slate-900">Esteira do cliente</h1>
+        <h1 className="mt-1 text-3xl font-bold text-slate-900">Solicitações e orçamentos</h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-          Toda solicitação, independentemente de ter chegado pelo site ou pelo atendimento,
-          começa como pré-reserva. Depois da análise, a equipe prepara a proposta e o cliente
-          conclui os dados, o contrato e o pagamento sem redigitação.
+          Todo pedido chega como solicitação de orçamento. A equipe ajusta itens e preços,
+          salva o orçamento e envia um único link para o cliente completar os dados do contrato,
+          sem redigitação.
         </p>
 
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           <div className="rounded-2xl bg-slate-50 p-4">
             <p className="text-xs font-bold uppercase tracking-wide text-slate-500">1. Entrada</p>
-            <p className="mt-1 font-semibold text-slate-900">Solicitação e análise</p>
+            <p className="mt-1 font-semibold text-slate-900">Solicitação de orçamento</p>
             <p className="mt-1 text-xs text-slate-500">Dados mínimos, itens desejados e data do evento.</p>
           </div>
           <div className="rounded-2xl bg-violet-50 p-4">
             <p className="text-xs font-bold uppercase tracking-wide text-violet-700">2. Proposta</p>
-            <p className="mt-1 font-semibold text-slate-900">Composição e aceite</p>
-            <p className="mt-1 text-xs text-slate-500">Preço, validade e resposta do cliente em um link seguro.</p>
+            <p className="mt-1 font-semibold text-slate-900">Ajuste e aprovação</p>
+            <p className="mt-1 text-xs text-slate-500">Itens, preços, desconto e validade editáveis pela equipe.</p>
           </div>
           <div className="rounded-2xl bg-emerald-50 p-4">
             <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">3. Formalização</p>

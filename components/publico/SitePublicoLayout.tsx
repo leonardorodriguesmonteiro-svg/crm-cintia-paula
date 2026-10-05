@@ -43,7 +43,7 @@ export function SitePublicoLayout({ children }: { children: ReactNode }) {
               <Link href="/site/como-funciona">Como funciona</Link>
               <Link href="/site/duvidas">Dúvidas frequentes</Link>
               <Link href="/reservar">Solicitar orçamento</Link>
-              <Link href="/acompanhar">Acompanhar meu pedido</Link>
+              <Link href="/acompanhar">Acompanhar meu orçamento</Link>
             </div>
           </div>
 

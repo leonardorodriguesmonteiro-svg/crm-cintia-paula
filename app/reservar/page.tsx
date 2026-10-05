@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import { ReservaPublicaDireta } from '@/components/publico/ReservaPublicaDireta'
 
 export const metadata: Metadata = {
-  title: 'Reserve sua festa | Cintia Paula Festas & Decorações',
-  description: 'Escolha um KIT pronto ou monte seu próprio KIT para solicitar sua reserva.'
+  title: 'Solicite seu orçamento | Cintia Paula Festas & Decorações',
+  description: 'Escolha os itens da sua festa, solicite seu orçamento e acompanhe tudo pelo site.'
 }
 
 export default function Page() {

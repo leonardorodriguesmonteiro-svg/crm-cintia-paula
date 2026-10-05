@@ -9,7 +9,7 @@ const links = [
   { href: '/site/sobre', label: 'Sobre' },
   { href: '/site/duvidas', label: 'Dúvidas' },
   { href: '/site/contato', label: 'Contato' },
-  { href: '/acompanhar', label: 'Acompanhar meu pedido' }
+  { href: '/acompanhar', label: 'Acompanhar orçamento' }
 ]
 export function SitePublicoMenu() {
   const dialog = useRef<HTMLDialogElement>(null)

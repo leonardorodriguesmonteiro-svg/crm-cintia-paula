@@ -1,10 +1,5 @@
-import { PageLayout } from '@/components/PageLayout'
-import { FunilComercialPage } from '@/components/comercial/FunilComercialPage'
+import { redirect } from 'next/navigation'
 
 export default function Page() {
-  return (
-    <PageLayout>
-      <FunilComercialPage />
-    </PageLayout>
-  )
+  redirect('/orcamentos')
 }

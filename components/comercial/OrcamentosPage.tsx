@@ -41,18 +41,6 @@ type Kit = {
   valor: number | null
 }
 
-type ComposicaoKit = {
-  id: string
-  kit_id: string
-  quantidade: number
-  valor_ajuste: number | null
-  estoque_itens: {
-    nome: string
-    codigo: string | null
-    categoria: string | null
-  } | null
-}
-
 type AcessorioEstoque = {
   id: string
   nome: string
@@ -114,6 +102,7 @@ type Orcamento = {
     nome_contato: string
     celular: string
     email: string | null
+    cadastro_completo_em: string | null
   } | null
   clientes: {
     nome: string
@@ -278,7 +267,6 @@ export function OrcamentosPage() {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [oportunidades, setOportunidades] = useState<Oportunidade[]>([])
   const [kits, setKits] = useState<Kit[]>([])
-  const [composicoesKit, setComposicoesKit] = useState<ComposicaoKit[]>([])
   const [acessorios, setAcessorios] = useState<AcessorioEstoque[]>([])
   const [buscaAcessorio, setBuscaAcessorio] = useState('')
   const [orcamentos, setOrcamentos] = useState<Orcamento[]>([])
@@ -303,6 +291,8 @@ export function OrcamentosPage() {
   const [cancelandoEnvioId, setCancelandoEnvioId] = useState<string | null>(null)
   const [enviandoPropostaId, setEnviandoPropostaId] = useState<string | null>(null)
   const [cancelandoPropostaId, setCancelandoPropostaId] = useState<string | null>(null)
+  const [gerandoCadastroId, setGerandoCadastroId] = useState<string | null>(null)
+  const [linksCadastro, setLinksCadastro] = useState<Record<string, string>>({})
   const [mercadoPagoPronto, setMercadoPagoPronto] = useState(false)
   const [carregando, setCarregando] = useState(true)
 
@@ -310,7 +300,7 @@ export function OrcamentosPage() {
     setCarregando(true)
     setErro('')
 
-    const [clientesRes, oportunidadesRes, kitsRes, composicoesRes, acessoriosRes, orcamentosRes] = await Promise.all([
+    const [clientesRes, oportunidadesRes, kitsRes, acessoriosRes, orcamentosRes] = await Promise.all([
       supabase.from('clientes').select('id,nome,whatsapp,email').order('nome'),
       supabase
         .from('oportunidades')
@@ -319,20 +309,17 @@ export function OrcamentosPage() {
         .order('updated_at', { ascending: false }),
       supabase.from('kits').select('id,codigo,nome,valor').order('nome'),
       supabase
-        .from('kit_composicao')
-        .select('id,kit_id,quantidade,valor_ajuste,estoque_itens(nome,codigo,categoria)'),
-      supabase
         .from('estoque_itens')
         .select('id,nome,codigo,categoria,quantidade_disponivel,valor_locacao')
         .or('status.is.null,status.neq.Inativo')
         .order('nome'),
       supabase
         .from('orcamentos')
-        .select('*,clientes(nome,whatsapp,email),oportunidades(numero,nome_contato,celular,email),contratos(public_token,email_enviado_em,email_destino),lancamentos_financeiros(provedor_pagamento,link_pagamento,status_provedor)')
+        .select('*,clientes(nome,whatsapp,email),oportunidades(numero,nome_contato,celular,email,cadastro_completo_em),contratos(public_token,email_enviado_em,email_destino),lancamentos_financeiros(provedor_pagamento,link_pagamento,status_provedor)')
         .order('created_at', { ascending: false })
     ])
 
-    const primeiroErro = clientesRes.error || oportunidadesRes.error || kitsRes.error || composicoesRes.error || acessoriosRes.error || orcamentosRes.error
+    const primeiroErro = clientesRes.error || oportunidadesRes.error || kitsRes.error || acessoriosRes.error || orcamentosRes.error
 
     if (primeiroErro) {
       setErro(primeiroErro.message)
@@ -340,7 +327,6 @@ export function OrcamentosPage() {
       setClientes(clientesRes.data || [])
       setOportunidades(oportunidadesRes.data || [])
       setKits(kitsRes.data || [])
-      setComposicoesKit((composicoesRes.data as unknown as ComposicaoKit[]) || [])
       setAcessorios(acessoriosRes.data || [])
       setOrcamentos((orcamentosRes.data as unknown as Orcamento[]) || [])
     }
@@ -474,17 +460,6 @@ export function OrcamentosPage() {
     })
   }
 
-  function selecionarKit(chave: string, kitId: string) {
-    const kit = kits.find(item => item.id === kitId)
-    atualizarItem(chave, {
-      kit_id: kitId,
-      estoque_item_id: '',
-      descricao: kit ? `${kit.codigo ? `${kit.codigo} - ` : ''}${kit.nome}` : '',
-      quantidade: 1,
-      valor_unitario: Number(kit?.valor || 0)
-    })
-  }
-
   function adicionarAcessorio(acessorio: AcessorioEstoque) {
     setItens(atuais => {
       const vazio = atuais.length === 1
@@ -559,7 +534,7 @@ export function OrcamentosPage() {
     if (!form.data_evento) return setErro('Informe a data prevista do evento.')
 
     const itensValidos = itens.filter(item => item.descricao.trim() && Number(item.quantidade) > 0)
-    if (!itensValidos.length) return setErro('Escolha um KIT pronto ou monte um KIT personalizado com itens do estoque.')
+    if (!itensValidos.length) return setErro('Adicione pelo menos um item do estoque ou um item livre ao orçamento.')
 
     if (itensValidos.some(item => item.valor_unitario === '' || !Number.isFinite(Number(item.valor_unitario)) || Number(item.valor_unitario) < 0)) return setErro('Preencha o preço de cada item. Itens sem preço cadastrado precisam de um valor neste orçamento.')
     if (!Number.isFinite(Number(form.desconto)) || Number(form.desconto) < 0 || (tipoDesconto === 'PERCENTUAL' && Number(form.desconto) > 100) || descontoEmReais > subtotal) return setErro('Informe um desconto válido, sem ultrapassar o subtotal do pedido.')
@@ -755,6 +730,41 @@ export function OrcamentosPage() {
       setErro(mensagemErroDocumento(error))
     } finally {
       setAcaoDocumento(null)
+    }
+  }
+
+  async function gerarLinkCadastro(orcamento: Orcamento, acao: 'consultar' | 'enviar_email' = 'consultar') {
+    if (!orcamento.oportunidade_id) {
+      setErro('Este orçamento não está vinculado a uma solicitação do cliente.')
+      return
+    }
+
+    setGerandoCadastroId(orcamento.id)
+    setErro('')
+    setSucesso('')
+    try {
+      const { data } = await supabase.auth.getSession()
+      if (!data.session) throw new Error('Sua sessão expirou. Entre novamente no ERP.')
+
+      const resposta = await fetch(`/api/comercial/pre-reservas/${orcamento.oportunidade_id}/acompanhamento`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${data.session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ acao })
+      })
+      const corpo = await resposta.json().catch(() => ({}))
+      if (!resposta.ok) throw new Error(corpo.erro || 'Não foi possível gerar o link de cadastro.')
+
+      setLinksCadastro(atuais => ({ ...atuais, [orcamento.id]: corpo.url }))
+      setSucesso(acao === 'enviar_email'
+        ? 'O serviço de e-mail recebeu a solicitação de envio do link de cadastro.'
+        : 'Link seguro gerado. Envie-o ao cliente para completar os dados do contrato.')
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível gerar o link de cadastro.')
+    } finally {
+      setGerandoCadastroId(null)
     }
   }
 
@@ -1202,7 +1212,7 @@ export function OrcamentosPage() {
         <div>
           <p className="text-sm font-semibold text-pink-700">COMERCIAL</p>
           <h1 className="text-3xl font-bold text-slate-900">Orçamentos</h1>
-          <p className="mt-1 text-slate-500">Monte a festa em uma única proposta, combinando kits prontos e peças avulsas.</p>
+          <p className="mt-1 text-slate-500">Revise a solicitação, ajuste itens e preços e envie o próximo passo ao cliente.</p>
         </div>
         <Button onClick={iniciarNovo} className="flex items-center justify-center gap-2"><Plus size={18} /> Novo orçamento</Button>
       </div>
@@ -1215,7 +1225,7 @@ export function OrcamentosPage() {
           <form onSubmit={evento => void salvar(evento, (evento.nativeEvent as SubmitEvent).submitter?.getAttribute("value") === "finalizar")} className="space-y-6">
             <div>
               <h2 className="text-xl font-bold text-slate-900">{editandoId ? 'Editar orçamento' : 'Novo orçamento'}</h2>
-              <p className="text-sm text-slate-500">Escolha a pré-reserva ou um cliente, revise os itens e salve a proposta. A consulta de disponibilidade é informativa; o bloqueio só ocorre na confirmação da reserva.</p>
+              <p className="text-sm text-slate-500">Escolha uma solicitação do site ou um cliente, revise tudo e salve. Depois, gere o link para os dados do contrato.</p>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -1231,21 +1241,21 @@ export function OrcamentosPage() {
                 <Link href="/clientes" className="mt-1 inline-block text-xs font-semibold text-pink-700 hover:text-pink-800">
                   + Cadastrar novo cliente
                 </Link>
-                <p className="mt-1 text-xs text-slate-500">Dispensável quando uma pré-reserva aprovada estiver selecionada.</p>
+                <p className="mt-1 text-xs text-slate-500">Dispensável quando uma solicitação do site estiver selecionada.</p>
               </div>
               <div>
-                <Select label="Pré-reserva aprovada (opcional)" value={form.oportunidade_id} onChange={evento => void selecionarOportunidade(evento.target.value)}>
+                <Select label="Solicitação de orçamento (opcional)" value={form.oportunidade_id} onChange={evento => void selecionarOportunidade(evento.target.value)}>
                   <option value="">Orçamento direto para o cliente</option>
                   {oportunidades
                     .filter(item => !form.cliente_id || !item.cliente_id || item.cliente_id === form.cliente_id)
                     .filter(item => item.etapa !== 'CONVERTIDA_EM_PROPOSTA' || item.id === form.oportunidade_id)
                     .map(item => (
                       <option key={item.id} value={item.id}>
-                        PRÉ-{String(item.numero).padStart(4, '0')} — {item.nome_contato}
+                        SOL-{String(item.numero).padStart(4, '0')} — {item.nome_contato}
                       </option>
                     ))}
                 </Select>
-                <p className="mt-1 text-xs text-slate-500">Ao selecionar uma pré-reserva do site, os KITs e itens de estoque escolhidos pelo cliente são carregados automaticamente.</p>
+                <p className="mt-1 text-xs text-slate-500">Ao selecionar uma solicitação do site, todos os itens escolhidos pelo cliente são carregados automaticamente e continuam editáveis.</p>
               </div>
               <div className="rounded-xl border bg-slate-50 px-3 py-2">
                 <p className="text-xs font-semibold text-slate-500">Status</p>
@@ -1264,7 +1274,7 @@ export function OrcamentosPage() {
             <div className="space-y-4">
               <div>
                 <h3 className="font-bold text-slate-900">Itens da festa</h3>
-                <p className="text-sm text-slate-500">Combine livremente kits prontos, peças avulsas e itens livres na mesma proposta.</p>
+                <p className="text-sm text-slate-500">Revise as peças escolhidas e adicione itens do estoque ou itens livres quando necessário.</p>
               </div>
 
               <div className="rounded-2xl border border-pink-100 bg-pink-50/50 p-4">
@@ -1300,39 +1310,17 @@ export function OrcamentosPage() {
 
               {itens.map((item, indice) => {
                 const disponibilidade = disponibilidades[item.chave]
-                const composicaoSelecionada = composicoesKit
-                  .filter(linha => linha.kit_id === item.kit_id)
-                  .sort((a, b) => (a.estoque_itens?.nome || '').localeCompare(b.estoque_itens?.nome || '', 'pt-BR'))
                 return (
                   <div key={item.chave} className="rounded-2xl border bg-slate-50 p-4">
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-                      <Select label="Kit pronto (opcional)" className="xl:col-span-2" value={item.kit_id} onChange={evento => selecionarKit(item.chave, evento.target.value)}>
-                        <option value="">Peça avulsa / item livre</option>
-                        {kits.map(kit => <option key={kit.id} value={kit.id}>{kit.codigo ? `${kit.codigo} - ` : ''}{kit.nome} · {moeda(kit.valor || 0)}</option>)}
-                      </Select>
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                       <Input label="Descrição *" className="xl:col-span-2" value={item.descricao} onChange={evento => atualizarItem(item.chave, { descricao: evento.target.value })} />
-                      <Input label="Quantidade" type="number" min="0.01" step="0.01" value={item.quantidade} disabled={Boolean(item.kit_id)} onChange={evento => atualizarItem(item.chave, { quantidade: evento.target.value })} />
+                      <Input label="Quantidade" type="number" min="0.01" step="0.01" value={item.quantidade} onChange={evento => atualizarItem(item.chave, { quantidade: evento.target.value })} />
                       <Input placeholder="Informe o preço de locação" required label="Valor unitário" type="number" min="0" step="0.01" value={item.valor_unitario} onChange={evento => atualizarItem(item.chave, { valor_unitario: evento.target.value })} />
                     </div>
 
                     {item.estoque_item_id && !item.kit_id && (
                       <div className="mt-3 rounded-xl border border-cyan-100 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-800">
                         Item vinculado ao estoque físico. O bloqueio ocorrerá somente quando a reserva for confirmada.
-                      </div>
-                    )}
-
-                    {item.kit_id && (
-                      <div className="mt-3 rounded-xl border bg-white p-3">
-                        <p className="text-xs font-bold uppercase text-slate-500">Composição incluída neste KIT</p>
-                        <div className="mt-2 max-h-32 space-y-1 overflow-y-auto text-sm">
-                          {composicaoSelecionada.map(linha => (
-                            <p key={linha.id} className="flex justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2">
-                              <span>{linha.estoque_itens?.nome || 'Item'}{linha.estoque_itens?.codigo ? ` · ${linha.estoque_itens.codigo}` : ''}</span>
-                              <span className="shrink-0 text-slate-500">Qtd.: {linha.quantidade}{Number(linha.valor_ajuste || 0) !== 0 ? ` · ${Number(linha.valor_ajuste || 0) > 0 ? '+' : ''}${moeda(linha.valor_ajuste || 0)}` : ''}</span>
-                            </p>
-                          ))}
-                          {composicaoSelecionada.length === 0 && <p className="text-slate-500">Este KIT ainda não possui itens de composição cadastrados.</p>}
-                        </div>
                       </div>
                     )}
 
@@ -1376,7 +1364,7 @@ export function OrcamentosPage() {
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row">
-              {form.oportunidade_id && !oportunidades.find(item => item.id === form.oportunidade_id)?.cadastro_completo_em && <p className="text-sm text-amber-800">Você pode preparar o rascunho. Para finalizar, aguarde o cadastro do cliente pelo link da pré-reserva.</p>}
+              {form.oportunidade_id && !oportunidades.find(item => item.id === form.oportunidade_id)?.cadastro_completo_em && <p className="text-sm text-amber-800">Salve o orçamento e use o botão “Gerar link para completar cadastro”. Depois dos dados, o contrato poderá ser gerado.</p>}
               <Button type="submit" variant="secondary" disabled={salvando}>Salvar rascunho</Button>
               <Button type="submit" value="finalizar" disabled={salvando} className="flex items-center justify-center gap-2"><Send size={17} /> {salvando ? 'Salvando...' : 'Finalizar e enviar por e-mail'}</Button>
               <Button variant="secondary" onClick={() => { setFormAberto(false); setEditandoId(null); setErro('') }}>Cancelar</Button>
@@ -1408,6 +1396,38 @@ export function OrcamentosPage() {
                 <p className="font-bold">Cliente {orcamento.resposta_cliente === 'ACEITA' ? 'aceitou' : 'recusou'} a proposta</p>
                 <p className="mt-0.5">{orcamento.respondido_por || 'Cliente'} · {orcamento.respondido_em ? new Date(orcamento.respondido_em).toLocaleString('pt-BR') : 'data não informada'}</p>
                 {orcamento.resposta_observacao && <p className="mt-1">“{orcamento.resposta_observacao}”</p>}
+              </div>
+            )}
+            {orcamento.oportunidade_id && !orcamento.oportunidades?.cadastro_completo_em && orcamento.status === 'RASCUNHO' && (
+              <div className="mt-4 rounded-2xl border border-violet-200 bg-violet-50 p-4">
+                <p className="text-sm font-bold text-violet-900">Próximo passo: dados para o contrato</p>
+                <p className="mt-1 text-xs leading-5 text-violet-800">Depois de revisar e salvar itens, preços e desconto, gere o link para o cliente completar apenas os dados contratuais.</p>
+                <Button
+                  type="button"
+                  className="mt-3 flex w-full items-center justify-center gap-2"
+                  disabled={gerandoCadastroId === orcamento.id}
+                  onClick={() => void gerarLinkCadastro(orcamento)}
+                >
+                  <FileSignature size={16} />
+                  {gerandoCadastroId === orcamento.id ? 'Gerando link...' : 'Gerar link para completar cadastro'}
+                </Button>
+                {linksCadastro[orcamento.id] && (
+                  <div className="mt-3 space-y-2">
+                    <input aria-label={`Link de cadastro do orçamento ${orcamento.numero}`} readOnly value={linksCadastro[orcamento.id]} onFocus={evento => evento.target.select()} className="w-full rounded-xl border border-violet-200 bg-white p-3 text-xs" />
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      <Button variant="secondary" type="button" onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(linksCadastro[orcamento.id])
+                          setSucesso('Link de cadastro copiado.')
+                        } catch {
+                          setErro('Selecione o link acima e copie manualmente.')
+                        }
+                      }}><Copy size={15} /> Copiar link</Button>
+                      <a className="flex items-center justify-center rounded-xl border bg-white px-3 py-2 text-xs font-bold text-green-700" target="_blank" rel="noopener noreferrer" href={`https://wa.me/${telefoneWhatsApp(orcamento.oportunidades?.celular || '')}?text=${encodeURIComponent(`Olá! Seu orçamento ORC-${String(orcamento.numero).padStart(4, '0')} foi preparado. Complete seus dados para gerarmos o contrato: ${linksCadastro[orcamento.id]}`)}`}>WhatsApp</a>
+                      <Button variant="secondary" type="button" disabled={gerandoCadastroId === orcamento.id || !emailClienteDo(orcamento)} onClick={() => void gerarLinkCadastro(orcamento, 'enviar_email')}><Mail size={15} /> Enviar e-mail</Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             {orcamento.status === 'ACEITA' && (

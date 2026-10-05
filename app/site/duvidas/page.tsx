@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { SitePublicoLayout } from '@/components/publico/SitePublicoLayout'
 
 const perguntas = [
-  ['Como acompanho minha pré-reserva ou reserva?', 'Acesse Acompanhar meu pedido no menu e cole o link privado exibido na confirmação da solicitação ou enviado pela equipe. Nessa página você consulta as etapas e os documentos liberados. Se perdeu o link ou fez um pedido antes dessa função, peça um novo à equipe.'],
+  ['Como acompanho meu orçamento?', 'Acesse Acompanhar meu orçamento no menu e use o link privado recebido após a solicitação. Nessa página você consulta o andamento, completa os dados do contrato e abre os documentos liberados.'],
   ['A seleção do kit já garante a reserva?', 'Não. A seleção inicia a solicitação. A reserva é confirmada somente depois da análise, aceite, contrato assinado e pagamento.'],
   ['O estoque fica bloqueado quando eu envio a solicitação?', 'Não. O bloqueio do estoque acontece somente na confirmação definitiva da reserva.'],
   ['Posso montar um kit personalizado?', 'Sim. Você pode selecionar itens do catálogo e nossa equipe prepara o orçamento da composição personalizada.'],
@@ -35,7 +35,7 @@ export default function DuvidasPage() {
           <div className="mt-10 text-center">
             <p className="text-slate-600">Pronto para começar?</p>
             <Link href="/reservar" className="mt-4 inline-flex rounded-full bg-pink-600 px-6 py-3 font-black text-white hover:bg-pink-700">
-              Solicitar reserva
+              Solicitar orçamento
             </Link>
           </div>
         </section>

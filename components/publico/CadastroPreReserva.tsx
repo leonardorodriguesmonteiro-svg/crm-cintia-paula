@@ -26,12 +26,12 @@ export function CadastroPreReserva({ onConcluido }: { onConcluido: () => void })
   }
   if (concluido) return <p role="status" className="rounded-2xl bg-white p-6">Cadastro recebido! A equipe preparará seu orçamento final.</p>
   return <section className="rounded-2xl border border-pink-200 bg-white p-6">
-    <h2 className="text-xl font-bold">Pré-reserva aprovada! Complete seu cadastro</h2>
-    <p className="mt-2 text-slate-600">Precisamos destes dados para preparar seu orçamento e os documentos da contratação. Você receberá o orçamento final por e-mail para conferir e aceitar.</p>
+    <h2 className="text-xl font-bold">Orçamento aprovado! Complete seus dados</h2>
+    <p className="mt-2 text-slate-600">Precisamos destes dados somente agora para gerar o contrato da sua reserva. As informações já enviadas serão reaproveitadas.</p>
     <form onSubmit={salvar} className="mt-5 grid gap-4 sm:grid-cols-2">
       {campos.map(([name, label, type, maxLength, autoComplete]) => <label key={name} className="block text-sm font-semibold">{label}<input name={name} type={type} maxLength={maxLength} autoComplete={autoComplete} inputMode={name === 'cpf' || name === 'cep' ? 'numeric' : undefined} required={name !== 'complemento'} className="mt-1 w-full rounded-xl border border-slate-300 p-3 text-base font-normal" /></label>)}
       {erro && <p role="alert" className="text-red-700 sm:col-span-2">{erro}</p>}
-      <button type="submit" disabled={enviando} className="rounded-xl bg-pink-600 px-5 py-3 font-bold text-white disabled:opacity-60 sm:col-span-2">{enviando ? 'Enviando cadastro…' : 'Concluir cadastro para o orçamento'}</button>
+      <button type="submit" disabled={enviando} className="rounded-xl bg-pink-600 px-5 py-3 font-bold text-white disabled:opacity-60 sm:col-span-2">{enviando ? 'Enviando cadastro…' : 'Concluir dados para gerar o contrato'}</button>
     </form>
   </section>
 }

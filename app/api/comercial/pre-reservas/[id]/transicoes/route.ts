@@ -29,7 +29,7 @@ export async function POST(
     }
     if (!Number.isInteger(versaoEsperada) || versaoEsperada < 1) {
       return NextResponse.json(
-        { sucesso: false, erro: 'Versão da pré-reserva inválida.' },
+        { sucesso: false, erro: 'Versão da solicitação de orçamento inválida.' },
         { status: 400 }
       )
     }
@@ -47,8 +47,8 @@ export async function POST(
     if (proximoStatus === 'APROVADA') {
       try {
         const envios = await enviarAcompanhamento(id, vinculo.empresa_id, ['email'], 'aprovacao')
-        if (!envios.some(envio => envio.status === 'aceito')) aviso = 'Pré-reserva aprovada. Confira o status do e-mail no link do cliente ou envie pelo WhatsApp.'
-      } catch { aviso = 'Pré-reserva aprovada, mas não foi possível enviar o cadastro. Abra o link do cliente para tentar o e-mail ou enviar pelo WhatsApp.' }
+        if (!envios.some(envio => envio.status === 'aceito')) aviso = 'Orçamento aprovado. Confira o status do e-mail no link do cliente ou envie pelo WhatsApp.'
+      } catch { aviso = 'Orçamento aprovado, mas não foi possível enviar o cadastro. Abra o link do cliente para tentar o e-mail ou enviar pelo WhatsApp.' }
     }
     return NextResponse.json({ sucesso: true, pre_reserva: resultado, aviso })
   } catch (error) {

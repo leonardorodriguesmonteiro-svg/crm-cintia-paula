@@ -4,7 +4,7 @@ import { SitePublicoLayout } from '@/components/publico/SitePublicoLayout'
 
 const etapas = [
   ['1', 'Escolha seu estilo', 'Veja os kits prontos ou monte uma composição personalizada.'],
-  ['2', 'Informe a data', 'Envie os dados da festa para consultarmos a disponibilidade.'],
+  ['2', 'Solicite o orçamento', 'Informe a data e os dados mínimos para análise.'],
   ['3', 'Receba a proposta', 'Nossa equipe analisa a solicitação e prepara o orçamento.'],
   ['4', 'Formalize a reserva', 'Após aceite, contrato e pagamento, sua reserva é confirmada.']
 ]
@@ -23,24 +23,24 @@ export default function SiteHomePage() {
                 Sua festa bonita, prática e com a sua cara.
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
-                Encontre uma inspiração, escolha seu kit e envie sua pré-reserva online. Se preferir, monte uma composição personalizada com peças do nosso acervo.
+                Escolha as peças da sua festa e solicite seu orçamento online. Nossa equipe ajusta disponibilidade, itens e valores antes do contrato.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link href="/site/kits" className="rounded-full bg-pink-600 px-6 py-3.5 font-black text-white shadow-lg shadow-pink-200/60 transition hover:-translate-y-0.5 hover:bg-pink-700">
                   Explorar os kits
                 </Link>
                 <Link href="/reservar" className="rounded-full border border-pink-200 bg-white px-6 py-3.5 font-black text-pink-700 transition hover:bg-pink-50">
-                  Montar meu kit
+                  Solicitar orçamento
                 </Link>
               </div>
               <div className="mt-6 rounded-2xl border border-pink-200 bg-white p-4">
-                <p className="font-bold">Já enviou uma solicitação?</p>
-                <Link href="/acompanhar" className="mt-2 inline-block py-2 font-bold text-pink-700 underline underline-offset-4">Acompanhar meu pedido →</Link>
+                <p className="font-bold">Já solicitou seu orçamento?</p>
+                <Link href="/acompanhar" className="mt-2 inline-block py-2 font-bold text-pink-700 underline underline-offset-4">Acompanhar meu orçamento →</Link>
               </div>
               <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm font-bold text-slate-500">
                 <span>✓ Kits e peças para sua festa</span>
-                <span>✓ Solicitação online</span>
-                <span>✓ Acompanhamento do pedido</span>
+                <span>✓ Orçamento online</span>
+                <span>✓ Acompanhamento simples</span>
               </div>
             </div>
 
@@ -54,7 +54,7 @@ export default function SiteHomePage() {
                   {[
                     ['🎉', 'Kits prontos', 'Fotos, temas e valores do catálogo real.'],
                     ['✨', 'Monte seu kit', 'Escolha peças e crie sua composição.'],
-                    ['📅', 'Pré-reserva', 'Informe a data e envie sua solicitação.'],
+                    ['📅', 'Orçamento', 'Informe a data e envie sua solicitação.'],
                     ['📝', 'Formalização', 'Proposta, contrato e pagamento no mesmo processo.']
                   ].map(([icone, titulo, texto]) => (
                     <div key={titulo} className="rounded-3xl border border-pink-100 bg-white p-5 shadow-sm">
@@ -67,7 +67,7 @@ export default function SiteHomePage() {
                 <div className="mt-5 rounded-3xl bg-slate-950 p-5 text-white">
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-pink-400">Mais rápido</p>
                   <p className="mt-2 text-lg font-black">Gostou de um kit?</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-300">Na vitrine, clique em “Quero este kit” e ele já abre selecionado na Reserva Expressa.</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-300">Na vitrine, clique em “Quero este kit” e ele já abre selecionado na solicitação de orçamento.</p>
                 </div>
               </div>
             </div>
@@ -81,7 +81,7 @@ export default function SiteHomePage() {
             <div className="text-center">
               <p className="text-sm font-black uppercase tracking-[0.2em] text-pink-600">Como funciona</p>
               <h2 className="mt-3 text-3xl font-black md:text-5xl">Da escolha à reserva em poucos passos</h2>
-              <p className="mx-auto mt-4 max-w-2xl leading-7 text-slate-600">Escolha seu kit, envie a solicitação e acompanhe a análise da equipe até a confirmação da reserva.</p>
+              <p className="mx-auto mt-4 max-w-2xl leading-7 text-slate-600">Escolha os itens, solicite o orçamento e acompanhe tudo pelo mesmo link até a confirmação da reserva.</p>
             </div>
             <div className="mt-10 grid gap-4 md:grid-cols-4">
               {etapas.map(([numero, titulo, texto]) => (
@@ -118,13 +118,13 @@ export default function SiteHomePage() {
           <div className="mx-auto flex max-w-5xl flex-col items-center text-center">
             <p className="text-sm font-black uppercase tracking-[0.2em] text-pink-400">Sua festa começa aqui</p>
             <h2 className="mt-3 text-3xl font-black md:text-5xl">Encontre o kit ideal ou crie algo só seu.</h2>
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-300">Explore as inspirações, escolha seu kit e avance direto para a pré-reserva.</p>
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-300">Explore as inspirações, escolha os itens e solicite seu orçamento em poucos passos.</p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Link href="/site/kits" className="rounded-full bg-pink-500 px-7 py-3.5 font-black text-white transition hover:bg-pink-400">
                 Ver todos os kits
               </Link>
               <Link href="/reservar" className="rounded-full border border-slate-700 px-7 py-3.5 font-black text-white transition hover:bg-slate-900">
-                Montar meu kit
+                Solicitar orçamento
               </Link>
             </div>
           </div>

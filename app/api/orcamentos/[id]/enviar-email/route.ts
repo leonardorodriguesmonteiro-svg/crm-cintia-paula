@@ -31,7 +31,7 @@ export async function POST(
         const { data: pedido, error: erroPedido } = await supabaseServer.from('oportunidades').select('cadastro_completo_em')
           .eq('id', orcamento.oportunidade_id).eq('empresa_id', acesso.vinculo.empresa_id).maybeSingle()
         if (erroPedido) throw erroPedido
-        if (!pedido?.cadastro_completo_em) return NextResponse.json({ error: 'Aguarde o cliente completar o cadastro pelo link da pré-reserva antes de finalizar o orçamento.' }, { status: 409 })
+        if (!pedido?.cadastro_completo_em) return NextResponse.json({ error: 'Envie o link do orçamento e aguarde o cliente completar os dados necessários ao contrato.' }, { status: 409 })
       }
       await enviarProposta({
         usuarioId: acesso.usuario.id,

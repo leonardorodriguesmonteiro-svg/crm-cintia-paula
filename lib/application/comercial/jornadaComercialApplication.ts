@@ -52,7 +52,7 @@ function validarCriacao(input: CriarPreReservaInput) {
 
   if (!input.itens.length || input.itens.length > 100) {
     throw new JornadaComercialError(
-      'A pré-reserva deve conter de 1 a 100 itens.',
+      'A solicitação de orçamento deve conter de 1 a 100 itens.',
       'ITENS_INVALIDOS'
     )
   }
@@ -154,7 +154,7 @@ export async function criarPreReserva(
 
   const evento = await publicarEvento({
     codigo: ERPEvents.PRE_RESERVA_RECEBIDA,
-    titulo: `Pré-reserva #${preReserva.numero} recebida`,
+    titulo: `Solicitação de orçamento SOL-${String(preReserva.numero).padStart(4, '0')} recebida`,
     descricao: 'Solicitação recebida para análise comercial.',
     empresaId: input.empresaId,
     entidadeTipo: 'PreReserva',
@@ -186,7 +186,7 @@ export async function transicionarPreReserva(
 
   if (!atual) {
     throw new JornadaComercialError(
-      'Pré-reserva não encontrada para esta empresa.',
+      'Solicitação de orçamento não encontrada para esta empresa.',
       'PRE_RESERVA_NAO_ENCONTRADA',
       404
     )
@@ -214,7 +214,7 @@ export async function transicionarPreReserva(
 
   if (!podeTransicionarPreReserva(statusAtual, input.proximoStatus)) {
     throw new JornadaComercialError(
-      `Não é permitido alterar a pré-reserva de ${statusAtual} para ${input.proximoStatus}.`,
+      `Não é permitido alterar a solicitação de orçamento de ${statusAtual} para ${input.proximoStatus}.`,
       'TRANSICAO_INVALIDA',
       409
     )
@@ -223,7 +223,7 @@ export async function transicionarPreReserva(
   const persistida = await comercialJourneyRepository.transicionarPreReserva(input)
   const evento = await publicarEvento({
     codigo: eventoDaTransicao(input.proximoStatus),
-    titulo: `Pré-reserva #${persistida.numero}: ${input.proximoStatus}`,
+    titulo: `Solicitação de orçamento SOL-${String(persistida.numero).padStart(4, '0')}: ${input.proximoStatus}`,
     descricao: input.observacao?.trim() || 'Etapa comercial atualizada.',
     empresaId: input.empresaId,
     entidadeTipo: 'PreReserva',
@@ -254,7 +254,7 @@ export async function ajustarValoresPreReserva(
 ) {
   if (!Number.isInteger(input.versaoEsperada) || input.versaoEsperada < 1) {
     throw new JornadaComercialError(
-      'Versão da pré-reserva inválida.',
+      'Versão da solicitação de orçamento inválida.',
       'VERSAO_INVALIDA'
     )
   }
@@ -275,7 +275,7 @@ export async function ajustarValoresPreReserva(
   const resultado = await comercialJourneyRepository.ajustarValoresPreReserva(input)
   const evento = await publicarEvento({
     codigo: ERPEvents.PRE_RESERVA_VALOR_AJUSTADO,
-    titulo: `Valores da pré-reserva #${resultado.numero} ajustados`,
+    titulo: `Valores do orçamento SOL-${String(resultado.numero).padStart(4, '0')} ajustados`,
     descricao: resultado.desconto_calculado > 0
       ? `Desconto comercial de R$ ${Number(resultado.desconto_calculado).toFixed(2)} aplicado.`
       : 'Valores comerciais revisados sem desconto.',
@@ -443,7 +443,7 @@ export async function enviarProposta(input: {
     }),
     publicarEvento({
       codigo: ERPEvents.PRE_RESERVA_CONVERTIDA_EM_PROPOSTA,
-      titulo: `Pré-reserva convertida na proposta #${resultado.numero}`,
+      titulo: `Solicitação convertida no orçamento #${resultado.numero}`,
       empresaId: input.empresaId,
       entidadeTipo: 'PreReserva',
       entidadeId: resultado.oportunidade_id,
