@@ -62,6 +62,8 @@ Após restaurar:
 
 ## Estado atual
 
-O dump lógico ainda depende da senha do banco ou de um ambiente com Supabase CLI/Docker configurado. Até sua conclusão e ensaio de restauração, migrations da Jornada 3.0 permanecem bloqueadas.
+O dump lógico, a cópia do Storage e o ensaio de restauração foram concluídos em 07/10/2026. O dump completo foi preservado; o ensaio local validou os schemas `public`, `private`, `auth` e `storage`, porque extensões gerenciadas como `supabase_vault` não existem em um PostgreSQL comum.
+
+Esse limite é esperado e está documentado. Para recuperação real da plataforma completa, restaurar em um projeto Supabase compatível; para validar os dados da aplicação, utilizar `scripts/preservacao/rehearse-restore.mjs`.
 
 Documentação oficial: https://supabase.com/docs/guides/platform/backups
