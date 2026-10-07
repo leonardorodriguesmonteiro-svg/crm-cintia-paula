@@ -1,0 +1,208 @@
+{
+  "result": {
+    "lints": [
+      {
+        "name": "rls_enabled_no_policy",
+        "title": "RLS Enabled No Policy",
+        "level": "INFO",
+        "facing": "EXTERNAL",
+        "categories": [
+          "SECURITY"
+        ],
+        "description": "Detects cases where row level security (RLS) has been enabled on a table but no RLS policies have been created.",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy",
+        "count": 6,
+        "findings": [
+          {
+            "detail": "Table \\`public.acompanhamento_aprovacao_envios\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "acompanhamento_aprovacao_envios",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-07T17:27:49.475Z"
+          },
+          {
+            "detail": "Table \\`public.acompanhamento_envios\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "acompanhamento_envios",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-07T17:27:49.475Z"
+          },
+          {
+            "detail": "Table \\`public.acompanhamento_links\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "acompanhamento_links",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-07T17:27:49.475Z"
+          },
+          {
+            "detail": "Table \\`public.consolidacao_estoque_v3_v6\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "consolidacao_estoque_v3_v6",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-07T17:27:49.475Z"
+          },
+          {
+            "detail": "Table \\`public.pre_reserva_rate_limits\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "pre_reserva_rate_limits",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-07T17:27:49.475Z"
+          },
+          {
+            "detail": "Table \\`public.site_pre_reservas\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "site_pre_reservas",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-07T17:27:49.475Z"
+          }
+        ]
+      },
+      {
+        "name": "authenticated_security_definer_function_executable",
+        "title": "Signed-In Users Can Execute SECURITY DEFINER Function",
+        "level": "WARN",
+        "facing": "EXTERNAL",
+        "categories": [
+          "SECURITY"
+        ],
+        "description": "Detects `SECURITY DEFINER` functions that are callable by signed-in users. Revoke `EXECUTE`, switch the function to `SECURITY INVOKER`, or move it out of your exposed API schema if signed-in users should not call it.",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable",
+        "count": 9,
+        "findings": [
+          {
+            "detail": "Function `public.meu_acesso()` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/meu_acesso`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "meu_acesso",
+              "schema": "public",
+              "language": "sql",
+              "arguments": "",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-07T17:27:49.475Z"
+          },
+          {
+            "detail": "Function `public.usuario_eh_admin_empresa(p_empresa_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/usuario_eh_admin_empresa`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "usuario_eh_admin_empresa",
+              "schema": "public",
+              "language": "sql",
+              "arguments": "p_empresa_id uuid",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-07T17:27:49.475Z"
+          },
+          {
+            "detail": "Function `public.usuario_eh_administrador()` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/usuario_eh_administrador`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "usuario_eh_administrador",
+              "schema": "public",
+              "language": "sql",
+              "arguments": "",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-07T17:27:49.475Z"
+          },
+          {
+            "detail": "Function `public.usuario_pertence_empresa(p_empresa_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/usuario_pertence_empresa`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "usuario_pertence_empresa",
+              "schema": "public",
+              "language": "sql",
+              "arguments": "p_empresa_id uuid",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-07T17:27:49.475Z"
+          },
+          {
+            "detail": "Function `public.usuario_tem_perfil(p_perfis text[])` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/usuario_tem_perfil`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "usuario_tem_perfil",
+              "schema": "public",
+              "language": "sql",
+              "arguments": "p_perfis text[]",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-07T17:27:49.475Z"
+          },
+          {
+            "detail": "Function `public.usuario_tem_perfil_na_empresa(p_empresa_id uuid, p_perfis text[])` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/usuario_tem_perfil_na_empresa`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "usuario_tem_perfil_na_empresa",
+              "schema": "public",
+              "language": "sql",
+              "arguments": "p_empresa_id uuid, p_perfis text[]",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-07T17:27:49.475Z"
+          },
+          {
+            "detail": "Function `public.usuario_tem_permissao(p_modulo text)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/usuario_tem_permissao`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "usuario_tem_permissao",
+              "schema": "public",
+              "language": "sql",
+              "arguments": "p_modulo text",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-07T17:27:49.475Z"
+          },
+          {
+            "detail": "Function `public.verificar_disponibilidade_estoque_item(p_estoque_item_id uuid, p_quantidade numeric, p_inicio date, p_fim date, p_reserva_ignorar uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/verificar_disponibilidade_estoque_item`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "verificar_disponibilidade_estoque_item",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_estoque_item_id uuid, p_quantidade numeric, p_inicio date, p_fim date, p_reserva_ignorar uuid",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-07T17:27:49.475Z"
+          },
+          {
+            "detail": "Function `public.verificar_disponibilidade_kit(p_kit_id uuid, p_inicio date, p_fim date, p_reserva_ignorar uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/verificar_disponibilidade_kit`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "verificar_disponibilidade_kit",
+              "schema": "public",
+              "language": "sql",
+              "arguments": "p_kit_id uuid, p_inicio date, p_fim date, p_reserva_ignorar uuid",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-07T17:27:49.475Z"
+          }
+        ]
+      },
+      {
+        "name": "auth_leaked_password_protection",
+        "title": "Leaked Password Protection Disabled",
+        "level": "WARN",
+        "facing": "EXTERNAL",
+        "categories": [
+          "SECURITY"
+        ],
+        "description": "Leaked password protection is currently disabled.",
+        "remediation": "https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection",
+        "count": 1,
+        "findings": [
+          {
+            "detail": "Supabase Auth prevents the use of compromised passwords by checking against HaveIBeenPwned.org. Enable this feature to enhance security.",
+            "metadata": {
+              "type": "auth",
+              "entity": "Auth"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

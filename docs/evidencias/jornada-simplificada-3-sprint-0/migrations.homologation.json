@@ -1,0 +1,280 @@
+{
+  "migrations": [
+    {
+      "version": "20260824191544",
+      "name": "001_base"
+    },
+    {
+      "version": "20260824191549",
+      "name": "002_estoque_inteligente"
+    },
+    {
+      "version": "20260824191555",
+      "name": "003_reservas"
+    },
+    {
+      "version": "20260824191638",
+      "name": "004_consolida_reservas_v7"
+    },
+    {
+      "version": "20260824191643",
+      "name": "005_bloqueio_disponibilidade_kits"
+    },
+    {
+      "version": "20260824191649",
+      "name": "006_financeiro_v7"
+    },
+    {
+      "version": "20260824191654",
+      "name": "007_lancamentos_financeiros"
+    },
+    {
+      "version": "20260824191659",
+      "name": "008_reserva_timeline"
+    },
+    {
+      "version": "20260824191751",
+      "name": "compat_recebimentos_instalacao_nova"
+    },
+    {
+      "version": "20260824191809",
+      "name": "009_timeline_inteligente"
+    },
+    {
+      "version": "20260824191814",
+      "name": "010_reserva_checklist"
+    },
+    {
+      "version": "20260824191819",
+      "name": "011_reserva_logistica"
+    },
+    {
+      "version": "20260824191903",
+      "name": "modulo_juridico"
+    },
+    {
+      "version": "20260824191923",
+      "name": "013_ordens_servico"
+    },
+    {
+      "version": "20260824191928",
+      "name": "014_equipe"
+    },
+    {
+      "version": "20260824192012",
+      "name": "compat_multiempresa_instalacao_nova"
+    },
+    {
+      "version": "20260824192030",
+      "name": "015_timeline_global"
+    },
+    {
+      "version": "20260824192036",
+      "name": "016_feedbacks"
+    },
+    {
+      "version": "20260824192043",
+      "name": "017_feedbacks_admin"
+    },
+    {
+      "version": "20260824192139",
+      "name": "consolidacao_v3_v6"
+    },
+    {
+      "version": "20260824192154",
+      "name": "019_feedbacks_acesso_inicial"
+    },
+    {
+      "version": "20260824192203",
+      "name": "020_feedbacks_respostas_e_conclusoes"
+    },
+    {
+      "version": "20260824192208",
+      "name": "021_funil_comercial"
+    },
+    {
+      "version": "20260824192213",
+      "name": "022_orcamentos"
+    },
+    {
+      "version": "20260824192228",
+      "name": "023_orcamento_para_reserva"
+    },
+    {
+      "version": "20260824192235",
+      "name": "024_proposta_publica"
+    },
+    {
+      "version": "20260824192242",
+      "name": "025_formalizacao_venda"
+    },
+    {
+      "version": "20260824192249",
+      "name": "026_assinatura_publica_e_pagamento"
+    },
+    {
+      "version": "20260824192256",
+      "name": "027_mercado_pago"
+    },
+    {
+      "version": "20260824192302",
+      "name": "028_feedback_clientes_reservas_contratos"
+    },
+    {
+      "version": "20260824192308",
+      "name": "029_feedback_composicoes_e_moeda"
+    },
+    {
+      "version": "20260824192314",
+      "name": "030_administracao_rbac_usuarios"
+    },
+    {
+      "version": "20260824192513",
+      "name": "rbac_politicas_modulos"
+    },
+    {
+      "version": "20260824192530",
+      "name": "032_painel_empresa"
+    },
+    {
+      "version": "20260824192537",
+      "name": "033_auditoria_operacional"
+    },
+    {
+      "version": "20260824192547",
+      "name": "034_codigo_automatico_estoque"
+    },
+    {
+      "version": "20260824192555",
+      "name": "035_fotos_catalogo"
+    },
+    {
+      "version": "20260824192603",
+      "name": "036_evidence_engine_fotos"
+    },
+    {
+      "version": "20260824192609",
+      "name": "037_assinaturas_operacionais"
+    },
+    {
+      "version": "20260824192615",
+      "name": "038_ocorrencias_missao"
+    },
+    {
+      "version": "20260824192702",
+      "name": "prod_20260814221243_catalogo_publico_site"
+    },
+    {
+      "version": "20260824192713",
+      "name": "prod_20260822010727_clientes_updated_at_compat"
+    },
+    {
+      "version": "20260824192724",
+      "name": "prod_20260822010754_esteira_comercial_v2_base"
+    },
+    {
+      "version": "20260824192737",
+      "name": "prod_20260822010827_pre_reserva_aplicacao"
+    },
+    {
+      "version": "20260824192753",
+      "name": "prod_20260822010846_pre_reserva_rate_limit"
+    },
+    {
+      "version": "20260824192809",
+      "name": "prod_20260822010922_aceite_e_dados_cliente"
+    },
+    {
+      "version": "20260824192821",
+      "name": "prod_20260822010937_acoes_proposta"
+    },
+    {
+      "version": "20260824192839",
+      "name": "prod_20260822010950_feedback_central_v2"
+    },
+    {
+      "version": "20260824192854",
+      "name": "prod_20260822011226_formalizacao_comercial_v2"
+    },
+    {
+      "version": "20260824192923",
+      "name": "prod_20260822011251_guarda_confirmacao_v2"
+    },
+    {
+      "version": "20260824192932",
+      "name": "prod_20260822011305_finalizador_exclusivo_v2"
+    },
+    {
+      "version": "20260824192941",
+      "name": "prod_20260822011422_hardening_rpc_disponibilidade"
+    },
+    {
+      "version": "20260824192950",
+      "name": "prod_20260822034707_secret_key_server_rpcs"
+    },
+    {
+      "version": "20260824192959",
+      "name": "prod_20260822164338_dados_cliente_completos_v2"
+    },
+    {
+      "version": "20260824193009",
+      "name": "prod_20260822165530_email_obrigatorio_jornada_comercial"
+    },
+    {
+      "version": "20260824193019",
+      "name": "prod_20260822171105_hardening_formalizacao_email"
+    },
+    {
+      "version": "20260824193031",
+      "name": "prod_20260822174637_reserva_simplificada_estoque_os"
+    },
+    {
+      "version": "20260824193046",
+      "name": "consolidar_esteira_comercial_unica"
+    },
+    {
+      "version": "20260824193052",
+      "name": "normalizar_propostas_e_formalizacao"
+    },
+    {
+      "version": "20260824193425",
+      "name": "remover_confirmadores_duplicados"
+    },
+    {
+      "version": "20260824193601",
+      "name": "hardening_funcoes_internas"
+    },
+    {
+      "version": "20260824193652",
+      "name": "hardening_funcoes_internas_public"
+    },
+    {
+      "version": "20260925002652",
+      "name": "acompanhamento_links"
+    },
+    {
+      "version": "20260925002702",
+      "name": "acompanhamento_envios"
+    },
+    {
+      "version": "20260925002717",
+      "name": "cadastro_antes_orcamento"
+    },
+    {
+      "version": "20260925002728",
+      "name": "cadastro_cnpj_acompanhamento"
+    },
+    {
+      "version": "20260925030301",
+      "name": "pre_reserva_valores_desconto"
+    },
+    {
+      "version": "20260925031045",
+      "name": "sincronizar_total_pre_reserva"
+    },
+    {
+      "version": "20260925031236",
+      "name": "ajustar_autorizacao_desconto_pre_reserva"
+    }
+  ]
+}

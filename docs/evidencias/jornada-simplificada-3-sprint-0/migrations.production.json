@@ -1,0 +1,100 @@
+{
+  "migrations": [
+    {
+      "version": "20260814221243",
+      "name": "catalogo_publico_site"
+    },
+    {
+      "version": "20260822010727",
+      "name": "clientes_updated_at_compat"
+    },
+    {
+      "version": "20260822010754",
+      "name": "esteira_comercial_v2_base"
+    },
+    {
+      "version": "20260822010827",
+      "name": "pre_reserva_aplicacao"
+    },
+    {
+      "version": "20260822010846",
+      "name": "pre_reserva_rate_limit"
+    },
+    {
+      "version": "20260822010922",
+      "name": "aceite_e_dados_cliente"
+    },
+    {
+      "version": "20260822010937",
+      "name": "acoes_proposta"
+    },
+    {
+      "version": "20260822010950",
+      "name": "feedback_central_v2"
+    },
+    {
+      "version": "20260822011226",
+      "name": "formalizacao_comercial_v2"
+    },
+    {
+      "version": "20260822011251",
+      "name": "guarda_confirmacao_v2"
+    },
+    {
+      "version": "20260822011305",
+      "name": "finalizador_exclusivo_v2"
+    },
+    {
+      "version": "20260822011422",
+      "name": "hardening_rpc_disponibilidade"
+    },
+    {
+      "version": "20260822034707",
+      "name": "secret_key_server_rpcs"
+    },
+    {
+      "version": "20260822164338",
+      "name": "dados_cliente_completos_v2"
+    },
+    {
+      "version": "20260822165530",
+      "name": "email_obrigatorio_jornada_comercial"
+    },
+    {
+      "version": "20260822171105",
+      "name": "hardening_formalizacao_email"
+    },
+    {
+      "version": "20260822174637",
+      "name": "reserva_simplificada_estoque_os"
+    },
+    {
+      "version": "20260824231203",
+      "name": "promover_esteira_comercial_consolidada_20260824"
+    },
+    {
+      "version": "20260921231439",
+      "name": "acompanhamento_links_privados"
+    },
+    {
+      "version": "20260922144649",
+      "name": "cadastro_antes_orcamento"
+    },
+    {
+      "version": "20260929172351",
+      "name": "cadastro_cnpj_acompanhamento"
+    },
+    {
+      "version": "20260929172446",
+      "name": "pre_reserva_valores_desconto"
+    },
+    {
+      "version": "20260929172515",
+      "name": "sincronizar_total_pre_reserva"
+    },
+    {
+      "version": "20260929172540",
+      "name": "ajustar_autorizacao_desconto_pre_reserva"
+    }
+  ]
+}
