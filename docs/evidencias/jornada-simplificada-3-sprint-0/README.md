@@ -50,12 +50,15 @@ Não aplicar migrations até que existam simultaneamente:
 ## Arquivos
 
 - `001_baseline_readonly.sql`: inventário reproduzível e somente leitura;
+- `002_invariants_readonly.sql`: portão de integridade antes/depois de migrations;
 - `database.types.production.ts`: snapshot do schema de produção;
 - `database.types.homologation.ts`: snapshot do schema de homologação;
 - `BASELINE_2026-10-07.md`: resultados e divergências observadas;
 - `MIGRATION_RECONCILIATION.md`: estratégia para reconciliar o histórico;
+- `ENVIRONMENT_RELEASE_MAP.md`: ambientes, variáveis e fluxo de promoção;
+- `INVARIANTS_2026-10-07.md`: resultado aprovado do portão de integridade;
 - `BACKUP_RESTORE_RUNBOOK.md`: procedimento seguro de dump, restore e verificação;
 - `MIGRATIONS_LOCAL_SHA256.md`: checksum individual das migrations locais;
 - `migrations.*.json`: histórico remoto dos dois ambientes;
-- `advisors.security.*.json`: snapshot dos advisors de segurança.
+- `advisors.security.*.json`: snapshot dos advisors de segurança;
 - `RESTORE_REHEARSAL_2026-10-07.md`: resultado do ensaio de restauração.
