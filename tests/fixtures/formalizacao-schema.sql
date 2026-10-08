@@ -37,3 +37,5 @@ alter table public.contratos alter column public_token set default gen_random_uu
 alter table public.lancamentos_financeiros alter column created_at set default now();
 create unique index on public.recebimentos(lancamento_id) where lancamento_id is not null;
 
+
+create table public.clientes(id uuid, email text);

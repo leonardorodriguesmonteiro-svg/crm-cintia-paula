@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 const { PGlite } = await import(process.env.PGLITE_MODULE || '@electric-sql/pglite')
 const db = new PGlite()
-for (const path of ['../fixtures/formalizacao-schema.sql','../fixtures/formalizacao-dependencies.sql','../../supabase/migrations/20261008195202_jornada3_contrato_pagamento.sql']) {
+for (const path of ['../fixtures/formalizacao-schema.sql','../fixtures/formalizacao-dependencies.sql','../../supabase/migrations/20261008195202_jornada3_contrato_pagamento.sql','../../supabase/migrations/20261008195921_validar_email_contrato_jornada3.sql']) {
  await db.exec(readFileSync(new URL(path,import.meta.url),'utf8'))
 }
 const empresa='11111111-1111-4111-8111-111111111111',usuario='22222222-2222-4222-8222-222222222222'
@@ -11,6 +11,7 @@ async function criar(tipo='CONCEITUAL') {
  const q=(await db.query("insert into orcamentos(empresa_id,status,formalizacao_status,dados_cliente_completos_em,cliente_id,data_evento,total,desconto) values($1,'ACEITA','DADOS_COMPLETOS',now(),gen_random_uuid(),'2099-01-10',205.50,10) returning id",[empresa])).rows[0].id
  await db.query("insert into orcamento_itens(orcamento_id,tipo_origem,descricao,quantidade,valor_unitario,preco_unitario_orcamento,desconto,ordem) values($1,$2,'Painel',2,100.10,100.10,10.20,0)",[q,tipo])
  await db.query("insert into orcamento_taxas(orcamento_id,descricao,valor,ordem) values($1,'Montagem',25.50,0)",[q])
+ await db.query("insert into clientes(id,email) select cliente_id,'teste@example.com' from orcamentos where id=$1",[q])
  return q
 }
 async function executar(q,acao='formalizar',sinal=50,user=usuario) {return (await db.query("select executar_formalizacao_servidor($1,$2,$3,$4,'2099-01-01','Pix') as r",[user,q,acao,sinal])).rows[0].r}
@@ -31,6 +32,7 @@ const livre=await criar('LIVRE');await executar(livre)
 assert.equal((await executar(livre,'confirmar_sinal')).status,'AGUARDANDO_ASSINATURA')
 assert.equal((await executar(livre,'confirmar_assinatura')).nova_confirmacao,true)
 await db.query('update orcamentos set empresa_id=gen_random_uuid() where id=$1',[livre]);await assert.rejects(executar(livre),/permissão/)
+const semEmail=await criar();await db.query("update clientes set email='invalido' where id=(select cliente_id from orcamentos where id=$1)",[semEmail]);await assert.rejects(executar(semEmail),/e-mail/);
 const invalido=await criar();await assert.rejects(executar(invalido,'formalizar',999),/maior/)
 await db.query('update orcamentos set total=999 where id=$1',[invalido]);await assert.rejects(executar(invalido),/total aceito/)
 assert.equal((await db.query('select count(*)::int as n from contratos')).rows[0].n,2)
