@@ -25,3 +25,8 @@ export function valoresItemPublico(item: {
 export function contatoDaProposta(orcamento: { contato_nome?: string | null; contato_email?: string | null }, cliente?: { nome: string; email: string | null } | null) {
   return { nome: orcamento.contato_nome?.trim() || cliente?.nome || 'Cliente', email: orcamento.contato_email?.trim().toLowerCase() || cliente?.email?.trim().toLowerCase() || null }
 }
+
+export function linkContratoDaProposta(proposta: { status: string; reserva_id: string | null }, contrato: { public_token: string | null; status: string | null; reserva_id: string | null } | null) {
+  if (proposta.status !== 'ACEITA' || !proposta.reserva_id || !contrato?.public_token || contrato.reserva_id !== proposta.reserva_id || !['Gerado', 'Enviado', 'Assinado'].includes(contrato.status || '')) return null
+  return `/contrato/${contrato.public_token}`
+}

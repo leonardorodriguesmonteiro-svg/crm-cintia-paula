@@ -8,6 +8,7 @@ import {
   enviarContratoPorEmail
 } from '@/lib/contratoEmail'
 import { publicarConfirmacaoReservaV2 } from '@/lib/formalizacaoConfirmacao'
+import { ORIGEM_OFICIAL } from '@/lib/server/acompanhamento'
 import { supabaseServer } from '@/lib/supabaseServer'
 
 export const dynamic = 'force-dynamic'
@@ -51,13 +52,17 @@ export async function POST(
     const { id } = await contexto.params
     if (acao === 'formalizar') {
       const valorSinal = Number(corpo.valor_sinal || 0)
-      if (valorSinal <= 0 || !corpo.vencimento) {
+      if (!Number.isFinite(valorSinal) || valorSinal <= 0 || !corpo.vencimento) {
         return NextResponse.json(
           { error: 'Informe o valor e o vencimento do sinal.' },
           { status: 400 }
         )
       }
     }
+
+    const { data: proposta, error: erroProposta } = await supabaseServer.from('orcamentos').select('id').eq('id', id).eq('empresa_id', acesso.vinculo.empresa_id).maybeSingle()
+    if (erroProposta) throw erroProposta
+    if (!proposta) return NextResponse.json({ error: 'Proposta não encontrada.' }, { status: 404 })
 
     const resultado = await supabaseServer.rpc('executar_formalizacao_servidor', {
       p_usuario_id: acesso.usuario.id,
@@ -91,7 +96,7 @@ export async function POST(
       try {
         envioContrato = await enviarContratoPorEmail(
           dados.contrato_id,
-          request.nextUrl.origin
+          ORIGEM_OFICIAL
         )
       } catch (error) {
         envioPendente = true

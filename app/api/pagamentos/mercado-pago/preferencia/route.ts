@@ -1,3 +1,4 @@
+import { ORIGEM_OFICIAL } from '@/lib/server/acompanhamento'
 import { NextRequest, NextResponse } from 'next/server'
 import { criarOuObterPreferenciaMercadoPago, MercadoPagoNaoConfiguradoError } from '@/lib/mercadoPago'
 import { supabaseServer } from '@/lib/supabaseServer'
@@ -6,8 +7,10 @@ import { exigirPerfis, respostaErroAdministrativo } from '@/lib/server/adminAuth
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
+  let empresaId: string
   try {
-    await exigirPerfis(request, ['Comercial', 'Financeiro'])
+    const acesso = await exigirPerfis(request, ['Comercial', 'Financeiro'])
+    empresaId = acesso.vinculo.empresa_id
   } catch (error) {
     const resposta = respostaErroAdministrativo(error)
     return NextResponse.json({ error: resposta.mensagem }, { status: resposta.status })
@@ -30,6 +33,7 @@ export async function POST(request: NextRequest) {
     .from('orcamentos')
     .select('lancamento_sinal_id,status')
     .eq('id', orcamentoId)
+    .eq('empresa_id', empresaId)
     .maybeSingle()
 
   if (error) return NextResponse.json({ error: 'Não foi possível consultar o orçamento.' }, { status: 500 })
@@ -40,7 +44,7 @@ export async function POST(request: NextRequest) {
   try {
     const preferencia = await criarOuObterPreferenciaMercadoPago(
       orcamento.lancamento_sinal_id,
-      request.nextUrl.origin,
+      ORIGEM_OFICIAL,
       { forcar: Boolean(corpo.forcar) }
     )
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { propostaVisivelAoCliente, valoresItemPublico } from '@/lib/domain/comercial/propostaPublica'
+import { linkContratoDaProposta, propostaVisivelAoCliente, valoresItemPublico } from '@/lib/domain/comercial/propostaPublica'
 import { supabaseServer } from '@/lib/supabaseServer'
 import {
   JornadaComercialError,
@@ -37,7 +37,7 @@ async function buscarProposta(token: string) {
       numero,status,validade,data_evento,horario_evento,data_retirada,data_devolucao,
       endereco_evento,subtotal,desconto,acrescimos,frete,total,total_taxas,observacoes,contato_nome,
       resposta_cliente,respondido_por,respondido_em,resposta_observacao,
-      formalizacao_status,dados_cliente_completos_em,
+      formalizacao_status,dados_cliente_completos_em,contrato_id,reserva_id,
       oportunidades(nome_contato),clientes(nome),
       orcamento_itens(descricao,quantidade,valor_unitario,preco_unitario_orcamento,subtotal,subtotal_negociado,desconto,tipo_origem,ordem,created_at),
       orcamento_taxas(descricao,valor,tipo,ordem)
@@ -48,6 +48,11 @@ async function buscarProposta(token: string) {
   if (error) throw error
   if (!data || !propostaVisivelAoCliente(data.status)) return null
 
+  const contratoRes = data.status === 'ACEITA' && data.contrato_id
+    ? await supabaseServer.from('contratos').select('public_token,status,reserva_id').eq('id', data.contrato_id).maybeSingle()
+    : { data: null, error: null }
+  if (contratoRes.error) throw contratoRes.error
+
   const oportunidade = relacaoUnica(data.oportunidades)
   const cliente = relacaoUnica(data.clientes)
   const expirada = data.status === 'EXPIRADA' || Boolean(
@@ -55,6 +60,7 @@ async function buscarProposta(token: string) {
   )
 
   return {
+    contrato_url: linkContratoDaProposta(data, contratoRes.data),
     numero: data.numero,
     status: expirada && ['RASCUNHO', 'ENVIADA'].includes(data.status)
       ? 'EXPIRADA'

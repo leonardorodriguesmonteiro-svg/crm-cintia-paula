@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { contatoDaProposta, propostaPodeEnviar, propostaVisivelAoCliente, valoresItemPublico } from '../lib/domain/comercial/propostaPublica.ts'
+import { linkContratoDaProposta, contatoDaProposta, propostaPodeEnviar, propostaVisivelAoCliente, valoresItemPublico } from '../lib/domain/comercial/propostaPublica.ts'
 import { executarEnvioPropostaEmail } from '../lib/application/comercial/envioPropostaEmail.ts'
 
 test('envio aceita finalizado e legado, mas não orçamento em edição ou respondido', () => {
@@ -36,4 +36,14 @@ test('envio só ocorre depois da validação e liberação', async () => {
   const resultado = await executarEnvioPropostaEmail({ preparar: async () => { ordem.push('preparar') }, disponibilizar: async () => { ordem.push('disponibilizar') }, enviar: async () => { ordem.push('enviar'); return { sucesso: true } } })
   assert.deepEqual(ordem, ['preparar','disponibilizar','enviar'])
   assert.equal(resultado.sucesso, true)
+})
+
+test('contrato público só aparece para proposta aceita e reserva correspondente', () => {
+  const proposta = { status: 'ACEITA', reserva_id: 'reserva-1' }
+  const contrato = { public_token: 'token', status: 'Gerado', reserva_id: 'reserva-1' }
+  assert.equal(linkContratoDaProposta(proposta, contrato), '/contrato/token')
+  assert.equal(linkContratoDaProposta({ ...proposta, status: 'ENVIADA' }, contrato), null)
+  assert.equal(linkContratoDaProposta(proposta, { ...contrato, status: 'Cancelado' }), null)
+  assert.equal(linkContratoDaProposta(proposta, { ...contrato, reserva_id: 'outra' }), null)
+  assert.equal(linkContratoDaProposta(proposta, null), null)
 })

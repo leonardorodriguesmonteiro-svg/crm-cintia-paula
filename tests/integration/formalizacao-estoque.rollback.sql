@@ -1,0 +1,62 @@
+begin;
+do $$
+declare
+ v_empresa uuid; v_usuario uuid; v_dados jsonb; v_criado jsonb; v_repetido jsonb; v_editado jsonb;
+ v_comprometido numeric; v_contrato_token uuid; v_documento text; v_formalizado jsonb; v_confirmado jsonb; v_recibo_count bigint; v_conceitual uuid; v_enviado jsonb; v_aceito jsonb; v_cadastro jsonb; v_token uuid; v_reservas bigint; v_estoque bigint;
+begin
+ select empresa_id,usuario_id into v_empresa,v_usuario from public.usuarios_empresa where ativo and perfil in ('Administrador','Comercial') limit 1;
+ if v_usuario is null then raise exception 'Sem usuário comercial para smoke test'; end if;
+ select count(*) into v_reservas from public.reservas;
+ select count(*) into v_estoque from public.estoque_itens;
+ select id into v_conceitual from public.estoque_itens where quantidade_disponivel>=2 and coalesce(status,'Disponível')<>'Inativo' limit 1;
+ if v_conceitual is null then raise exception 'Fixture de estoque indisponível'; end if;
+ v_comprometido:=public.quantidade_estoque_comprometida(v_conceitual,'2099-01-10','2099-01-10',null);
+ v_dados := jsonb_build_object('p_empresa_id',v_empresa,'p_usuario_id',v_usuario,'p_idempotencia','smoke-editor-'||gen_random_uuid(),'p_status','EM_EDICAO','p_origem','MANUAL','p_contato_nome','Teste transacional editor','p_contato_telefone','11999999999','p_data_evento','2099-01-10','p_desconto_tipo','PERCENTUAL','p_desconto_valor',10,'validade','2099-01-09','p_itens',jsonb_build_array(jsonb_build_object('tipo_origem','ESTOQUE','estoque_item_id',v_conceitual,'descricao','Painel teste rollback','quantidade',2,'preco_unitario_orcamento',100.10,'desconto',10.20,'ordem',0)),'p_taxas',jsonb_build_array(jsonb_build_object('descricao','Montagem','valor',25.50,'tipo','MONTAGEM','ordem',0)));
+ v_criado := public.salvar_orcamento_editor_jornada3_servidor(v_dados);
+ if (v_criado->>'total')::numeric <> 196.50 then raise exception 'Total incorreto %',v_criado; end if;
+ v_repetido := public.salvar_orcamento_editor_jornada3_servidor(v_dados);
+ if v_repetido->>'id' <> v_criado->>'id' or (v_repetido->>'alterado')::boolean then raise exception 'Falha de idempotência'; end if;
+ v_dados := v_dados || jsonb_build_object('p_orcamento_id',v_criado->>'id','p_versao_esperada',(v_criado->>'versao')::integer,'p_status','FINALIZADO');
+ v_editado := public.salvar_orcamento_editor_jornada3_servidor(v_dados);
+ if v_editado->>'status'<>'FINALIZADO' then raise exception 'Falha de finalização'; end if;
+ begin
+  perform public.salvar_orcamento_editor_jornada3_servidor(v_dados);
+  raise exception 'Versão obsoleta aceita indevidamente';
+ exception when serialization_failure then null;
+ end;
+ v_enviado := public.enviar_proposta_servidor(v_usuario,v_empresa,(v_criado->>'id')::uuid);
+ v_token := (v_enviado->>'public_token')::uuid;
+ if v_enviado->>'status'<>'ENVIADA' then raise exception 'Envio falhou'; end if;
+ perform public.cancelar_envio_proposta_servidor(v_usuario,v_empresa,(v_criado->>'id')::uuid);
+ if exists(select 1 from public.orcamentos where public_token=v_token) then raise exception 'Link antigo permaneceu'; end if;
+ select versao into v_estoque from public.orcamentos where id=(v_criado->>'id')::uuid;
+ v_dados := v_dados || jsonb_build_object('p_versao_esperada',v_estoque);
+ v_editado := public.salvar_orcamento_editor_jornada3_servidor(v_dados);
+ select count(*) into v_estoque from public.estoque_itens;
+ v_enviado := public.enviar_proposta_servidor(v_usuario,v_empresa,(v_criado->>'id')::uuid);
+ v_token := (v_enviado->>'public_token')::uuid;
+ v_aceito := public.registrar_resposta_publica_orcamento(v_token,'Aprovado','Teste transacional',null);
+ if v_aceito->>'status'<>'ACEITA' then raise exception 'Aceite falhou'; end if;
+ v_cadastro := public.completar_dados_cliente_proposta_v2_servidor(v_token,'97'||lpad((floor(random()*1000000000)::bigint)::text,9,'0'),'01001000','Rua Teste','10',null,'Centro','São Paulo','SP','teste@example.com');
+ if v_cadastro->>'status'<>'DADOS_COMPLETOS' then raise exception 'Cadastro falhou'; end if;
+ v_formalizado := public.executar_formalizacao_servidor(v_usuario,(v_criado->>'id')::uuid,'formalizar',50,'2099-01-09',null);
+ if v_formalizado->>'status'<>'CONTRATO_GERADO' then raise exception 'Status incorreto %',v_formalizado; end if;
+ if (select sum(subtotal) from public.reserva_itens where reserva_id=(v_formalizado->>'reserva_id')::uuid) <> 196.50 then raise exception 'Snapshot financeiro incorreto'; end if;
+
+ v_repetido := public.executar_formalizacao_servidor(v_usuario,(v_criado->>'id')::uuid,'formalizar',90,'2099-01-08',null);
+ if not (v_repetido->>'ja_formalizada')::boolean or v_repetido->>'contrato_id'<>v_formalizado->>'contrato_id' then raise exception 'Duplicação de formalização'; end if;
+ if (select valor from public.lancamentos_financeiros where id=(v_formalizado->>'lancamento_sinal_id')::uuid) <> 50 then raise exception 'Sinal alterado na repetição'; end if;
+ select public_token into v_contrato_token from public.contratos where id=(v_formalizado->>'contrato_id')::uuid;
+ select c.cpf into v_documento from public.clientes c join public.orcamentos o on o.cliente_id=c.id where o.id=(v_criado->>'id')::uuid;
+ v_confirmado := public.registrar_assinatura_publica_contrato(v_contrato_token,'Teste transacional editor',v_documento,null,'SQL rollback test');
+ if v_confirmado->>'status'<>'AGUARDANDO_PAGAMENTO' then raise exception 'Assinatura confirmou sem pagamento %',v_confirmado; end if;
+ v_confirmado := public.conciliar_pagamento_mercado_pago((v_formalizado->>'lancamento_sinal_id')::uuid,'teste-rollback-'||(v_criado->>'id'),'approved','accredited','Pix',50,now());
+ if v_confirmado->>'status'<>'RESERVA_CONFIRMADA' or not (v_confirmado->>'nova_confirmacao')::boolean then raise exception 'Confirmação falhou %',v_confirmado; end if;
+ v_confirmado := public.conciliar_pagamento_mercado_pago((v_formalizado->>'lancamento_sinal_id')::uuid,'teste-rollback-'||(v_criado->>'id'),'approved','accredited','Pix',50,now());
+ if (v_confirmado->>'nova_confirmacao')::boolean then raise exception 'Evento duplicado'; end if;
+ if (select count(*) from public.recebimentos where lancamento_id=(v_formalizado->>'lancamento_sinal_id')::uuid) <> 1 then raise exception 'Recebimento duplicado'; end if;
+ if public.quantidade_estoque_comprometida(v_conceitual,'2099-01-10','2099-01-10',null) <> v_comprometido+2 then raise exception 'Comprometimento físico incorreto'; end if;
+ if (select count(*) from public.reservas) <> v_reservas+1 or (select count(*) from public.estoque_itens) <> v_estoque then raise exception 'Efeito indevido em reserva/estoque'; end if;
+end $$;
+rollback;
+select 'PASS: editor through accepted physical quote, exact contract totals, idempotent contract and charge, signature then payment, confirmation once, physical inventory commitment verified, rollback' as smoke;

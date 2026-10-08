@@ -41,6 +41,7 @@ type Proposta = {
   resposta_observacao: string | null
   pode_responder: boolean
   formalizacao_status: string | null
+  contrato_url: string | null
   dados_cliente_completos: boolean
   precisa_completar_dados: boolean
 }
@@ -255,7 +256,10 @@ export function PropostaPublicaPage({ token }: { token: string }) {
               {aceita && proposta.dados_cliente_completos && (
                 <div className="mx-auto mt-6 max-w-xl rounded-2xl bg-green-50 p-4 text-sm text-green-800">
                   <p className="font-bold">Dados cadastrais concluídos</p>
-                  <p className="mt-1">A equipe já pode gerar e enviar seu contrato.</p>
+                  {proposta.contrato_url ? (
+                    <><p className="mt-1">Seu contrato está disponível. Confira os dados, assine e acompanhe o pagamento do sinal.</p>
+                    <a href={proposta.contrato_url} className="mt-3 inline-flex rounded-xl bg-pink-600 px-4 py-3 font-bold text-white hover:bg-pink-700">Abrir contrato e pagamento</a></>
+                  ) : <p className="mt-1">A equipe está preparando seu contrato. Atualize esta página para consultar a disponibilidade.</p>}
                 </div>
               )}
             </div>
