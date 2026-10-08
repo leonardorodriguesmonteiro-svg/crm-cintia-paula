@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
+import { propostaPodeEnviar } from '@/lib/domain/comercial/propostaPublica'
 import { calcularEditor, serializarEditor, validarEditor, tiposTaxa, type ItemEditor, type TaxaEditor } from '@/lib/comercial/orcamentoEditor'
 import { Ban, CalendarCheck, CheckCircle2, CircleAlert, Copy, Download, ExternalLink, FileSignature, HandCoins, Mail, Plus, Send, Share2, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -257,7 +258,7 @@ function nomeClienteDo(orcamento: Orcamento) {
 }
 
 function emailClienteDo(orcamento: Orcamento) {
-  return orcamento.clientes?.email || orcamento.oportunidades?.email || orcamento.contato_email || null
+  return orcamento.contato_email || orcamento.clientes?.email || orcamento.oportunidades?.email || null
 }
 
 function propostaPodeSerCancelada(orcamento: Orcamento) {
@@ -265,7 +266,7 @@ function propostaPodeSerCancelada(orcamento: Orcamento) {
 }
 
 function propostaPodeSerEnviada(orcamento: Orcamento) {
-  return ['RASCUNHO', 'ENVIADA'].includes(orcamento.status) && !orcamento.resposta_cliente
+  return propostaPodeEnviar(orcamento.status, orcamento.resposta_cliente)
 }
 
 function propostaPodeSerEditada(orcamento: Orcamento) {
@@ -743,7 +744,8 @@ export function OrcamentosPage() {
   }
 
   async function registrarEnvio(orcamento: Orcamento) {
-    if (orcamento.status !== 'RASCUNHO') return
+    if (orcamento.status === 'ENVIADA' || orcamento.status === 'ACEITA') return orcamento.public_token
+    if (!propostaPodeSerEnviada(orcamento)) throw new Error('Finalize o orçamento antes de compartilhar a proposta.')
 
     const { data: sessao } = await supabase.auth.getSession()
     const token = sessao.session?.access_token
@@ -757,6 +759,9 @@ export function OrcamentosPage() {
     if (!resposta.ok) throw new Error(dados.erro || 'Não foi possível enviar a proposta.')
 
     await carregar()
+    const tokenPublico = dados.proposta.public_token || orcamento.public_token
+    if (!tokenPublico) throw new Error('Não foi possível obter o link da proposta.')
+    return tokenPublico
   }
 
   async function compartilharPdf(orcamento: Orcamento) {
@@ -765,11 +770,11 @@ export function OrcamentosPage() {
     setAcaoDocumento(`compartilhar:${orcamento.id}`)
 
     try {
-      await registrarEnvio(orcamento)
+      const tokenPublico = await registrarEnvio(orcamento)
       const dados = await carregarDadosDocumento(orcamento)
       const { doc, nomeArquivo } = await criarDocumentoOrcamento(dados)
-      const link_publico = orcamento.public_token
-        ? `https://www.cintiapaulafestaedecoracao.com.br/proposta/${orcamento.public_token}`
+      const link_publico = tokenPublico
+        ? `https://www.cintiapaulafestaedecoracao.com.br/proposta/${tokenPublico}`
         : null
       const mensagem = mensagemWhatsAppOrcamento({ ...dados, link_publico })
       const arquivo = new File([doc.output('blob')], nomeArquivo, { type: 'application/pdf' })
@@ -806,19 +811,15 @@ export function OrcamentosPage() {
     setErro('')
     setSucesso('')
 
-    if (!orcamento.public_token) {
-      setErro('Este orçamento ainda não possui um link público.')
-      return
-    }
-
+    let tokenPublico: string | null
     try {
-      await registrarEnvio(orcamento)
+      tokenPublico = await registrarEnvio(orcamento)
     } catch (error) {
       setErro(error instanceof Error ? error.message : 'Não foi possível liberar a proposta para envio.')
       return
     }
 
-    const link = `https://www.cintiapaulafestaedecoracao.com.br/proposta/${orcamento.public_token}`
+    const link = `https://www.cintiapaulafestaedecoracao.com.br/proposta/${tokenPublico}`
     let copiado = false
 
     try {
@@ -845,7 +846,7 @@ export function OrcamentosPage() {
   }
 
   async function enviarPropostaPorEmail(orcamento: Orcamento) {
-    const email = orcamento.clientes?.email || orcamento.oportunidades?.email
+    const email = emailClienteDo(orcamento)
     if (!email) {
       setErro('Cadastre um e-mail para o cliente antes de enviar a proposta.')
       return
@@ -874,6 +875,7 @@ export function OrcamentosPage() {
       setSucesso(corpo.mensagem || `Proposta enviada para ${email}.`)
       await carregar()
     } catch (error) {
+      await carregar()
       setErro(error instanceof Error ? error.message : 'Não foi possível enviar a proposta.')
     } finally {
       setEnviandoPropostaId(null)
@@ -1609,7 +1611,7 @@ export function OrcamentosPage() {
               </div>
               <button
                 type="button"
-                disabled={!orcamento.public_token}
+                disabled={!propostaPodeSerEnviada(orcamento) && orcamento.status !== 'ACEITA'}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-pink-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-pink-700 disabled:cursor-not-allowed disabled:opacity-50"
                 onClick={() => copiarLinkPublico(orcamento)}
               >
@@ -1618,7 +1620,7 @@ export function OrcamentosPage() {
               {orcamento.public_token && ['ENVIADA', 'ACEITA'].includes(orcamento.status) && <a
                 className="flex w-full items-center justify-center rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-sm font-bold text-green-800"
                 target="_blank" rel="noopener noreferrer"
-                href={`https://wa.me/${telefoneWhatsApp(orcamento.clientes?.whatsapp || orcamento.oportunidades?.celular || '')}?text=${encodeURIComponent(`Olá! Seu orçamento ORC-${String(orcamento.numero).padStart(4, '0')} da Cintia Paula está disponível para conferir: https://www.cintiapaulafestaedecoracao.com.br/proposta/${orcamento.public_token}`)}`}
+                href={`https://wa.me/${telefoneWhatsApp(orcamento.contato_telefone || orcamento.clientes?.whatsapp || orcamento.oportunidades?.celular || '')}?text=${encodeURIComponent(`Olá! Seu orçamento ORC-${String(orcamento.numero).padStart(4, '0')} da Cintia Paula está disponível para conferir: https://www.cintiapaulafestaedecoracao.com.br/proposta/${orcamento.public_token}`)}`}
               >Abrir WhatsApp com orçamento</a>}
               {!emailClienteDo(orcamento) && (
                 <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">Cadastre o e-mail do cliente para habilitar o envio automático.</p>
@@ -1646,7 +1648,7 @@ export function OrcamentosPage() {
                   <Ban size={17} /> {cancelandoPropostaId === orcamento.id ? 'Cancelando...' : 'Cancelar envio e invalidar link'}
                 </button>
               )}
-              {orcamento.public_token ? (
+              {orcamento.public_token && ['ENVIADA', 'ACEITA', 'RECUSADA', 'EXPIRADA'].includes(orcamento.status) ? (
                 <a
                   href={`/proposta/${orcamento.public_token}`}
                   target="_blank"

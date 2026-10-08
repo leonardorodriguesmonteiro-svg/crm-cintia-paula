@@ -19,7 +19,7 @@ export async function POST(
     })
     return NextResponse.json({
       sucesso: true,
-      mensagem: 'Envio cancelado. O link anterior foi invalidado e a proposta voltou para rascunho.',
+      mensagem: 'Envio cancelado. O link anterior foi invalidado. Revise e finalize o orçamento antes de enviar novamente.',
       proposta: resultado
     })
   } catch (error) {

@@ -76,6 +76,7 @@ export async function completarDadosClientePropostaV2(
     }
   )
 
+  if (error?.code === '23505') throw new JornadaComercialError('Não foi possível vincular o documento. Peça à equipe para conferir seu cadastro neste orçamento.', 'CADASTRO_REQUER_REVISAO', 409)
   if (error) throw error
 
   const resultado = data as {

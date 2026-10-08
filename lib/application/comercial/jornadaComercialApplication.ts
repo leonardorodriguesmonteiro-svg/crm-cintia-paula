@@ -441,7 +441,7 @@ export async function enviarProposta(input: {
       usuarioId: input.usuarioId,
       metadados: { numero: resultado.numero }
     }),
-    publicarEvento({
+    resultado.oportunidade_id ? publicarEvento({
       codigo: ERPEvents.PRE_RESERVA_CONVERTIDA_EM_PROPOSTA,
       titulo: `Solicitação convertida no orçamento #${resultado.numero}`,
       empresaId: input.empresaId,
@@ -452,14 +452,14 @@ export async function enviarProposta(input: {
       status: 'CONVERTIDA_EM_PROPOSTA',
       usuarioId: input.usuarioId,
       metadados: { propostaId: resultado.id, numero: resultado.numero }
-    })
+    }) : Promise.resolve(null)
   ])
 
   return {
     ...resultado,
     avisos: [
       ...avisosDoEvento(eventoProposta),
-      ...avisosDoEvento(eventoPreReserva)
+      ...(eventoPreReserva ? avisosDoEvento(eventoPreReserva) : [])
     ]
   }
 }

@@ -1,3 +1,4 @@
+import { contatoDaProposta } from '@/lib/domain/comercial/propostaPublica'
 import { supabaseServer } from '@/lib/supabaseServer'
 
 export class EmailPropostaNaoConfiguradoError extends Error {
@@ -23,26 +24,19 @@ function emailValido(valor: string | null | undefined) {
     && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
-export async function enviarPropostaPorEmail(
-  orcamentoId: string,
-  origem: string,
-  opcoes: { reenviar?: boolean } = {}
-) {
+export async function prepararEmailProposta(orcamentoId: string) {
   const apiKey = String(process.env.RESEND_API_KEY || '').trim()
   const remetente = String(process.env.EMAIL_REMETENTE || '').trim()
   const respostaPara = String(process.env.EMAIL_RESPOSTA || '').trim()
 
   const { data: orcamento, error } = await supabaseServer
     .from('orcamentos')
-    .select('id,numero,public_token,status,cliente_id,oportunidade_id,email_enviado_em,email_destino,total,data_evento')
+    .select('id,numero,public_token,status,cliente_id,oportunidade_id,email_enviado_em,email_destino,total,data_evento,contato_nome,contato_email')
     .eq('id', orcamentoId)
     .maybeSingle()
 
   if (error) throw error
-  if (!orcamento?.public_token) throw new Error('Proposta não encontrada ou sem link público.')
-  if (orcamento.email_enviado_em && !opcoes.reenviar) {
-    return { sucesso: true, destino: orcamento.email_destino, ignorado: true }
-  }
+  if (!orcamento) throw new Error('Proposta não encontrada.')
   if (!apiKey || !remetente) throw new EmailPropostaNaoConfiguradoError()
 
   let cliente: { nome: string; email: string | null } | null = null
@@ -68,10 +62,18 @@ export async function enviarPropostaPorEmail(
     }
   }
 
+  cliente = contatoDaProposta(orcamento, cliente)
   if (!emailValido(cliente?.email)) {
     throw new Error('Cadastre um e-mail válido do cliente antes de enviar a proposta.')
   }
 
+  return { orcamento, cliente, apiKey, remetente, respostaPara }
+}
+
+export async function enviarPropostaPorEmail(orcamentoId: string, origem: string, opcoes: { reenviar?: boolean } = {}) {
+  const { orcamento, cliente, apiKey, remetente, respostaPara } = await prepararEmailProposta(orcamentoId)
+  if (orcamento.status !== 'ENVIADA' || !orcamento.public_token) throw new Error('Disponibilize a proposta antes de enviar o e-mail.')
+  if (orcamento.email_enviado_em && !opcoes.reenviar) return { sucesso: true, destino: orcamento.email_destino, ignorado: true }
   const emailDestino = String(cliente!.email).trim().toLowerCase()
   const link = `${new URL(origem).origin}/proposta/${orcamento.public_token}`
   const numero = `ORC-${String(orcamento.numero).padStart(4, '0')}`
@@ -99,11 +101,12 @@ export async function enviarPropostaPorEmail(
     throw new Error(mensagem)
   }
 
-  await supabaseServer.from('orcamentos').update({
+  const { error: erroRegistro } = await supabaseServer.from('orcamentos').update({
     email_enviado_em: new Date().toISOString(),
     email_destino: emailDestino,
     email_erro: null
-  }).eq('id', orcamento.id)
+  }).eq('id', orcamento.id).eq('public_token', orcamento.public_token).eq('status', 'ENVIADA')
+  if (erroRegistro) throw new Error('O serviço recebeu o e-mail, mas o registro do envio falhou. Tente novamente sem reenviar para recuperar a confirmação.')
 
   return { sucesso: true, destino: emailDestino, email_id: corpo.id || null, ignorado: false }
 }

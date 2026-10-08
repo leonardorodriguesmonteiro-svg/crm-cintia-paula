@@ -23,6 +23,8 @@ type Proposta = {
   acrescimos: number
   frete: number
   total: number
+  total_taxas: number
+  taxas: Array<{ descricao: string; valor: number }>
   observacoes: string | null
   cliente: string
   itens: Array<{
@@ -30,6 +32,8 @@ type Proposta = {
     quantidade: number
     valor_unitario: number
     subtotal: number
+    desconto: number
+    conceitual: boolean
   }>
   resposta_cliente: DecisaoRegistrada | null
   respondido_por: string | null
@@ -208,12 +212,12 @@ export function PropostaPublicaPage({ token }: { token: string }) {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[620px] text-left text-sm">
               <thead className="bg-slate-900 text-white"><tr><th className="px-6 py-3">Descrição</th><th className="px-4 py-3 text-right">Qtd.</th><th className="px-4 py-3 text-right">Unitário</th><th className="px-6 py-3 text-right">Subtotal</th></tr></thead>
-              <tbody>{proposta.itens.map((item, indice) => <tr key={`${item.descricao}-${indice}`} className="border-b last:border-0"><td className="px-6 py-4 font-medium text-slate-800">{item.descricao}</td><td className="px-4 py-4 text-right text-slate-600">{item.quantidade.toLocaleString('pt-BR')}</td><td className="px-4 py-4 text-right text-slate-600">{moeda(item.valor_unitario)}</td><td className="px-6 py-4 text-right font-bold text-slate-900">{moeda(item.subtotal)}</td></tr>)}</tbody>
+              <tbody>{proposta.itens.map((item, indice) => <tr key={`${item.descricao}-${indice}`} className="border-b last:border-0"><td className="px-6 py-4 font-medium text-slate-800">{item.descricao}{item.conceitual && <span className="mt-1 block text-xs text-amber-700">Item conceitual — sujeito a aquisição ou produção</span>}{item.desconto > 0 && <span className="mt-1 block text-xs text-slate-500">Desconto no item: {moeda(item.desconto)}</span>}</td><td className="px-4 py-4 text-right text-slate-600">{item.quantidade.toLocaleString('pt-BR')}</td><td className="px-4 py-4 text-right text-slate-600">{moeda(item.valor_unitario)}</td><td className="px-6 py-4 text-right font-bold text-slate-900">{moeda(item.subtotal)}</td></tr>)}</tbody>
             </table>
           </div>
           <div className="grid gap-6 border-t bg-pink-50/60 p-6 md:grid-cols-[1fr_320px]">
             <div>{proposta.observacoes && <><p className="text-xs font-bold uppercase text-slate-500">Observações</p><p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{proposta.observacoes}</p></>}</div>
-            <div className="space-y-2 text-sm"><p className="flex justify-between"><span>Subtotal</span><strong>{moeda(proposta.subtotal)}</strong></p><p className="flex justify-between"><span>Desconto</span><strong>- {moeda(proposta.desconto)}</strong></p><p className="flex justify-between"><span>Acréscimos</span><strong>{moeda(proposta.acrescimos)}</strong></p><p className="flex justify-between"><span>Frete / entrega</span><strong>{moeda(proposta.frete)}</strong></p><p className="mt-3 flex items-end justify-between border-t border-pink-200 pt-3 text-pink-700"><span className="font-bold">Total</span><strong className="text-2xl">{moeda(proposta.total)}</strong></p></div>
+            <div className="space-y-2 text-sm"><p className="flex justify-between"><span>Subtotal</span><strong>{moeda(proposta.subtotal)}</strong></p><p className="flex justify-between"><span>Desconto</span><strong>- {moeda(proposta.desconto)}</strong></p><p className="flex justify-between"><span>Acréscimos</span><strong>{moeda(proposta.acrescimos)}</strong></p><p className="flex justify-between"><span>Frete / entrega</span><strong>{moeda(proposta.frete)}</strong></p>{proposta.taxas.map((taxa, indice) => <p key={indice} className="flex justify-between"><span>{taxa.descricao}</span><strong>{moeda(taxa.valor)}</strong></p>)}<p className="mt-3 flex items-end justify-between border-t border-pink-200 pt-3 text-pink-700"><span className="font-bold">Total</span><strong className="text-2xl">{moeda(proposta.total)}</strong></p></div>
           </div>
         </section>
 

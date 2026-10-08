@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { propostaVisivelAoCliente, valoresItemPublico } from '@/lib/domain/comercial/propostaPublica'
 import { supabaseServer } from '@/lib/supabaseServer'
 import {
   JornadaComercialError,
@@ -34,17 +35,18 @@ async function buscarProposta(token: string) {
     .from('orcamentos')
     .select(`
       numero,status,validade,data_evento,horario_evento,data_retirada,data_devolucao,
-      endereco_evento,subtotal,desconto,acrescimos,frete,total,observacoes,
+      endereco_evento,subtotal,desconto,acrescimos,frete,total,total_taxas,observacoes,contato_nome,
       resposta_cliente,respondido_por,respondido_em,resposta_observacao,
       formalizacao_status,dados_cliente_completos_em,
       oportunidades(nome_contato),clientes(nome),
-      orcamento_itens(descricao,quantidade,valor_unitario,subtotal,created_at)
+      orcamento_itens(descricao,quantidade,valor_unitario,preco_unitario_orcamento,subtotal,subtotal_negociado,desconto,tipo_origem,ordem,created_at),
+      orcamento_taxas(descricao,valor,tipo,ordem)
     `)
     .eq('public_token', token)
     .maybeSingle()
 
   if (error) throw error
-  if (!data) return null
+  if (!data || !propostaVisivelAoCliente(data.status)) return null
 
   const oportunidade = relacaoUnica(data.oportunidades)
   const cliente = relacaoUnica(data.clientes)
@@ -68,15 +70,16 @@ async function buscarProposta(token: string) {
     acrescimos: Number(data.acrescimos),
     frete: Number(data.frete),
     total: Number(data.total),
+    total_taxas: Number(data.total_taxas || 0),
+    taxas: [...(data.orcamento_taxas || [])].sort((a, b) => a.ordem - b.ordem).map(taxa => ({ descricao: taxa.descricao, valor: Number(taxa.valor) })),
     observacoes: data.observacoes,
-    cliente: cliente?.nome || oportunidade?.nome_contato || 'Cliente',
+    cliente: data.contato_nome || cliente?.nome || oportunidade?.nome_contato || 'Cliente',
     itens: [...(data.orcamento_itens || [])]
-      .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
+      .sort((a, b) => a.ordem - b.ordem || String(a.created_at).localeCompare(String(b.created_at)))
       .map(item => ({
         descricao: item.descricao,
-        quantidade: Number(item.quantidade),
-        valor_unitario: Number(item.valor_unitario),
-        subtotal: Number(item.subtotal)
+        ...valoresItemPublico(item),
+        conceitual: item.tipo_origem === 'CONCEITUAL'
       })),
     resposta_cliente: data.resposta_cliente,
     respondido_por: data.respondido_por,

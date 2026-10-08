@@ -202,7 +202,8 @@ export const comercialJourneyRepository = {
     return data as {
       id: string
       numero: number
-      oportunidade_id: string
+      oportunidade_id: string | null
+      public_token: string
       status: string
       ja_enviada: boolean
     }

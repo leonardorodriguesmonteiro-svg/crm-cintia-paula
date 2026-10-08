@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { executarEnvioPropostaEmail } from '@/lib/application/comercial/envioPropostaEmail'
 import { enviarProposta } from '@/lib/application/comercial/jornadaComercialApplication'
-import { EmailPropostaNaoConfiguradoError, enviarPropostaPorEmail } from '@/lib/propostaEmail'
+import { EmailPropostaNaoConfiguradoError, enviarPropostaPorEmail, prepararEmailProposta } from '@/lib/propostaEmail'
 import { exigirPerfis, respostaErroAdministrativo } from '@/lib/server/adminAuth'
 import { ORIGEM_OFICIAL } from '@/lib/server/acompanhamento'
 import { supabaseServer } from '@/lib/supabaseServer'
@@ -26,27 +27,20 @@ export async function POST(
     if (error) throw error
     if (!orcamento) return NextResponse.json({ error: 'Proposta não encontrada.' }, { status: 404 })
 
-    if (orcamento.status === 'RASCUNHO') {
-      if (orcamento.oportunidade_id) {
-        const { data: pedido, error: erroPedido } = await supabaseServer.from('oportunidades').select('cadastro_completo_em')
-          .eq('id', orcamento.oportunidade_id).eq('empresa_id', acesso.vinculo.empresa_id).maybeSingle()
-        if (erroPedido) throw erroPedido
-        if (!pedido?.cadastro_completo_em) return NextResponse.json({ error: 'Envie o link do orçamento e aguarde o cliente completar os dados necessários ao contrato.' }, { status: 409 })
-      }
-      await enviarProposta({
-        usuarioId: acesso.usuario.id,
-        empresaId: acesso.vinculo.empresa_id,
-        orcamentoId: id
-      })
-    } else if (orcamento.status !== 'ENVIADA') {
-      return NextResponse.json(
-        { error: 'A proposta respondida ou encerrada não pode ser enviada novamente.' },
-        { status: 409 }
-      )
+    if (!['RASCUNHO', 'FINALIZADO', 'ENVIADA'].includes(orcamento.status)) {
+      return NextResponse.json({ error: 'Finalize o orçamento antes de enviar. Propostas encerradas não podem ser reenviadas.' }, { status: 409 })
     }
-
-    const resultado = await enviarPropostaPorEmail(id, ORIGEM_OFICIAL, {
-      reenviar: corpo?.reenviar === true
+    if (orcamento.status === 'RASCUNHO' && orcamento.oportunidade_id) {
+      const { data: pedido, error: erroPedido } = await supabaseServer.from('oportunidades')
+        .select('cadastro_completo_em').eq('id', orcamento.oportunidade_id)
+        .eq('empresa_id', acesso.vinculo.empresa_id).maybeSingle()
+      if (erroPedido) throw erroPedido
+      if (!pedido?.cadastro_completo_em) return NextResponse.json({ error: 'Aguarde o cliente completar os dados necessários ao contrato.' }, { status: 409 })
+    }
+    const resultado = await executarEnvioPropostaEmail({
+      preparar: () => prepararEmailProposta(id),
+      disponibilizar: () => enviarProposta({ usuarioId: acesso.usuario.id, empresaId: acesso.vinculo.empresa_id, orcamentoId: id }),
+      enviar: () => enviarPropostaPorEmail(id, ORIGEM_OFICIAL, { reenviar: corpo?.reenviar === true })
     })
     return NextResponse.json({
       ...resultado,
