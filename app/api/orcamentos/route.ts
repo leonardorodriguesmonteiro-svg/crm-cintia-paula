@@ -30,8 +30,10 @@ export async function POST(request: NextRequest) {
         { status: error.statusHttp }
       )
     }
-    console.error('[api/orcamentos] falha inesperada', error)
     const falha = respostaErroAdministrativo(error)
+    if (falha.status >= 500) {
+      console.error('[api/orcamentos] falha inesperada', error)
+    }
     return NextResponse.json(
       { sucesso: false, erro: falha.mensagem },
       { status: falha.status }

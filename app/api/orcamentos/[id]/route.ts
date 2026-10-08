@@ -31,8 +31,10 @@ export async function PUT(
         { status: error.statusHttp }
       )
     }
-    console.error('[api/orcamentos/:id] falha inesperada', error)
     const falha = respostaErroAdministrativo(error)
+    if (falha.status >= 500) {
+      console.error('[api/orcamentos/:id] falha inesperada', error)
+    }
     return NextResponse.json(
       { sucesso: false, erro: falha.mensagem },
       { status: falha.status }
