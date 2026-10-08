@@ -70,6 +70,9 @@ export function orcamento3DoCorpo(
   }
 ): SalvarOrcamento3Input {
   return {
+    ...(Object.hasOwn(corpo, 'oportunidade_id') || Object.hasOwn(corpo, 'validade')
+      ? { oportunidadeId: texto(corpo, 'oportunidade_id'), validade: texto(corpo, 'validade') }
+      : {}),
     empresaId: identidade.empresaId,
     usuarioId: identidade.usuarioId,
     orcamentoId: identidade.orcamentoId || null,

@@ -32,34 +32,37 @@ function serializarTaxas(input: SalvarOrcamento3Input) {
 
 export const orcamento3Repository = {
   async salvar(input: SalvarOrcamento3Input): Promise<Orcamento3Persistido> {
-    const { data, error } = await supabaseServer.rpc(
-      'salvar_orcamento_jornada3_servidor',
-      {
-        p_empresa_id: input.empresaId,
-        p_usuario_id: input.usuarioId,
-        p_orcamento_id: input.orcamentoId || null,
-        p_versao_esperada: input.versaoEsperada ?? null,
-        p_idempotencia: input.idempotencia?.trim() || null,
-        p_status: input.status,
-        p_origem: input.origem || 'MANUAL',
-        p_cliente_id: input.clienteId || null,
-        p_contato_nome: input.contatoNome?.trim() || null,
-        p_contato_telefone: input.contatoTelefone || null,
-        p_contato_email: input.contatoEmail?.trim().toLowerCase() || null,
-        p_tema_evento: input.temaEvento?.trim() || null,
-        p_data_evento: input.dataEvento || null,
-        p_horario_evento: input.horarioEvento?.trim() || null,
-        p_data_retirada: input.dataRetirada || null,
-        p_horario_retirada: input.horarioRetirada || null,
-        p_data_devolucao: input.dataDevolucao || null,
-        p_endereco_evento: input.enderecoEvento?.trim() || null,
-        p_observacoes: input.observacoes?.trim() || null,
-        p_desconto_tipo: input.descontoTipo || 'VALOR',
-        p_desconto_valor: input.descontoValor ?? 0,
-        p_itens: serializarItens(input),
-        p_taxas: serializarTaxas(input)
-      }
-    )
+    const parametros = {
+      p_empresa_id: input.empresaId,
+      p_usuario_id: input.usuarioId,
+      p_orcamento_id: input.orcamentoId || null,
+      p_versao_esperada: input.versaoEsperada ?? null,
+      p_idempotencia: input.idempotencia?.trim() || null,
+      p_status: input.status,
+      p_origem: input.origem || 'MANUAL',
+      p_cliente_id: input.clienteId || null,
+      p_contato_nome: input.contatoNome?.trim() || null,
+      p_contato_telefone: input.contatoTelefone || null,
+      p_contato_email: input.contatoEmail?.trim().toLowerCase() || null,
+      p_tema_evento: input.temaEvento?.trim() || null,
+      p_data_evento: input.dataEvento || null,
+      p_horario_evento: input.horarioEvento?.trim() || null,
+      p_data_retirada: input.dataRetirada || null,
+      p_horario_retirada: input.horarioRetirada || null,
+      p_data_devolucao: input.dataDevolucao || null,
+      p_endereco_evento: input.enderecoEvento?.trim() || null,
+      p_observacoes: input.observacoes?.trim() || null,
+      p_desconto_tipo: input.descontoTipo || 'VALOR',
+      p_desconto_valor: input.descontoValor ?? 0,
+      p_itens: serializarItens(input),
+      p_taxas: serializarTaxas(input)
+    }
+    const editor = input.oportunidadeId !== undefined || input.validade !== undefined
+    const { data, error } = editor
+      ? await supabaseServer.rpc('salvar_orcamento_editor_jornada3_servidor', {
+          p_dados: { ...parametros, oportunidade_id: input.oportunidadeId || null, validade: input.validade || null }
+        })
+      : await supabaseServer.rpc('salvar_orcamento_jornada3_servidor', parametros)
 
     if (error) throw error
     return data as Orcamento3Persistido

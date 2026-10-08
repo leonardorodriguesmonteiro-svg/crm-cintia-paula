@@ -44,6 +44,8 @@ export type TaxaOrcamento3Input = {
 }
 
 export type SalvarOrcamento3Input = {
+  oportunidadeId?: string | null
+  validade?: string | null
   empresaId: string
   usuarioId: string
   orcamentoId?: string | null

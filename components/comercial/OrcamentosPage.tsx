@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
+import { calcularEditor, serializarEditor, validarEditor, tiposTaxa, type ItemEditor, type TaxaEditor } from '@/lib/comercial/orcamentoEditor'
 import { Ban, CalendarCheck, CheckCircle2, CircleAlert, Copy, Download, ExternalLink, FileSignature, HandCoins, Mail, Plus, Send, Share2, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { criarDocumentoOrcamento, mensagemWhatsAppOrcamento, telefoneWhatsApp } from '@/lib/orcamentoPdf'
@@ -50,18 +51,22 @@ type AcessorioEstoque = {
   quantidade_disponivel: number | null
 }
 
-type ItemForm = {
-  chave: string
-  kit_id: string
-  estoque_item_id: string
-  descricao: string
-  quantidade: number | string
-  valor_unitario: number | string
-}
+type ItemForm = ItemEditor
+
+type ItemConceitual = { id: string; nome: string; preco_locacao_estimado: number | null }
 
 type Orcamento = {
   id: string
   empresa_id: string | null
+  versao: number
+  origem: string
+  contato_nome: string | null
+  contato_telefone: string | null
+  contato_email: string | null
+  tema_evento: string | null
+  desconto_tipo: 'VALOR' | 'PERCENTUAL'
+  desconto_valor: number
+  total_taxas: number
   numero: number
   oportunidade_id: string | null
   cliente_id: string | null
@@ -125,6 +130,11 @@ type FormOrcamento = {
   cliente_id: string
   oportunidade_id: string
   status: string
+  contato_nome: string
+  contato_telefone: string
+  contato_email: string
+  tema_evento: string
+  origem: string
   validade: string
   data_evento: string
   horario_evento: string
@@ -133,8 +143,6 @@ type FormOrcamento = {
   data_devolucao: string
   endereco_evento: string
   desconto: number | string
-  acrescimos: number | string
-  frete: number | string
   observacoes: string
 }
 
@@ -190,7 +198,8 @@ function dataVencimentoSinalInicial() {
 const formVazio: FormOrcamento = {
   cliente_id: '',
   oportunidade_id: '',
-  status: 'RASCUNHO',
+  status: 'EM_EDICAO',
+  contato_nome: '', contato_telefone: '', contato_email: '', tema_evento: '', origem: 'MANUAL',
   validade: dataValidadeInicial(),
   data_evento: '',
   horario_evento: '',
@@ -199,8 +208,6 @@ const formVazio: FormOrcamento = {
   data_devolucao: '',
   endereco_evento: '',
   desconto: 0,
-  acrescimos: 0,
-  frete: 0,
   observacoes: ''
 }
 
@@ -209,6 +216,7 @@ function novoItem(): ItemForm {
     chave: crypto.randomUUID(),
     kit_id: '',
     estoque_item_id: '',
+    item_conceitual_id: '', tipo_origem: 'LIVRE', preco_base: null, desconto: 0, observacao: '',
     descricao: '',
     quantidade: 1,
     valor_unitario: 0
@@ -228,6 +236,7 @@ function dataCurta(valor: string | null) {
 }
 
 function corStatus(status: string) {
+  if (status === 'FINALIZADO') return 'bg-green-100 text-green-800'
   if (status === 'ACEITA') return 'bg-green-100 text-green-800'
   if (status === 'ENVIADA') return 'bg-blue-100 text-blue-800'
   if (['RECUSADA', 'CANCELADA'].includes(status)) return 'bg-red-100 text-red-800'
@@ -244,11 +253,11 @@ function corFormalizacao(status: string | null) {
 }
 
 function nomeClienteDo(orcamento: Orcamento) {
-  return orcamento.clientes?.nome || orcamento.oportunidades?.nome_contato || 'Cliente não identificado'
+  return orcamento.clientes?.nome || orcamento.oportunidades?.nome_contato || orcamento.contato_nome || 'Cliente não identificado'
 }
 
 function emailClienteDo(orcamento: Orcamento) {
-  return orcamento.clientes?.email || orcamento.oportunidades?.email || null
+  return orcamento.clientes?.email || orcamento.oportunidades?.email || orcamento.contato_email || null
 }
 
 function propostaPodeSerCancelada(orcamento: Orcamento) {
@@ -260,10 +269,18 @@ function propostaPodeSerEnviada(orcamento: Orcamento) {
 }
 
 function propostaPodeSerEditada(orcamento: Orcamento) {
-  return orcamento.status === 'RASCUNHO' && !orcamento.resposta_cliente
+  return ['RASCUNHO', 'NOVO', 'EM_EDICAO', 'FINALIZADO'].includes(orcamento.status) && !orcamento.resposta_cliente && !orcamento.reserva_id
 }
 
 export function OrcamentosPage() {
+  const oportunidadeUrlCarregada = useRef<string | null>(null)
+  const carregamentoForm = useRef(0)
+  const [carregandoForm, setCarregandoForm] = useState(false)
+  const [taxas, setTaxas] = useState<TaxaEditor[]>([])
+  const [conceituais, setConceituais] = useState<ItemConceitual[]>([])
+  const [versao, setVersao] = useState<number | null>(null)
+  const idempotencia = useRef<string | null>(null)
+  const envioEmCurso = useRef(false)
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [oportunidades, setOportunidades] = useState<Oportunidade[]>([])
   const [kits, setKits] = useState<Kit[]>([])
@@ -300,7 +317,7 @@ export function OrcamentosPage() {
     setCarregando(true)
     setErro('')
 
-    const [clientesRes, oportunidadesRes, kitsRes, acessoriosRes, orcamentosRes] = await Promise.all([
+    const [clientesRes, oportunidadesRes, kitsRes, acessoriosRes, orcamentosRes, conceituaisRes] = await Promise.all([
       supabase.from('clientes').select('id,nome,whatsapp,email').order('nome'),
       supabase
         .from('oportunidades')
@@ -316,14 +333,16 @@ export function OrcamentosPage() {
       supabase
         .from('orcamentos')
         .select('*,clientes(nome,whatsapp,email),oportunidades(numero,nome_contato,celular,email,cadastro_completo_em),contratos(public_token,email_enviado_em,email_destino),lancamentos_financeiros(provedor_pagamento,link_pagamento,status_provedor)')
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: false }),
+      supabase.from('itens_conceituais').select('id,nome,preco_locacao_estimado').not('status', 'in', '(DESCARTADO,INCORPORADO_ESTOQUE)').order('nome')
     ])
 
-    const primeiroErro = clientesRes.error || oportunidadesRes.error || kitsRes.error || acessoriosRes.error || orcamentosRes.error
+    const primeiroErro = clientesRes.error || oportunidadesRes.error || kitsRes.error || acessoriosRes.error || orcamentosRes.error || conceituaisRes.error
 
     if (primeiroErro) {
       setErro(primeiroErro.message)
     } else {
+      setConceituais(conceituaisRes.data || [])
       setClientes(clientesRes.data || [])
       setOportunidades(oportunidadesRes.data || [])
       setKits(kitsRes.data || [])
@@ -344,7 +363,8 @@ export function OrcamentosPage() {
 
   useEffect(() => {
     const oportunidadeId = new URLSearchParams(window.location.search).get('oportunidade')
-    if (!oportunidadeId) return
+    if (!oportunidadeId || oportunidadeUrlCarregada.current === oportunidadeId || !oportunidades.some(item => item.id === oportunidadeId)) return
+    oportunidadeUrlCarregada.current = oportunidadeId
     setFormAberto(true)
     void selecionarOportunidade(oportunidadeId)
   }, [oportunidades])
@@ -364,13 +384,8 @@ export function OrcamentosPage() {
     }))
   }, [form.data_evento, form.oportunidade_id, oportunidades])
 
-  const subtotal = useMemo(
-    () => itens.reduce(
-      (total, item) => total + Number(item.quantidade || 0) * Number(item.valor_unitario || 0),
-      0
-    ),
-    [itens]
-  )
+  const calculo = useMemo(() => calcularEditor(itens, taxas, tipoDesconto, form.desconto), [itens, taxas, tipoDesconto, form.desconto])
+  const { subtotal, descontoCalculado: descontoEmReais, totalFinal: total } = calculo
 
   const acessoriosFiltrados = useMemo(() => {
     const termo = buscaAcessorio.trim().toLocaleLowerCase('pt-BR')
@@ -383,15 +398,12 @@ export function OrcamentosPage() {
     )
   }, [acessorios, buscaAcessorio])
 
-  const descontoEmReais = tipoDesconto === 'PERCENTUAL'
-    ? Math.round(subtotal * Number(form.desconto || 0)) / 100
-    : Number(form.desconto || 0)
-  const total = Math.max(
-    subtotal - descontoEmReais + Number(form.acrescimos || 0) + Number(form.frete || 0),
-    0
-  )
-
   function iniciarNovo() {
+    carregamentoForm.current += 1
+    setCarregandoForm(false)
+    setTaxas([])
+    setVersao(null)
+    idempotencia.current = crypto.randomUUID()
     setForm({ ...formVazio, validade: dataValidadeInicial() })
     setTipoDesconto('VALOR')
     setItens([novoItem()])
@@ -403,11 +415,17 @@ export function OrcamentosPage() {
   }
 
   async function selecionarOportunidade(id: string) {
+    const sequencia = ++carregamentoForm.current
     const oportunidade = oportunidades.find(item => item.id === id)
     setTipoDesconto(oportunidade?.desconto_tipo || 'VALOR')
     setForm(atual => ({
       ...atual,
       oportunidade_id: id,
+      contato_nome: oportunidade?.nome_contato || atual.contato_nome,
+      contato_telefone: oportunidade?.celular || atual.contato_telefone,
+      contato_email: oportunidade?.email || '',
+      tema_evento: oportunidade?.interesse || '',
+      origem: id ? 'SITE' : 'MANUAL',
       cliente_id: oportunidade?.cliente_id || atual.cliente_id,
       data_evento: oportunidade?.data_evento || atual.data_evento,
       data_retirada: oportunidade?.data_evento || atual.data_retirada,
@@ -418,11 +436,14 @@ export function OrcamentosPage() {
 
     if (!id) return
 
+    setCarregandoForm(true)
     const { data, error } = await supabase
       .from('oportunidade_itens')
       .select('id,tipo,kit_id,estoque_item_id,nome_snapshot,valor_referencia,quantidade')
       .eq('oportunidade_id', id)
       .order('ordem')
+    if (sequencia !== carregamentoForm.current) return
+    setCarregandoForm(false)
 
     if (error) {
       setErro(`Não foi possível carregar os itens escolhidos pelo cliente: ${error.message}`)
@@ -431,6 +452,9 @@ export function OrcamentosPage() {
 
     if ((data || []).length > 0) {
       setItens((data || []).map(item => ({
+        ...novoItem(),
+        tipo_origem: item.kit_id ? 'KIT' : item.estoque_item_id ? 'ESTOQUE' : 'LIVRE',
+        preco_base: item.valor_referencia ?? null,
         chave: item.id,
         kit_id: item.kit_id || '',
         estoque_item_id: item.estoque_item_id || '',
@@ -442,9 +466,13 @@ export function OrcamentosPage() {
   }
 
   function selecionarCliente(id: string) {
+    const cliente = clientes.find(item => item.id === id)
     setForm(atual => ({
       ...atual,
       cliente_id: id,
+      contato_nome: cliente?.nome || atual.contato_nome,
+      contato_telefone: cliente?.whatsapp || atual.contato_telefone,
+      contato_email: cliente?.email || atual.contato_email,
       oportunidade_id: atual.oportunidade_id && oportunidades.some(
         item => item.id === atual.oportunidade_id && item.cliente_id === id
       ) ? atual.oportunidade_id : ''
@@ -468,6 +496,8 @@ export function OrcamentosPage() {
         && !atuais[0].descricao.trim()
       const novo = {
         ...novoItem(),
+        tipo_origem: 'ESTOQUE' as const,
+        preco_base: acessorio.valor_locacao,
         estoque_item_id: acessorio.id,
         valor_unitario: acessorio.valor_locacao ?? '',
         descricao: `${acessorio.codigo ? `${acessorio.codigo} - ` : ''}${acessorio.nome}`
@@ -527,132 +557,75 @@ export function OrcamentosPage() {
 
   async function salvar(evento: React.FormEvent, finalizar = false) {
     evento.preventDefault()
+    if (envioEmCurso.current || carregandoForm) return
     setErro('')
     setSucesso('')
-
-    if (!form.cliente_id && !form.oportunidade_id) return setErro('Selecione o cliente deste orçamento.')
-    if (!form.data_evento) return setErro('Informe a data prevista do evento.')
-
-    const itensValidos = itens.filter(item => item.descricao.trim() && Number(item.quantidade) > 0)
-    if (!itensValidos.length) return setErro('Adicione pelo menos um item do estoque ou um item livre ao orçamento.')
-
-    if (itensValidos.some(item => item.valor_unitario === '' || !Number.isFinite(Number(item.valor_unitario)) || Number(item.valor_unitario) < 0)) return setErro('Preencha o preço de cada item. Itens sem preço cadastrado precisam de um valor neste orçamento.')
-    if (!Number.isFinite(Number(form.desconto)) || Number(form.desconto) < 0 || (tipoDesconto === 'PERCENTUAL' && Number(form.desconto) > 100) || descontoEmReais > subtotal) return setErro('Informe um desconto válido, sem ultrapassar o subtotal do pedido.')
-
+    const falha = validarEditor(itens, taxas, tipoDesconto, form.desconto)
+    if (falha) return setErro(falha)
+    if (finalizar && (!form.data_evento || form.contato_nome.trim().length < 2 || !/^\d{10,11}$/.test(form.contato_telefone.replace(/\D/g, '')))) {
+      return setErro('Para finalizar, informe nome, telefone com DDD e data do evento.')
+    }
+    envioEmCurso.current = true
     setSalvando(true)
-
-    const {
-      data: { user },
-      error: usuarioError
-    } = await supabase.auth.getUser()
-
-    if (usuarioError || !user) {
-      setErro('Sua sessão expirou. Entre novamente no ERP.')
-      setSalvando(false)
-      return
-    }
-
-    const oportunidade = oportunidades.find(item => item.id === form.oportunidade_id)
-    const clienteId = form.cliente_id || oportunidade?.cliente_id || null
-    const { data: vinculo } = await supabase
-      .from('usuarios_empresa')
-      .select('empresa_id')
-      .eq('usuario_id', user.id)
-      .eq('ativo', true)
-      .limit(1)
-      .maybeSingle()
-
-    const payload = {
-      empresa_id: vinculo?.empresa_id || null,
-      oportunidade_id: form.oportunidade_id || null,
-      cliente_id: clienteId,
-      status: 'RASCUNHO',
-      validade: form.validade || null,
-      data_evento: form.data_evento,
-      horario_evento: form.horario_evento || null,
-      data_retirada: form.data_retirada || form.data_evento,
-      horario_retirada: form.horario_retirada || null,
-      data_devolucao: form.data_devolucao || form.data_evento,
-      endereco_evento: form.endereco_evento.trim() || null,
-      desconto: descontoEmReais,
-      acrescimos: Number(form.acrescimos) || 0,
-      frete: Number(form.frete) || 0,
-      observacoes: form.observacoes.trim() || null,
-      created_by: user.id
-    }
-
-    let orcamentoId = editandoId
-
-    if (editandoId) {
-      const { error } = await supabase.from('orcamentos').update(payload).eq('id', editandoId)
-      if (error) {
-        setErro(error.message)
-        setSalvando(false)
-        return
+    try {
+      const { data, error } = await supabase.auth.getSession()
+      if (error || !data.session) throw new Error('Sua sessão expirou. Entre novamente no ERP.')
+      idempotencia.current ||= crypto.randomUUID()
+      const payload = {
+        cliente_id: form.cliente_id || null, oportunidade_id: form.oportunidade_id || null,
+        validade: form.validade || null, versao,
+        status: finalizar ? 'FINALIZADO' : 'EM_EDICAO', origem: form.origem,
+        contato_nome: form.contato_nome, contato_telefone: form.contato_telefone,
+        contato_email: form.contato_email || null, tema_evento: form.tema_evento || null,
+        data_evento: form.data_evento || null, horario_evento: form.horario_evento || null,
+        data_retirada: form.data_retirada || form.data_evento || null,
+        horario_retirada: form.horario_retirada || null,
+        data_devolucao: form.data_devolucao || form.data_evento || null,
+        endereco_evento: form.endereco_evento || null, observacoes: form.observacoes || null,
+        desconto_tipo: tipoDesconto, desconto_valor: Number(form.desconto),
+        ...serializarEditor(itens, taxas)
       }
-
-      const { error: limparError } = await supabase.from('orcamento_itens').delete().eq('orcamento_id', editandoId)
-      if (limparError) {
-        setErro(limparError.message)
-        setSalvando(false)
-        return
-      }
-    } else {
-      const { data, error } = await supabase
-        .from('orcamentos')
-        .insert(payload)
-        .select('id')
-        .single()
-
-      if (error) {
-        setErro(error.message)
-        setSalvando(false)
-        return
-      }
-      orcamentoId = data.id
-    }
-
-    const { error: itensError } = await supabase.from('orcamento_itens').insert(
-      itensValidos.map(item => ({
-        orcamento_id: orcamentoId,
-        kit_id: item.kit_id || null,
-        estoque_item_id: item.estoque_item_id || null,
-        descricao: item.descricao.trim(),
-        quantidade: Number(item.quantidade),
-        valor_unitario: Number(item.valor_unitario) || 0
-      }))
-    )
-
-    if (itensError) {
-      setErro(itensError.message)
-      setSalvando(false)
-      return
-    }
-
-    let avisoEnvio = ''
-    if (finalizar && orcamentoId) {
-      try {
-        const { data: sessao } = await supabase.auth.getSession()
-        if (!sessao.session) throw new Error('Sua sessão expirou.')
-        const resposta = await fetch(`/api/orcamentos/${orcamentoId}/enviar-email`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessao.session.access_token}` }, body: '{}'
+      // NOVO precisa passar por EM_EDICAO antes da finalização.
+      const salvarPayload = async (id: string | null, corpo: typeof payload) => {
+        const resposta = await fetch(id ? `/api/orcamentos/${id}` : '/api/orcamentos', {
+          method: id ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session!.access_token}`, 'Idempotency-Key': idempotencia.current! },
+          body: JSON.stringify(corpo)
         })
-        const corpo = await resposta.json()
-        if (!resposta.ok) throw new Error(corpo.error || 'Não foi possível enviar o e-mail.')
-        setSucesso(corpo.mensagem || 'Orçamento finalizado. Envio aceito pelo serviço de e-mail.')
-      } catch (error) { avisoEnvio = `Orçamento salvo. ${error instanceof Error ? error.message : 'Não foi possível enviar.'} Consulte o orçamento abaixo para continuar.` }
-    } else setSucesso('Rascunho salvo. Finalize e envie quando estiver pronto.')
-    setFormAberto(false)
-    setEditandoId(null)
-    setSalvando(false)
-    await carregar()
-    if (avisoEnvio) setErro(avisoEnvio)
+        const resultado = await resposta.json().catch(() => ({}))
+        if (!resposta.ok || !resultado.orcamento) throw new Error(resultado.erro || 'Não foi possível salvar. Tente novamente; seus dados foram mantidos.')
+        return resultado.orcamento
+      }
+      let versaoAtual = versao
+      if (finalizar && editandoId && ['NOVO', 'FINALIZADO'].includes(form.status)) {
+        const intermediario = await salvarPayload(editandoId, { ...payload, status: 'EM_EDICAO' })
+        versaoAtual = intermediario.versao
+        setVersao(versaoAtual)
+        setForm(atual => ({ ...atual, status: 'EM_EDICAO' }))
+      }
+      const salvo = await salvarPayload(editandoId, { ...payload, versao: versaoAtual })
+      setVersao(salvo.versao)
+      setEditandoId(salvo.id)
+      setForm(atual => ({ ...atual, status: salvo.status }))
+      if (!editandoId && !salvo.criado) {
+        setSucesso('O salvamento anterior foi recuperado. Revise os dados e salve novamente para aplicar eventuais alterações feitas após a tentativa anterior.')
+        return
+      }
+      setSucesso(`${salvo.status === 'FINALIZADO' ? 'Orçamento finalizado' : 'Orçamento salvo'}. Total: ${moeda(salvo.total)}. ${(salvo.avisos || []).join(' ')}`)
+      setFormAberto(false)
+      await carregar()
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível salvar o orçamento.')
+    } finally {
+      envioEmCurso.current = false
+      setSalvando(false)
+    }
   }
 
   async function carregarDadosDocumento(orcamento: Orcamento): Promise<DadosDocumento> {
     const itensPromise = supabase
       .from('orcamento_itens')
-      .select('descricao,quantidade,valor_unitario,subtotal')
+      .select('descricao,quantidade,valor_unitario,subtotal_negociado')
       .eq('orcamento_id', orcamento.id)
       .order('created_at')
 
@@ -680,6 +653,7 @@ export function OrcamentosPage() {
 
     return {
       ...orcamento,
+      acrescimos: Number(orcamento.acrescimos || 0) + Number(orcamento.total_taxas || 0),
       empresa: empresaRes.data || {
         nome: 'Cintia Paula Festas e Decorações',
         nome_fantasia: 'Cintia Paula Festas e Decorações',
@@ -699,15 +673,15 @@ export function OrcamentosPage() {
         logo_url: null
       },
       cliente: clienteRes.data || {
-        nome: orcamento.oportunidades?.nome_contato || 'Cliente',
-        whatsapp: orcamento.oportunidades?.celular || null,
-        email: orcamento.oportunidades?.email || null
+        nome: orcamento.contato_nome || orcamento.oportunidades?.nome_contato || 'Cliente',
+        whatsapp: orcamento.contato_telefone || orcamento.oportunidades?.celular || null,
+        email: orcamento.oportunidades?.email || orcamento.contato_email || null
       },
       itens: (itensRes.data || []).map(item => ({
         descricao: item.descricao,
         quantidade: Number(item.quantidade),
         valor_unitario: Number(item.valor_unitario),
-        subtotal: Number(item.subtotal)
+        subtotal: Number(item.subtotal_negociado)
       }))
     }
   }
@@ -1166,40 +1140,44 @@ export function OrcamentosPage() {
   }
 
   async function editar(orcamento: Orcamento) {
+    const sequencia = ++carregamentoForm.current
+    setCarregandoForm(true)
     setErro('')
-    const { data, error } = await supabase
-      .from('orcamento_itens')
-      .select('id,kit_id,estoque_item_id,descricao,quantidade,valor_unitario')
-      .eq('orcamento_id', orcamento.id)
-      .order('created_at')
-
+    const { data: registro, error } = await supabase.from('orcamentos')
+      .select('*,orcamento_itens(*),orcamento_taxas(*)').eq('id', orcamento.id).single()
+    if (sequencia !== carregamentoForm.current) return
+    setCarregandoForm(false)
     if (error) return setErro(error.message)
-
+    if (!propostaPodeSerEditada(registro)) return setErro('Este orçamento não está mais disponível para edição. Atualize a lista.')
+    setVersao(registro.versao)
+    idempotencia.current = null
     setForm({
-      cliente_id: orcamento.cliente_id || '',
-      oportunidade_id: orcamento.oportunidade_id || '',
-      status: orcamento.status,
-      validade: orcamento.validade || '',
-      data_evento: orcamento.data_evento || '',
-      horario_evento: orcamento.horario_evento || '',
-      data_retirada: orcamento.data_retirada || '',
-      horario_retirada: orcamento.horario_retirada || '',
-      data_devolucao: orcamento.data_devolucao || '',
-      endereco_evento: orcamento.endereco_evento || '',
-      desconto: orcamento.desconto || 0,
-      acrescimos: orcamento.acrescimos || 0,
-      frete: orcamento.frete || 0,
-      observacoes: orcamento.observacoes || ''
+      ...formVazio,
+      cliente_id: registro.cliente_id || '', oportunidade_id: registro.oportunidade_id || '',
+      status: registro.status, origem: registro.origem || 'MANUAL',
+      contato_nome: registro.contato_nome || nomeClienteDo(orcamento),
+      contato_telefone: registro.contato_telefone || orcamento.clientes?.whatsapp || orcamento.oportunidades?.celular || '',
+      contato_email: registro.contato_email || emailClienteDo(orcamento) || '',
+      tema_evento: registro.tema_evento || '', validade: registro.validade || '',
+      data_evento: registro.data_evento || '', horario_evento: registro.horario_evento || '',
+      data_retirada: registro.data_retirada || '', horario_retirada: registro.horario_retirada || '',
+      data_devolucao: registro.data_devolucao || '', endereco_evento: registro.endereco_evento || '',
+      desconto: registro.desconto_valor ?? registro.desconto ?? 0, observacoes: registro.observacoes || ''
     })
-    setTipoDesconto('VALOR')
-    setItens((data || []).map(item => ({
-      chave: item.id,
-      kit_id: item.kit_id || '',
-      estoque_item_id: item.estoque_item_id || '',
-      descricao: item.descricao,
-      quantidade: item.quantidade,
-      valor_unitario: item.valor_unitario
+    setTipoDesconto(registro.desconto_tipo || 'VALOR')
+    setItens((registro.orcamento_itens || []).sort((a, b) => a.ordem - b.ordem).map(item => ({
+      ...novoItem(), chave: item.id, tipo_origem: item.tipo_origem,
+      kit_id: item.kit_id || '', estoque_item_id: item.estoque_item_id || '', item_conceitual_id: item.item_conceitual_id || '',
+      descricao: item.descricao, quantidade: item.quantidade,
+      valor_unitario: item.preco_unitario_orcamento ?? item.valor_unitario,
+      preco_base: item.preco_base, desconto: item.desconto || 0, observacao: item.observacao || ''
     })))
+    const taxasSalvas = (registro.orcamento_taxas || []).sort((a, b) => a.ordem - b.ordem).map(taxa => ({
+      chave: taxa.id, descricao: taxa.descricao, tipo: taxa.tipo, valor: taxa.valor, observacao: taxa.observacao || ''
+    }))
+    if (Number(registro.acrescimos) > 0) taxasSalvas.push({ chave: crypto.randomUUID(), descricao: 'Acréscimos', tipo: 'EXTRA', valor: registro.acrescimos, observacao: '' })
+    if (Number(registro.frete) > 0) taxasSalvas.push({ chave: crypto.randomUUID(), descricao: 'Frete / entrega', tipo: 'ENTREGA', valor: registro.frete, observacao: '' })
+    setTaxas(taxasSalvas)
     setDisponibilidades({})
     setEditandoId(orcamento.id)
     setFormAberto(true)
@@ -1214,15 +1192,17 @@ export function OrcamentosPage() {
           <h1 className="text-3xl font-bold text-slate-900">Orçamentos</h1>
           <p className="mt-1 text-slate-500">Revise a solicitação, ajuste itens e preços e envie o próximo passo ao cliente.</p>
         </div>
-        <Button onClick={iniciarNovo} className="flex items-center justify-center gap-2"><Plus size={18} /> Novo orçamento</Button>
+        <Button disabled={salvando} onClick={iniciarNovo} className="flex items-center justify-center gap-2"><Plus size={18} /> Novo orçamento</Button>
       </div>
 
       {erro && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
       {sucesso && <div className="rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">{sucesso}</div>}
 
+      {carregandoForm && <p role="status">Carregando dados do orçamento...</p>}
       {formAberto && (
         <Card className="border-pink-200">
           <form onSubmit={evento => void salvar(evento, (evento.nativeEvent as SubmitEvent).submitter?.getAttribute("value") === "finalizar")} className="space-y-6">
+            <fieldset disabled={salvando || carregandoForm} className="space-y-6">
             <div>
               <h2 className="text-xl font-bold text-slate-900">{editandoId ? 'Editar orçamento' : 'Novo orçamento'}</h2>
               <p className="text-sm text-slate-500">Escolha uma solicitação do site ou um cliente, revise tudo e salve. Depois, gere o link para os dados do contrato.</p>
@@ -1259,9 +1239,13 @@ export function OrcamentosPage() {
               </div>
               <div className="rounded-xl border bg-slate-50 px-3 py-2">
                 <p className="text-xs font-semibold text-slate-500">Status</p>
-                <p className="mt-1 text-sm font-bold text-slate-800">Rascunho</p>
-                <p className="mt-1 text-xs text-slate-500">O status avança pelo envio e pela resposta do cliente.</p>
+                <p className="mt-1 text-sm font-bold text-slate-800">{form.status === 'FINALIZADO' ? 'Finalizado' : 'Em edição'}</p>
+                <p className="mt-1 text-xs text-slate-500">Salve suas alterações ou finalize o orçamento após a revisão.</p>
               </div>
+              <Input label="Nome do contato" value={form.contato_nome} onChange={evento => setForm({ ...form, contato_nome: evento.target.value })} />
+              <Input label="Telefone com DDD" value={form.contato_telefone} onChange={evento => setForm({ ...form, contato_telefone: evento.target.value })} />
+              <Input label="E-mail do contato" type="email" value={form.contato_email} onChange={evento => setForm({ ...form, contato_email: evento.target.value })} />
+              <Input label="Tema do evento" value={form.tema_evento} onChange={evento => setForm({ ...form, tema_evento: evento.target.value })} />
               <Input label="Validade" type="date" value={form.validade} onChange={evento => setForm({ ...form, validade: evento.target.value })} />
               <Input label="Data do evento *" type="date" value={form.data_evento} onChange={evento => { setForm({ ...form, data_evento: evento.target.value }); setDisponibilidades({}) }} />
               <Input label="Horário do evento" placeholder="Ex.: 14:00" value={form.horario_evento} onChange={evento => setForm({ ...form, horario_evento: evento.target.value })} />
@@ -1304,6 +1288,15 @@ export function OrcamentosPage() {
                 </div>
               </div>
 
+              <Select label="Adicionar kit" value="" onChange={evento => {
+                const kit = kits.find(item => item.id === evento.target.value)
+                if (kit) setItens(atuais => [...atuais.filter(item => item.descricao.trim() || item.kit_id || item.estoque_item_id || item.item_conceitual_id), { ...novoItem(), tipo_origem: 'KIT', kit_id: kit.id, descricao: kit.nome, preco_base: kit.valor, valor_unitario: kit.valor ?? '' }])
+              }}><option value="">Selecione um kit...</option>{kits.map(item => <option key={item.id} value={item.id}>{item.nome}</option>)}</Select>
+              <Select label="Adicionar item conceitual" value="" onChange={evento => {
+                const conceito = conceituais.find(item => item.id === evento.target.value)
+                if (conceito) setItens(atuais => [...atuais.filter(item => item.descricao.trim() || item.kit_id || item.estoque_item_id || item.item_conceitual_id), { ...novoItem(), tipo_origem: 'CONCEITUAL', item_conceitual_id: conceito.id, descricao: conceito.nome, preco_base: conceito.preco_locacao_estimado, valor_unitario: conceito.preco_locacao_estimado ?? '' }])
+              }}><option value="">Selecione um conceito cadastrado...</option>{conceituais.map(item => <option key={item.id} value={item.id}>{item.nome}</option>)}</Select>
+              {conceituais.length === 0 && <p className="text-sm text-slate-500">Nenhum item conceitual disponível.</p>}
               <div className="flex justify-end">
                 <Button variant="secondary" onClick={() => setItens(atuais => [...atuais, novoItem()])}><Plus size={16} className="inline" /> Adicionar item livre</Button>
               </div>
@@ -1312,12 +1305,18 @@ export function OrcamentosPage() {
                 const disponibilidade = disponibilidades[item.chave]
                 return (
                   <div key={item.chave} className="rounded-2xl border bg-slate-50 p-4">
+                    <p className="mb-3 text-xs font-semibold text-slate-600">{item.tipo_origem} · Preço-base: {item.preco_base == null ? 'não informado' : moeda(item.preco_base)}</p>
+                    {item.tipo_origem === 'CONCEITUAL' && <p className="mb-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">Item conceitual: depende de aquisição ou produção e não representa disponibilidade física.</p>}
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                      <Input label="Descrição *" className="xl:col-span-2" value={item.descricao} onChange={evento => atualizarItem(item.chave, { descricao: evento.target.value })} />
-                      <Input label="Quantidade" type="number" min="0.01" step="0.01" value={item.quantidade} onChange={evento => atualizarItem(item.chave, { quantidade: evento.target.value })} />
+                      <Input required label="Descrição *" className="xl:col-span-2" value={item.descricao} onChange={evento => atualizarItem(item.chave, { descricao: evento.target.value })} />
+                      <Input required label="Quantidade" type="number" min="0.01" step="0.01" value={item.quantidade} onChange={evento => atualizarItem(item.chave, { quantidade: evento.target.value })} />
                       <Input placeholder="Informe o preço de locação" required label="Valor unitário" type="number" min="0" step="0.01" value={item.valor_unitario} onChange={evento => atualizarItem(item.chave, { valor_unitario: evento.target.value })} />
                     </div>
 
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      <Input label="Desconto deste item (R$)" type="number" min="0" step="0.01" value={item.desconto} onChange={evento => atualizarItem(item.chave, { desconto: evento.target.value })} />
+                      <Input label="Observação do item" value={item.observacao} onChange={evento => atualizarItem(item.chave, { observacao: evento.target.value })} />
+                    </div>
                     {item.estoque_item_id && !item.kit_id && (
                       <div className="mt-3 rounded-xl border border-cyan-100 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-800">
                         Item vinculado ao estoque físico. O bloqueio ocorrerá somente quando a reserva for confirmada.
@@ -1325,7 +1324,7 @@ export function OrcamentosPage() {
                     )}
 
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
-                      <span className="font-semibold">Subtotal: {moeda(Number(item.quantidade || 0) * Number(item.valor_unitario || 0))}</span>
+                      <span className="font-semibold">Subtotal: {moeda(calcularEditor([item], [], 'VALOR', 0).subtotal)}</span>
                       <div className="flex flex-wrap items-center gap-2">
                         {disponibilidade && (
                           <span className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${disponibilidade.disponivel ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
@@ -1341,6 +1340,18 @@ export function OrcamentosPage() {
               })}
             </div>
 
+            <section className="space-y-3" aria-label="Taxas do orçamento">
+              <h3 className="font-bold">Taxas</h3>
+              {taxas.map((taxa, indice) => <div key={taxa.chave} className="grid gap-3 rounded-xl border p-3 md:grid-cols-2">
+                <Input required label={`Descrição da taxa ${indice + 1}`} value={taxa.descricao} onChange={evento => setTaxas(atuais => atuais.map(item => item.chave === taxa.chave ? { ...item, descricao: evento.target.value } : item))} />
+                <Select label="Tipo da taxa" value={taxa.tipo} onChange={evento => setTaxas(atuais => atuais.map(item => item.chave === taxa.chave ? { ...item, tipo: evento.target.value } : item))}>{tiposTaxa.map(tipo => <option key={tipo}>{tipo}</option>)}</Select>
+                <Input required label="Valor da taxa (R$)" type="number" min="0" step="0.01" value={taxa.valor} onChange={evento => setTaxas(atuais => atuais.map(item => item.chave === taxa.chave ? { ...item, valor: evento.target.value } : item))} />
+                <Input label="Observação da taxa" value={taxa.observacao} onChange={evento => setTaxas(atuais => atuais.map(item => item.chave === taxa.chave ? { ...item, observacao: evento.target.value } : item))} />
+                <Button variant="danger" onClick={() => setTaxas(atuais => atuais.filter(item => item.chave !== taxa.chave))}>Remover taxa {indice + 1}</Button>
+              </div>)}
+              <Button variant="secondary" onClick={() => setTaxas(atuais => [...atuais, { chave: crypto.randomUUID(), descricao: '', valor: '', tipo: 'OUTRA', observacao: '' }])}>Adicionar taxa</Button>
+            </section>
+
             <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
               <Textarea label="Observações da proposta" rows={6} value={form.observacoes} onChange={evento => setForm({ ...form, observacoes: evento.target.value })} />
               <div className="rounded-2xl bg-slate-900 p-5 text-white">
@@ -1354,10 +1365,9 @@ export function OrcamentosPage() {
                        <option value="PERCENTUAL">Percentual (%)</option>
                      </select>
                      <Input label={tipoDesconto === 'PERCENTUAL' ? 'Desconto (%)' : 'Desconto (R$)'} type="number" min="0" max={tipoDesconto === 'PERCENTUAL' ? 100 : subtotal} step="0.01" className="bg-white text-slate-900" value={form.desconto} onChange={evento => setForm({ ...form, desconto: evento.target.value })} />
-                     <p className="text-sm text-slate-300">Desconto aplicado: {moeda(descontoEmReais)}. O valor em reais será registrado na proposta.</p>
+                     <p className="text-sm text-slate-300">Desconto aplicado: {moeda(descontoEmReais)}. O tipo e o valor serão preservados no orçamento.</p>
                    </div>
-                  <Input label="Acréscimos" type="number" min="0" step="0.01" className="bg-white text-slate-900" value={form.acrescimos} onChange={evento => setForm({ ...form, acrescimos: evento.target.value })} />
-                  <Input label="Frete / entrega" type="number" min="0" step="0.01" className="bg-white text-slate-900" value={form.frete} onChange={evento => setForm({ ...form, frete: evento.target.value })} />
+                  <p className="flex justify-between text-sm"><span>Taxas</span><strong>{moeda(calculo.totalTaxas)}</strong></p>
                   <div className="border-t border-slate-700 pt-4"><p className="flex items-end justify-between"><span>Total</span><strong className="text-2xl text-pink-300">{moeda(total)}</strong></p></div>
                 </div>
               </div>
@@ -1366,9 +1376,10 @@ export function OrcamentosPage() {
             <div className="flex flex-col gap-2 sm:flex-row">
               {form.oportunidade_id && !oportunidades.find(item => item.id === form.oportunidade_id)?.cadastro_completo_em && <p className="text-sm text-amber-800">Salve o orçamento e use o botão “Gerar link para completar cadastro”. Depois dos dados, o contrato poderá ser gerado.</p>}
               <Button type="submit" variant="secondary" disabled={salvando}>Salvar rascunho</Button>
-              <Button type="submit" value="finalizar" disabled={salvando} className="flex items-center justify-center gap-2"><Send size={17} /> {salvando ? 'Salvando...' : 'Finalizar e enviar por e-mail'}</Button>
+              <Button type="submit" value="finalizar" disabled={salvando} className="flex items-center justify-center gap-2"><Send size={17} /> {salvando ? 'Salvando...' : 'Finalizar orçamento'}</Button>
               <Button variant="secondary" onClick={() => { setFormAberto(false); setEditandoId(null); setErro('') }}>Cancelar</Button>
             </div>
+            </fieldset>
           </form>
         </Card>
       )}
@@ -1398,7 +1409,7 @@ export function OrcamentosPage() {
                 {orcamento.resposta_observacao && <p className="mt-1">“{orcamento.resposta_observacao}”</p>}
               </div>
             )}
-            {orcamento.oportunidade_id && !orcamento.oportunidades?.cadastro_completo_em && orcamento.status === 'RASCUNHO' && (
+            {orcamento.oportunidade_id && !orcamento.oportunidades?.cadastro_completo_em && ['RASCUNHO', 'NOVO', 'EM_EDICAO', 'FINALIZADO'].includes(orcamento.status) && (
               <div className="mt-4 rounded-2xl border border-violet-200 bg-violet-50 p-4">
                 <p className="text-sm font-bold text-violet-900">Próximo passo: dados para o contrato</p>
                 <p className="mt-1 text-xs leading-5 text-violet-800">Depois de revisar e salvar itens, preços e desconto, gere o link para o cliente completar apenas os dados contratuais.</p>
@@ -1657,7 +1668,7 @@ export function OrcamentosPage() {
               ) : null}
               <Button
                 variant="secondary"
-                disabled={!propostaPodeSerEditada(orcamento)}
+                disabled={salvando || carregandoForm || !propostaPodeSerEditada(orcamento)}
                 onClick={() => editar(orcamento)}
               >
                 {propostaPodeSerEditada(orcamento)

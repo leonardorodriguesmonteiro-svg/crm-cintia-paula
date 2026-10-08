@@ -48,6 +48,10 @@ function validar(input: SalvarOrcamento3Input) {
     throw new Orcamento3Error('Empresa ou usuário inválido.', 'IDENTIDADE_INVALIDA')
   }
 
+  if (input.oportunidadeId && !uuidValido.test(input.oportunidadeId)) {
+    throw new Orcamento3Error('Solicitação inválida.', 'OPORTUNIDADE_INVALIDA')
+  }
+
   if (input.orcamentoId && !uuidValido.test(input.orcamentoId)) {
     throw new Orcamento3Error('Orçamento inválido.', 'ORCAMENTO_INVALIDO')
   }
@@ -75,7 +79,7 @@ function validar(input: SalvarOrcamento3Input) {
     throw new Orcamento3Error('Limite de itens ou taxas excedido.', 'LIMITE_EXCEDIDO')
   }
 
-  if (![input.dataEvento, input.dataRetirada, input.dataDevolucao].every(dataValida)) {
+  if (![input.dataEvento, input.dataRetirada, input.dataDevolucao, input.validade].every(dataValida)) {
     throw new Orcamento3Error('Uma ou mais datas são inválidas.', 'DATA_INVALIDA')
   }
 
