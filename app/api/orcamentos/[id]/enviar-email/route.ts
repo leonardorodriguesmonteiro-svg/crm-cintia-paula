@@ -3,7 +3,7 @@ import { executarEnvioPropostaEmail } from '@/lib/application/comercial/envioPro
 import { enviarProposta } from '@/lib/application/comercial/jornadaComercialApplication'
 import { EmailPropostaNaoConfiguradoError, enviarPropostaPorEmail, prepararEmailProposta } from '@/lib/propostaEmail'
 import { exigirPerfis, respostaErroAdministrativo } from '@/lib/server/adminAuth'
-import { ORIGEM_OFICIAL } from '@/lib/server/acompanhamento'
+import { origemPublicaJornada } from '@/lib/origemPublicaJornada'
 import { supabaseServer } from '@/lib/supabaseServer'
 
 export const runtime = 'nodejs'
@@ -40,7 +40,7 @@ export async function POST(
     const resultado = await executarEnvioPropostaEmail({
       preparar: () => prepararEmailProposta(id),
       disponibilizar: () => enviarProposta({ usuarioId: acesso.usuario.id, empresaId: acesso.vinculo.empresa_id, orcamentoId: id }),
-      enviar: () => enviarPropostaPorEmail(id, ORIGEM_OFICIAL, { reenviar: corpo?.reenviar === true })
+      enviar: () => enviarPropostaPorEmail(id, origemPublicaJornada(request.nextUrl.origin), { reenviar: corpo?.reenviar === true })
     })
     return NextResponse.json({
       ...resultado,

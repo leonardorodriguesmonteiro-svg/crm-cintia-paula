@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
+import { origemPublicaJornada, ORIGEM_PUBLICA_PRODUCAO } from '@/lib/origemPublicaJornada'
 import { propostaPodeEnviar } from '@/lib/domain/comercial/propostaPublica'
 import { calcularEditor, serializarEditor, validarEditor, tiposTaxa, type ItemEditor, type TaxaEditor } from '@/lib/comercial/orcamentoEditor'
 import { Ban, CalendarCheck, CheckCircle2, CircleAlert, Copy, Download, ExternalLink, FileSignature, HandCoins, Mail, Plus, Send, Share2, Trash2 } from 'lucide-react'
@@ -274,6 +275,8 @@ function propostaPodeSerEditada(orcamento: Orcamento) {
 }
 
 export function OrcamentosPage() {
+  const [origemLinks, setOrigemLinks] = useState(ORIGEM_PUBLICA_PRODUCAO)
+  useEffect(() => { setOrigemLinks(origemPublicaJornada(window.location.origin)) }, [])
   const oportunidadeUrlCarregada = useRef<string | null>(null)
   const carregamentoForm = useRef(0)
   const [carregandoForm, setCarregandoForm] = useState(false)
@@ -774,7 +777,7 @@ export function OrcamentosPage() {
       const dados = await carregarDadosDocumento(orcamento)
       const { doc, nomeArquivo } = await criarDocumentoOrcamento(dados)
       const link_publico = tokenPublico
-        ? `https://www.cintiapaulafestaedecoracao.com.br/proposta/${tokenPublico}`
+        ? `${origemLinks}/proposta/${tokenPublico}`
         : null
       const mensagem = mensagemWhatsAppOrcamento({ ...dados, link_publico })
       const arquivo = new File([doc.output('blob')], nomeArquivo, { type: 'application/pdf' })
@@ -819,7 +822,7 @@ export function OrcamentosPage() {
       return
     }
 
-    const link = `https://www.cintiapaulafestaedecoracao.com.br/proposta/${tokenPublico}`
+    const link = `${origemLinks}/proposta/${tokenPublico}`
     let copiado = false
 
     try {
@@ -919,7 +922,7 @@ export function OrcamentosPage() {
       return
     }
 
-    const link = `${window.location.origin}/contrato/${orcamento.contratos.public_token}`
+    const link = `${origemLinks}/contrato/${orcamento.contratos.public_token}`
     let copiado = false
 
     try {
@@ -1620,7 +1623,7 @@ export function OrcamentosPage() {
               {orcamento.public_token && ['ENVIADA', 'ACEITA'].includes(orcamento.status) && <a
                 className="flex w-full items-center justify-center rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-sm font-bold text-green-800"
                 target="_blank" rel="noopener noreferrer"
-                href={`https://wa.me/${telefoneWhatsApp(orcamento.contato_telefone || orcamento.clientes?.whatsapp || orcamento.oportunidades?.celular || '')}?text=${encodeURIComponent(`Olá! Seu orçamento ORC-${String(orcamento.numero).padStart(4, '0')} da Cintia Paula está disponível para conferir: https://www.cintiapaulafestaedecoracao.com.br/proposta/${orcamento.public_token}`)}`}
+                href={`https://wa.me/${telefoneWhatsApp(orcamento.contato_telefone || orcamento.clientes?.whatsapp || orcamento.oportunidades?.celular || '')}?text=${encodeURIComponent(`Olá! Seu orçamento ORC-${String(orcamento.numero).padStart(4, '0')} da Cintia Paula está disponível para conferir: ${origemLinks}/proposta/${orcamento.public_token}`)}`}
               >Abrir WhatsApp com orçamento</a>}
               {!emailClienteDo(orcamento) && (
                 <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">Cadastre o e-mail do cliente para habilitar o envio automático.</p>

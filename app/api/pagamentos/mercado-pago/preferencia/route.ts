@@ -1,4 +1,4 @@
-import { ORIGEM_OFICIAL } from '@/lib/server/acompanhamento'
+import { origemPublicaJornada } from '@/lib/origemPublicaJornada'
 import { NextRequest, NextResponse } from 'next/server'
 import { criarOuObterPreferenciaMercadoPago, MercadoPagoNaoConfiguradoError } from '@/lib/mercadoPago'
 import { supabaseServer } from '@/lib/supabaseServer'
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
   try {
     const preferencia = await criarOuObterPreferenciaMercadoPago(
       orcamento.lancamento_sinal_id,
-      ORIGEM_OFICIAL,
+      origemPublicaJornada(request.nextUrl.origin),
       { forcar: Boolean(corpo.forcar) }
     )
 

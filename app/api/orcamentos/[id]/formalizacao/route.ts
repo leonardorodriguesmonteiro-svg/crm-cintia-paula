@@ -8,7 +8,7 @@ import {
   enviarContratoPorEmail
 } from '@/lib/contratoEmail'
 import { publicarConfirmacaoReservaV2 } from '@/lib/formalizacaoConfirmacao'
-import { ORIGEM_OFICIAL } from '@/lib/server/acompanhamento'
+import { origemPublicaJornada } from '@/lib/origemPublicaJornada'
 import { supabaseServer } from '@/lib/supabaseServer'
 
 export const dynamic = 'force-dynamic'
@@ -96,7 +96,7 @@ export async function POST(
       try {
         envioContrato = await enviarContratoPorEmail(
           dados.contrato_id,
-          ORIGEM_OFICIAL
+          origemPublicaJornada(request.nextUrl.origin)
         )
       } catch (error) {
         envioPendente = true
