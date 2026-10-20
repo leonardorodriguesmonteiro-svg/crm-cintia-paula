@@ -6,7 +6,7 @@ declare
  versao integer; resultado jsonb; itens jsonb; antes jsonb; depois jsonb;
 begin
  select empresa_id,usuario_id into e,u from public.usuarios_empresa where ativo and perfil in ('Administrador','Comercial') limit 1;
- select id,valor into k,k_preco from public.kits where empresa_id=e and status is distinct from 'Inativo' limit 1;
+ select id,valor into k,k_preco from public.kits where status is distinct from 'Inativo' limit 1;
  if k is null or u is null then raise exception 'Fixture comercial ausente'; end if;
  criado := public.criar_pre_reserva_servidor(e,u,null,'Teste rollback editor','11999990000',null,'ERP','teste-editor-'||gen_random_uuid(),'2027-01-20','Teste transacional',jsonb_build_array(jsonb_build_object('tipo','KIT','kit_id',k,'quantidade',1)));
  pedido := (criado->>'id')::uuid;

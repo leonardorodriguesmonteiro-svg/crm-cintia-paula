@@ -72,12 +72,12 @@ begin
       v_kit := nullif(v_item->>'kit_id','')::uuid;
       v_estoque := nullif(v_item->>'estoque_item_id','')::uuid;
       if v_tipo = 'KIT' and v_kit is not null and v_estoque is null then
-        if not exists(select 1 from public.kits where id=v_kit and empresa_id=p_empresa_id and status is distinct from 'Inativo') then
-          raise exception using errcode='42501', message='Kit indisponível nesta empresa.';
+        if not exists(select 1 from public.kits where id=v_kit and status is distinct from 'Inativo') then
+          raise exception using errcode='42501', message='Kit indisponível no catálogo.';
         end if;
       elsif v_tipo = 'ITEM_ESTOQUE' and v_estoque is not null and v_kit is null then
-        if not exists(select 1 from public.estoque_itens where id=v_estoque and empresa_id=p_empresa_id and status is distinct from 'Inativo') then
-          raise exception using errcode='42501', message='Item indisponível nesta empresa.';
+        if not exists(select 1 from public.estoque_itens where id=v_estoque and status is distinct from 'Inativo') then
+          raise exception using errcode='42501', message='Item indisponível no catálogo.';
         end if;
       else
         raise exception using errcode='22023', message='Selecione um item do catálogo.';
