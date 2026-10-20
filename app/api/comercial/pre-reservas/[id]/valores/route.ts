@@ -42,6 +42,9 @@ export async function PATCH(
     }
     if (error && typeof error === 'object' && 'code' in error && 'message' in error) {
       const codigo = String(error.code)
+      if (!['40001', '42501', 'P0002', '22023', '23514'].includes(codigo)) {
+        return NextResponse.json({ sucesso: false, erro: 'Não foi possível salvar o pedido. Tente novamente.' }, { status: 500 })
+      }
       const status = codigo === '40001' ? 409 : codigo === '42501' ? 403 : codigo === 'P0002' ? 404 : 400
       return NextResponse.json({ sucesso: false, erro: String(error.message) }, { status })
     }
