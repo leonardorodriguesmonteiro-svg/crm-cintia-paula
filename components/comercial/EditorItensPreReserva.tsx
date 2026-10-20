@@ -130,7 +130,7 @@ export function EditorItensPreReserva({ pedido, onSaved }: { pedido: Pedido; onS
         </div>
       </div>)}
       {erroCatalogo && <p role="status" className="text-amber-800">{erroCatalogo}</p>}
-      <Select label="Adicionar item do catálogo" value={selecionado} onChange={e => setSelecionado(e.target.value)}>
+      <Select className="min-w-0 max-w-full" label="Adicionar item do catálogo" value={selecionado} onChange={e => setSelecionado(e.target.value)}>
         <option value="">Selecione um kit ou item</option>
         {catalogo.map(item => <option key={`${item.tipo}:${item.id}`} value={`${item.tipo}:${item.id}`}>{item.tipo === 'KIT' ? 'Kit' : 'Item'} · {item.nome}</option>)}
       </Select>
