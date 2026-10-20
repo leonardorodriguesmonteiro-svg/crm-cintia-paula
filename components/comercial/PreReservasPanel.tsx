@@ -2,20 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { BadgeDollarSign, CalendarDays, MessageCircle, PackageCheck, Plus } from 'lucide-react'
+import { CalendarDays, MessageCircle, PackageCheck, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import {
-  calcularAjusteComercial,
   proximosStatusPreReserva,
   statusPreReserva,
   type StatusPreReserva,
   type TipoDescontoPreReserva
 } from '@/lib/domain/comercial/jornadaComercial'
 import { supabase } from '@/lib/supabase'
+import { EditorItensPreReserva } from './EditorItensPreReserva'
 
 type Cliente = {
   id: string
@@ -112,15 +112,10 @@ export function PreReservasPanel() {
   const [filtro, setFiltro] = useState<StatusPreReserva | 'TODAS'>('TODAS')
   const [formAberto, setFormAberto] = useState(false)
   const [pedidoAberto, setPedidoAberto] = useState<string | null>(null)
-  const [ajustePedido, setAjustePedido] = useState<{
-    id: string
-    tipo: TipoDescontoPreReserva
-    valor: string
-  } | null>(null)
-  const [salvandoAjuste, setSalvandoAjuste] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
+  const [avisoSalvo, setAvisoSalvo] = useState('')
   const [idempotencia, setIdempotencia] = useState('')
   const [form, setForm] = useState({
     cliente_id: '',
@@ -331,54 +326,12 @@ export function PreReservasPanel() {
   function alternarPedido(item: PreReserva) {
     const abrindo = pedidoAberto !== item.id
     setPedidoAberto(abrindo ? item.id : null)
-    setAjustePedido(abrindo ? {
-      id: item.id,
-      tipo: item.desconto_tipo || 'VALOR',
-      valor: String(Number(item.desconto_valor || 0))
-    } : null)
     setErro('')
-  }
-
-  async function salvarAjuste(item: PreReserva, subtotal: number, semPreco: boolean) {
-    if (!ajustePedido || ajustePedido.id !== item.id) return
-    if (semPreco) return setErro('Cadastre o valor de locação dos itens sem preço antes de aplicar desconto.')
-
-    const resumo = calcularAjusteComercial({
-      subtotal,
-      tipo: ajustePedido.tipo,
-      valor: Number(ajustePedido.valor)
-    })
-    if (!resumo.valido) return setErro('Informe um desconto válido, sem ultrapassar o subtotal do pedido.')
-
-    setSalvandoAjuste(item.id)
-    setErro('')
-    try {
-      const { data } = await supabase.auth.getSession()
-      if (!data.session) throw new Error('Entre novamente no ERP.')
-      const resposta = await fetch(`/api/comercial/pre-reservas/${item.id}/valores`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${data.session.access_token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          versao: item.versao,
-          desconto_tipo: ajustePedido.tipo,
-          desconto_valor: Number(ajustePedido.valor)
-        })
-      })
-      const dados = await resposta.json().catch(() => ({}))
-      if (!resposta.ok) throw new Error(dados.erro || 'Não foi possível salvar o ajuste comercial.')
-      await carregar()
-    } catch (error) {
-      setErro(error instanceof Error ? error.message : 'Não foi possível salvar o ajuste comercial.')
-    } finally {
-      setSalvandoAjuste(null)
-    }
   }
 
   return (
     <section className="space-y-4">
+      {avisoSalvo && <p role="status" className="rounded-xl bg-green-50 p-3 text-green-800">{avisoSalvo}</p>}
       <div className="flex flex-col gap-3 rounded-3xl border border-pink-100 bg-gradient-to-r from-pink-50 to-white p-5 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-pink-700">Entrada única</p>
@@ -457,12 +410,6 @@ export function PreReservasPanel() {
               || (totalPersistido === 0 && descontoAtual === 0 && subtotal > 0)
               ? Math.max(subtotal - descontoAtual, 0)
               : totalPersistido
-            const ajusteAtual = ajustePedido?.id === item.id ? ajustePedido : null
-            const previaAjuste = calcularAjusteComercial({
-              subtotal,
-              tipo: ajusteAtual?.tipo || item.desconto_tipo || 'VALOR',
-              valor: Number(ajusteAtual?.valor ?? item.desconto_valor ?? 0)
-            })
             const podeAjustar = !['RECUSADA', 'CONVERTIDA_EM_PROPOSTA'].includes(item.etapa)
             return (
               <article key={item.id} className="rounded-2xl border bg-white p-4 shadow-sm">
@@ -502,56 +449,9 @@ export function PreReservasPanel() {
                         <p><strong>Contato:</strong> {item.nome_contato} · {item.celular}</p>
                         <p><strong>E-mail:</strong> {item.email || 'Não informado'}</p>
                         <p><strong>Evento:</strong> {dataCurta(item.data_evento)} · {item.interesse || 'Sem descrição adicional'}</p>
-                        {(item.oportunidade_itens || []).map(produto => (
-                          <p key={produto.id}><strong>{produto.nome_snapshot}:</strong> {Number(produto.quantidade)} × {produto.valor_referencia === null ? 'Preço a definir' : moeda(Number(produto.valor_referencia))}{produto.observacoes ? ` · ${produto.observacoes}` : ''}</p>
-                        ))}
-                        <div className="mt-3 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                          <div className="flex items-center gap-2 font-bold text-slate-900"><BadgeDollarSign size={17} /> Ajuste comercial</div>
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <Select
-                              label="Tipo de desconto"
-                              value={ajusteAtual?.tipo || item.desconto_tipo || 'VALOR'}
-                              disabled={!podeAjustar || salvandoAjuste === item.id}
-                              onChange={evento => setAjustePedido({
-                                id: item.id,
-                                tipo: evento.target.value as TipoDescontoPreReserva,
-                                valor: '0'
-                              })}
-                            >
-                              <option value="VALOR">Valor em reais (R$)</option>
-                              <option value="PERCENTUAL">Percentual (%)</option>
-                            </Select>
-                            <Input
-                              label={(ajusteAtual?.tipo || item.desconto_tipo) === 'PERCENTUAL' ? 'Desconto (%)' : 'Desconto (R$)'}
-                              type="number"
-                              min="0"
-                              max={(ajusteAtual?.tipo || item.desconto_tipo) === 'PERCENTUAL' ? 100 : subtotal}
-                              step="0.01"
-                              value={ajusteAtual?.valor ?? String(Number(item.desconto_valor || 0))}
-                              disabled={!podeAjustar || semPreco || salvandoAjuste === item.id}
-                              onChange={evento => setAjustePedido({
-                                id: item.id,
-                                tipo: ajusteAtual?.tipo || item.desconto_tipo || 'VALOR',
-                                valor: evento.target.value
-                              })}
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            <p className="rounded-lg bg-white p-2"><span className="block text-xs text-slate-500">Desconto</span><strong>{moeda(previaAjuste.descontoCalculado)}</strong></p>
-                            <p className="rounded-lg bg-white p-2"><span className="block text-xs text-slate-500">Total final</span><strong>{moeda(previaAjuste.total)}</strong></p>
-                          </div>
-                          {podeAjustar ? (
-                            <Button
-                              type="button"
-                              disabled={semPreco || !previaAjuste.valido || salvandoAjuste === item.id}
-                              onClick={() => void salvarAjuste(item, subtotal, semPreco)}
-                            >
-                              {salvandoAjuste === item.id ? 'Salvando ajuste...' : 'Salvar valores e desconto'}
-                            </Button>
-                          ) : (
-                            <p className="text-xs text-slate-500">O pedido já foi encerrado ou convertido em proposta e não permite novos ajustes.</p>
-                          )}
-                        </div>
+                        {podeAjustar ? (
+                          <EditorItensPreReserva key={item.id} pedido={item} onSaved={async () => { await carregar(); setPedidoAberto(null); setAvisoSalvo(`Itens e valores de ${item.nome_contato} salvos.`) }} />
+                        ) : <p>O pedido já foi encerrado ou convertido em proposta e não permite novos ajustes.</p>}
                       </div>
                     )}
                   </div>

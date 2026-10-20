@@ -82,14 +82,15 @@ export const comercialJourneyRepository = {
 
   async ajustarValoresPreReserva(input: AjustarValoresPreReservaInput) {
     const { data, error } = await supabaseServer.rpc(
-      'ajustar_valores_pre_reserva_servidor',
+      input.itens ? 'editar_itens_pre_reserva_servidor' : 'ajustar_valores_pre_reserva_servidor',
       {
         p_empresa_id: input.empresaId,
         p_oportunidade_id: input.oportunidadeId,
         p_usuario_id: input.usuarioId,
         p_versao_esperada: input.versaoEsperada,
         p_desconto_tipo: input.descontoTipo,
-        p_desconto_valor: input.descontoValor
+        p_desconto_valor: input.descontoValor,
+        ...(input.itens ? { p_itens: input.itens } : {})
       }
     )
 

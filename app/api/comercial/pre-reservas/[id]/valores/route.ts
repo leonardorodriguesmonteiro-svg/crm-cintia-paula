@@ -18,7 +18,12 @@ export async function PATCH(
     const { id } = await contexto.params
     const corpo = await request.json().catch(() => ({})) as Record<string, unknown>
 
+    if ('itens' in corpo && !Array.isArray(corpo.itens)) {
+      return NextResponse.json({ sucesso: false, erro: 'Informe uma lista de itens.' }, { status: 400 })
+    }
+
     const resultado = await ajustarValoresPreReserva({
+      itens: corpo.itens as unknown[] | undefined,
       empresaId: vinculo.empresa_id,
       oportunidadeId: id,
       usuarioId: usuario.id,
@@ -34,6 +39,11 @@ export async function PATCH(
         { sucesso: false, erro: error.message, codigo: error.codigo },
         { status: error.statusHttp }
       )
+    }
+    if (error && typeof error === 'object' && 'code' in error && 'message' in error) {
+      const codigo = String(error.code)
+      const status = codigo === '40001' ? 409 : codigo === '42501' ? 403 : codigo === 'P0002' ? 404 : 400
+      return NextResponse.json({ sucesso: false, erro: String(error.message) }, { status })
     }
     const falha = respostaErroAdministrativo(error)
     return NextResponse.json(

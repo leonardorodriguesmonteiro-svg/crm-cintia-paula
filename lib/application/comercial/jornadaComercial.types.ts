@@ -58,6 +58,7 @@ export type PreReservaTransicionada = {
 }
 
 export type AjustarValoresPreReservaInput = {
+  itens?: unknown[]
   empresaId: string
   oportunidadeId: string
   usuarioId: string
