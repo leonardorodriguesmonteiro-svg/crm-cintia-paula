@@ -33,6 +33,11 @@ begin
   raise exception 'Reserva confirmada sem assinatura ou pagamento';
  exception when check_violation then null; end;
  begin
+  update public.orcamentos set origem_externa_id=null where id=q;
+  perform public.executar_formalizacao_servidor(u,q,'formalizar',50,'2099-02-09',null);
+  raise exception 'Aprovação sem origem permitida';
+ exception when check_violation then null; end;
+ begin
   perform public.executar_formalizacao_servidor(gen_random_uuid(),q,'formalizar',50,'2099-02-09',null);
   raise exception 'Usuário indevido permitiu liberação';
  exception when insufficient_privilege then null; end;
@@ -50,6 +55,8 @@ begin
  resultado:=public.executar_formalizacao_servidor(u,q,'confirmar_sinal',null,null,'Pix');
  if resultado->>'status'<>'RESERVA_CONFIRMADA' then raise exception 'Reserva não confirmou %',resultado; end if;
  if public.quantidade_estoque_comprometida(k,'2099-02-10','2099-02-10',null)<>estoque_antes+2 then raise exception 'Estoque confirmado incorreto'; end if;
+ repetido:=public.completar_cadastro_pre_reserva(e,token,dados);
+ if not (repetido->>'ja_completo')::boolean then raise exception 'Reenvio após confirmação não idempotente'; end if;
  if has_function_privilege('anon','public.preparar_reserva_pre_reserva(uuid,uuid)','execute') or has_function_privilege('authenticated','public.preparar_reserva_pre_reserva(uuid,uuid)','execute') then raise exception 'Função exposta'; end if;
 end $$;
 rollback;
