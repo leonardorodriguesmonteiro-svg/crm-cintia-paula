@@ -17,6 +17,7 @@ import {
   UserCog,
   Building2,
   FileClock,
+  FileSignature,
   Menu,
   X
 } from 'lucide-react'
@@ -42,6 +43,7 @@ const grupos: Array<{ titulo: string; items: ItemMenu[] }> = [
     items: [
       { label: 'Solicitações e orçamentos', href: '/orcamentos', icon: ReceiptText, modulo: 'orcamentos' },
       { label: 'Reservas', href: '/reservas', icon: ClipboardList, modulo: 'reservas' },
+      { label: 'Contratos', href: '/contratos', icon: FileSignature, modulo: 'contratos' },
       { label: 'Agenda', href: '/agenda', icon: CalendarDays, modulo: 'agenda' }
     ]
   },

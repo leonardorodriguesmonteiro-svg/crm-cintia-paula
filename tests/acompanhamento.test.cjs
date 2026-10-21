@@ -16,7 +16,7 @@ function fixture(options = {}) {
   const rows = {
     acompanhamento_links: [{ oportunidade_id: 'order-1', token_hash: digest(token), revoked_at: null, expires_at: '2099-01-01', ...options.link }],
     oportunidades: [{ id: 'order-1', empresa_id: 'company-1', numero: 15, etapa: 'RECEBIDA', data_evento: '2026-10-12', email: 'secret@example.com', ...options.order }],
-    orcamentos: options.proposals || [], reservas: [], contratos: []
+    orcamentos: options.proposals || [], reservas: options.reservas || [], contratos: options.contratos || []
   }
   let calls = 0
   const server = { from(table) {
@@ -86,4 +86,16 @@ test('approved pre-reservation offers intake; completed and legacy sent proposal
  const pending=await(await fixture({order:{etapa:'APROVADA'}}).run(token)).json();assert.equal(pending.cadastro.disponivel,true)
  const complete=await(await fixture({order:{etapa:'APROVADA',cadastro_completo_em:'2026-09-22'}}).run(token)).json();assert.deepEqual(complete.cadastro,{completo:true,disponivel:false})
  const legacy=await(await fixture({order:{etapa:'CONVERTIDA_EM_PROPOSTA'},proposals:[{oportunidade_id:'order-1',empresa_id:'company-1',status:'ENVIADA'}]}).run(token)).json();assert.equal(legacy.cadastro.disponivel,false)
+})
+
+test('cadastro concluído mostra reserva provisória e só libera link depois do contrato', async () => {
+ const options={order:{etapa:'CONVERTIDA_EM_PROPOSTA',cadastro_completo_em:'2026-10-21'},proposals:[{oportunidade_id:'order-1',empresa_id:'company-1',status:'Aprovado',formalizacao_status:'DADOS_COMPLETOS',reserva_id:'r1'}],reservas:[{id:'r1',status:'Pendente'}]}
+ let body=await(await fixture(options).run(token)).json()
+ assert.equal(body.reserva.status,'Pendente');assert.equal(body.reserva.id,undefined);assert.equal(body.contrato,null);assert.equal(body.cadastro.disponivel,false)
+ options.proposals[0]={...options.proposals[0],formalizacao_status:'CONTRATO_GERADO',contrato_id:'c1'}
+ options.contratos=[{id:'c1',reserva_id:'r1',status:'Gerado',public_token:'contrato-token'}]
+ body=await(await fixture(options).run(token)).json()
+ assert.equal(body.contrato.url,'/contrato/contrato-token')
+ options.contratos[0].reserva_id='outra-reserva'
+ body=await(await fixture(options).run(token)).json();assert.equal(body.contrato,null)
 })

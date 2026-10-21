@@ -369,9 +369,14 @@ export function OrcamentosPage() {
     const oportunidadeId = new URLSearchParams(window.location.search).get('oportunidade')
     if (!oportunidadeId || oportunidadeUrlCarregada.current === oportunidadeId || !oportunidades.some(item => item.id === oportunidadeId)) return
     oportunidadeUrlCarregada.current = oportunidadeId
+    const existente = orcamentos.find(item => item.oportunidade_id === oportunidadeId)
+    if (existente) {
+      document.getElementById(`orcamento-${existente.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
     setFormAberto(true)
     void selecionarOportunidade(oportunidadeId)
-  }, [oportunidades])
+  }, [oportunidades, orcamentos])
 
   useEffect(() => {
     if (!form.oportunidade_id || form.data_evento) return
@@ -1009,15 +1014,20 @@ export function OrcamentosPage() {
     }
   }
 
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('contrato')
+    if (id) document.getElementById(`orcamento-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [orcamentos])
+
   function valorSinalDo(orcamento: Orcamento) {
     return valoresSinal[orcamento.id]
-      ?? String(orcamento.valor_sinal_formalizacao || Math.max(orcamento.total * 0.3, 1).toFixed(2))
+      ?? (orcamento.valor_sinal_formalizacao ? String(orcamento.valor_sinal_formalizacao) : '')
   }
 
   function vencimentoSinalDo(orcamento: Orcamento) {
     return vencimentosSinal[orcamento.id]
       ?? orcamento.vencimento_sinal
-      ?? dataVencimentoSinalInicial()
+      ?? ''
   }
 
   async function executarFormalizacao(
@@ -1391,7 +1401,7 @@ export function OrcamentosPage() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {orcamentos.map(orcamento => (
-          <Card key={orcamento.id}>
+          <Card key={orcamento.id} id={`orcamento-${orcamento.id}`}>
             <div className="flex items-start justify-between gap-3">
               <div><p className="text-xs font-bold text-pink-700">ORC-{String(orcamento.numero).padStart(4, '0')}</p><h2 className="font-bold text-slate-900">{nomeClienteDo(orcamento)}</h2></div>
               <span className={`rounded-full px-3 py-1 text-xs font-bold ${corStatus(orcamento.status)}`}>{orcamento.status}</span>
@@ -1446,7 +1456,7 @@ export function OrcamentosPage() {
                 )}
               </div>
             )}
-            {orcamento.status === 'ACEITA' && (
+            {['ACEITA', 'Aprovado'].includes(orcamento.status) && (
               <div className="mt-4 rounded-2xl border border-pink-100 bg-pink-50/60 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
@@ -1460,7 +1470,7 @@ export function OrcamentosPage() {
 
                 <div className="mt-4 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-4">
                   {[
-                    { rotulo: 'Cliente aprovou', concluido: true },
+                    { rotulo: 'Orçamento aprovado', concluido: true },
                     { rotulo: 'Reserva criada', concluido: Boolean(orcamento.reserva_id) },
                     { rotulo: 'Contrato assinado', concluido: Boolean(orcamento.contrato_assinado_em) },
                     { rotulo: 'Sinal recebido', concluido: Boolean(orcamento.sinal_pago_em) }
@@ -1494,12 +1504,12 @@ export function OrcamentosPage() {
                       />
                     </div>
                     <Button
-                      disabled={formalizandoId === orcamento.id}
+                      disabled={formalizandoId === orcamento.id || !valorSinalDo(orcamento) || !vencimentoSinalDo(orcamento)}
                       className="flex w-full items-center justify-center gap-2"
                       onClick={() => formalizarVenda(orcamento)}
                     >
                       <FileSignature size={17} />
-                      {formalizandoId === orcamento.id ? 'Formalizando...' : 'Gerar reserva, contrato e cobrança'}
+                      {formalizandoId === orcamento.id ? 'Formalizando...' : 'Liberar contrato e preparar sinal'}
                     </Button>
                   </div>
                 ) : (

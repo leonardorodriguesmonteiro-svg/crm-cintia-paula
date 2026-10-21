@@ -470,9 +470,9 @@ export function PreReservasPanel() {
                       {status === 'AJUSTE_SOLICITADO' ? 'Solicitar ajuste' : rotulos[status]}
                     </Button>
                   ))}
-                  {item.etapa === 'APROVADA' && (
+                  {['APROVADA', 'CONVERTIDA_EM_PROPOSTA'].includes(item.etapa) && (
                     <Link href={`/orcamentos?oportunidade=${item.id}`} className="rounded-xl bg-pink-600 px-3 py-2 text-xs font-bold text-white">
-                      Abrir e editar orçamento
+                      {item.cadastro_completo_em ? 'Reserva e contrato' : 'Abrir e editar orçamento'}
                     </Link>
                   )}
                 </div>

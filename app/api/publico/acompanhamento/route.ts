@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
         reserva = dados
       }
     }
-    if (proposta?.contrato_id && proposta?.reserva_id && ['CONTRATO_ENVIADO','AGUARDANDO_ASSINATURA','AGUARDANDO_PAGAMENTO','PRONTA_PARA_CONFIRMAR','RESERVA_CONFIRMADA'].includes(proposta.formalizacao_status)) {
+    if (proposta?.contrato_id && proposta?.reserva_id && ['CONTRATO_GERADO','CONTRATO_ENVIADO','AGUARDANDO_ASSINATURA','AGUARDANDO_PAGAMENTO','PRONTA_PARA_CONFIRMAR','RESERVA_CONFIRMADA'].includes(proposta.formalizacao_status)) {
       const resultado = await supabaseServer.from('contratos').select('status,public_token').eq('id', proposta.contrato_id).eq('reserva_id', proposta.reserva_id).maybeSingle()
       if (resultado.error) throw resultado.error
       if (resultado.data) contrato = { status: resultado.data.status, url: resultado.data.public_token ? `/contrato/${resultado.data.public_token}` : null }

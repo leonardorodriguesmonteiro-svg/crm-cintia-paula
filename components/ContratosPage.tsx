@@ -37,6 +37,7 @@ function corStatus(status: string | null) {
 }
 
 export function ContratosPage() {
+  const [aguardandoSinal, setAguardandoSinal] = useState<Array<{ id: string; numero: number; reserva_id: string; contato_nome: string | null; total: number }>>([])
   const [contratos, setContratos] = useState<Contrato[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
@@ -48,11 +49,15 @@ export function ContratosPage() {
     setCarregando(true)
     setErro('')
 
-    const { data, error } = await supabase
+    const [contratosRes, pendentesRes] = await Promise.all([supabase
       .from('contratos')
       .select('id,reserva_id,numero_contrato,status,public_token,assinado_em,assinado_por,email_enviado_em,email_destino,created_at,reservas(data_evento,valor_total,clientes(nome,email),kits(nome))')
-      .order('created_at', { ascending: false })
-
+      .order('created_at', { ascending: false }),
+      supabase.from('orcamentos').select('id,numero,reserva_id,contato_nome,total').in('status', ['ACEITA', 'Aprovado']).eq('formalizacao_status', 'DADOS_COMPLETOS').is('contrato_id', null).not('reserva_id', 'is', null).order('created_at', { ascending: false })
+    ])
+    const { data, error } = contratosRes
+    if (pendentesRes.error) setErro(pendentesRes.error.message)
+    else setAguardandoSinal(pendentesRes.data || [])
     if (error) setErro(error.message)
     else setContratos((data as unknown as Contrato[]) || [])
     setCarregando(false)
@@ -164,6 +169,18 @@ export function ContratosPage() {
         <Card><p className="text-sm text-slate-500">Contratos gerados</p><p className="mt-2 text-3xl font-bold text-slate-900">{contratos.length}</p></Card>
         <Card><p className="text-sm text-slate-500">Aguardando assinatura</p><p className="mt-2 text-3xl font-bold text-amber-700">{pendentes}</p></Card>
       </div>
+
+      {aguardandoSinal.length > 0 && <section className="rounded-2xl border border-pink-200 bg-pink-50 p-5">
+        <h2 className="text-lg font-bold text-slate-900">Definir sinal e liberar contrato</h2>
+        <p className="mt-1 text-sm text-slate-600">Orçamentos aprovados com cadastro completo e reserva provisória.</p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {aguardandoSinal.map(item => <div key={item.id} className="rounded-xl border bg-white p-4">
+            <p className="font-semibold">{item.contato_nome || 'Cliente'} · ORC-{String(item.numero).padStart(4, '0')}</p>
+            <p className="mt-1 text-sm text-slate-600">Total: {moeda(item.total)}</p>
+            <Link href={`/reservas/${item.reserva_id}?aba=contrato`} className="mt-3 inline-block rounded-xl bg-pink-600 px-4 py-2 text-sm font-bold text-white">Definir sinal e vencimento</Link>
+          </div>)}
+        </div>
+      </section>}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {contratos.map(contrato => (

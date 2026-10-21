@@ -36,6 +36,8 @@ type LinhaForm = ReservaItem & {
 }
 
 type Reserva = {
+  orcamento_id: string | null
+  orcamentos: { contato_nome: string | null; oportunidades: { numero: number } | null } | null
   id: string
   data_evento: string
   horario_evento: string | null
@@ -114,7 +116,7 @@ export function ReservasPage() {
   async function carregarReservas() {
     const { data, error } = await supabase
       .from('reservas')
-      .select('id,data_evento,horario_evento,endereco_evento,valor_total,valor_sinal,status,observacoes,clientes(id,nome,whatsapp),kits(id,nome,codigo,valor),reserva_itens(id,kit_id,kit_composicao_id,descricao,quantidade,valor_unitario,subtotal,kits(id,nome,codigo,valor),kit_composicao(kit_id))')
+      .select('orcamento_id,orcamentos!reservas_orcamento_id_fkey(contato_nome,oportunidades(numero)),id,data_evento,horario_evento,endereco_evento,valor_total,valor_sinal,status,observacoes,clientes(id,nome,whatsapp),kits(id,nome,codigo,valor),reserva_itens(id,kit_id,kit_composicao_id,descricao,quantidade,valor_unitario,subtotal,kits(id,nome,codigo,valor),kit_composicao(kit_id))')
       .order('data_evento', { ascending: true })
 
     if (error) return setErro(error.message)
@@ -131,6 +133,8 @@ export function ReservasPage() {
     return reservas.filter((reserva) =>
       [
         reserva.clientes?.nome,
+        reserva.orcamentos?.contato_nome,
+        reserva.orcamentos?.oportunidades?.numero ? `SOL-${String(reserva.orcamentos.oportunidades.numero).padStart(4, '0')}` : '',
         reserva.kits?.nome,
         ...(reserva.reserva_itens || []).map(item => item.descricao),
         reserva.status,
@@ -494,8 +498,9 @@ export function ReservasPage() {
             <div key={reserva.id} className="rounded-2xl border p-4 bg-white flex flex-col md:flex-row md:items-center md:justify-between gap-3">
               <div>
                 <p className="font-semibold text-slate-900">
-                  {reserva.clientes?.nome || 'Cliente não informado'}
+                  {reserva.orcamentos?.contato_nome || reserva.clientes?.nome || 'Cliente não informado'}
                 </p>
+                {reserva.orcamentos?.oportunidades && <p className="text-xs font-semibold text-pink-700">SOL-{String(reserva.orcamentos.oportunidades.numero).padStart(4, '0')}</p>}
                 <p className="text-sm text-slate-500">
                   {(reserva.reserva_itens || []).filter(item => item.kit_id).map(item => item.kits?.nome || item.descricao).join(' + ') || reserva.kits?.nome || 'Kit não informado'} • {dataCurta(reserva.data_evento)}
                   {reserva.horario_evento ? ` às ${reserva.horario_evento}` : ''}
@@ -510,10 +515,11 @@ export function ReservasPage() {
 
               <div className="flex flex-col md:items-end gap-2">
                 <span className="text-xs bg-pink-50 text-pink-700 rounded-full px-3 py-1 w-fit">
-                  {reserva.status}
+                  {reserva.orcamento_id && reserva.status === 'Pendente' ? 'Provisória — aguardando contrato e sinal' : reserva.status}
                 </span>
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  {podeGerenciar && <Link href={`/reservas/${reserva.id}?aba=contrato`}><Button variant="secondary">Contrato</Button></Link>}
                   <Link href={`/reservas/${reserva.id}`}>
                     <Button>Abrir</Button>
                   </Link>

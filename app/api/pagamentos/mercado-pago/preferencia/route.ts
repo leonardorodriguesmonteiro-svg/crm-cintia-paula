@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (error) return NextResponse.json({ error: 'Não foi possível consultar o orçamento.' }, { status: 500 })
-  if (!orcamento?.lancamento_sinal_id || orcamento.status !== 'ACEITA') {
+  if (!orcamento?.lancamento_sinal_id || !['ACEITA', 'Aprovado'].includes(orcamento.status)) {
     return NextResponse.json({ error: 'Formalize a venda antes de gerar a cobrança.' }, { status: 400 })
   }
 

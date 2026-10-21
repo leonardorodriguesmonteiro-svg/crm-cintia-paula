@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import Link from 'next/link'
+import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { clausulasLocacaoContrato, declaracaoAceiteContrato, termosGeraisContrato } from '@/lib/contratoTermos'
@@ -26,6 +28,10 @@ export function ReservaContrato({ reservaId, somenteLeitura = false }: { reserva
   const [status, setStatus] = useState('Gerado')
   const [observacoes, setObservacoes] = useState('')
   const [erro, setErro] = useState('')
+  const [valorSinal, setValorSinal] = useState('')
+  const [vencimento, setVencimento] = useState('')
+  const [gerando, setGerando] = useState(false)
+  const [mensagem, setMensagem] = useState('')
 
   async function carregar() {
     const contratoRes = await supabase
@@ -77,6 +83,25 @@ export function ReservaContrato({ reservaId, somenteLeitura = false }: { reserva
 
   async function gerarContrato() {
     setErro('')
+    if (!reserva || somenteLeitura || gerando) return
+    if (reserva.orcamento_id) {
+      setGerando(true)
+      try {
+        const { data } = await supabase.auth.getSession()
+        const token = data.session?.access_token
+        if (!token) throw new Error('Sua sessão expirou. Entre novamente no CRM.')
+        const resposta = await fetch(`/api/orcamentos/${reserva.orcamento_id}/formalizacao`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ acao: 'formalizar', valor_sinal: Number(valorSinal), vencimento })
+        })
+        const corpo = await resposta.json()
+        if (!resposta.ok) throw new Error(corpo.error || 'Não foi possível liberar o contrato.')
+        setMensagem(corpo.mensagem || 'Contrato liberado. Aguardando assinatura e pagamento do sinal.')
+        await carregar()
+      } catch (error) { setErro(error instanceof Error ? error.message : 'Falha ao liberar o contrato.') }
+      finally { setGerando(false) }
+      return
+    }
     const numero = `CTR-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`
 
     const { error } = await supabase.from('contratos').insert({
@@ -131,12 +156,24 @@ export function ReservaContrato({ reservaId, somenteLeitura = false }: { reserva
         </div>
       )}
 
-      {!contrato ? (
+      {mensagem && <p role="status" className="mt-4 rounded-xl bg-green-50 p-3 text-green-800">{mensagem}</p>}
+      {reserva?.orcamento_id && <Link href={`/orcamentos?contrato=${reserva.orcamento_id}#orcamento-${reserva.orcamento_id}`} className="mt-4 inline-block font-semibold text-pink-700">Acompanhar contrato, assinatura e pagamento →</Link>}
+      {!reserva ? <p className="mt-4 text-slate-500">Carregando dados da reserva…</p> : !contrato ? (
         <div className="mt-6 rounded-2xl border border-dashed p-6 text-center">
           <p className="text-sm text-slate-500 mb-4">
-            Nenhum contrato gerado para esta reserva.
+            O contrato ainda não foi liberado.
           </p>
-          {somenteLeitura ? <p className="text-sm text-blue-800">A geração do contrato é realizada pelo Comercial.</p> : <Button onClick={gerarContrato}>Gerar contrato</Button>}
+          {somenteLeitura ? <p className="text-sm text-blue-800">A geração do contrato é realizada pelo Comercial.</p> : reserva.orcamento_id ? (
+            <form className="space-y-4 text-left" onSubmit={event => { event.preventDefault(); void gerarContrato() }}>
+              <p className="text-sm text-slate-600">Defina o valor e o vencimento do sinal antes de liberar o contrato ao cliente. A reserva permanece provisória até a assinatura e o pagamento.</p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input label="Valor do sinal (R$)" type="number" required min="0.01" max={valorTotal} step="0.01" value={valorSinal} onChange={event => setValorSinal(event.target.value)} />
+                <Input label="Vencimento do sinal" type="date" required value={vencimento} onChange={event => setVencimento(event.target.value)} />
+              </div>
+              <Button type="submit" disabled={gerando}>{gerando ? 'Liberando…' : 'Liberar contrato e preparar sinal'}</Button>
+              <p className="text-xs text-slate-500">O contrato também será enviado ao e-mail cadastrado do cliente.</p>
+            </form>
+          ) : <Button onClick={gerarContrato}>Gerar contrato</Button>}
         </div>
       ) : (
         <div className="mt-6 space-y-5">
@@ -149,14 +186,14 @@ export function ReservaContrato({ reservaId, somenteLeitura = false }: { reserva
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Select label="Status" value={status} disabled={somenteLeitura} onChange={e => setStatus(e.target.value)}>
+            <Select label="Status" value={status} disabled={somenteLeitura || Boolean(reserva?.orcamento_id)} onChange={e => setStatus(e.target.value)}>
               <option>Gerado</option>
               <option>Enviado</option>
               <option>Assinado</option>
               <option>Cancelado</option>
             </Select>
 
-            {!somenteLeitura && <div className="flex items-end">
+            {!somenteLeitura && !reserva?.orcamento_id && <div className="flex items-end">
               <Button onClick={salvarContrato}>Salvar contrato</Button>
             </div>}
           </div>
@@ -164,7 +201,7 @@ export function ReservaContrato({ reservaId, somenteLeitura = false }: { reserva
           <Textarea
             label="Observações"
             value={observacoes}
-            readOnly={somenteLeitura}
+            readOnly={somenteLeitura || Boolean(reserva?.orcamento_id)}
             onChange={e => setObservacoes(e.target.value)}
             placeholder="Observações internas sobre o contrato..."
           />

@@ -33,6 +33,7 @@ function moeda(valor: number) {
 export function ReservaDetalhePage({ id }: { id: string }) {
   const { acesso } = useAcesso()
   const [aba, setAba] = useState('Resumo')
+  useEffect(() => { if (new URLSearchParams(window.location.search).get('aba') === 'contrato') setAba('Contrato') }, [])
   const [reserva, setReserva] = useState<any>(null)
   const [recebimentos, setRecebimentos] = useState<any[]>([])
   const [timeline, setTimeline] = useState<any[]>([])
@@ -247,7 +248,8 @@ export function ReservaDetalhePage({ id }: { id: string }) {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {podeGerenciarReserva && ['Pendente', 'Orçamento'].includes(reserva.status) && (
+          {podeGerenciarReserva && reserva.orcamento_id && <Button onClick={() => setAba('Contrato')}>Contrato e sinal</Button>}
+          {podeGerenciarReserva && !reserva.orcamento_id && ['Pendente', 'Orçamento'].includes(reserva.status) && (
             <Button onClick={confirmarReserva} disabled={confirmando}>
               {confirmando ? 'Confirmando...' : 'Confirmar reserva'}
             </Button>
