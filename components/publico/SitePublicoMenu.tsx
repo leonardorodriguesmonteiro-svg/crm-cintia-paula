@@ -22,7 +22,7 @@ export function SitePublicoMenu() {
       {links.map(item => <Link key={item.href} href={item.href} aria-current={pathname === item.href ? 'page' : undefined} className={`whitespace-nowrap rounded-full px-3 py-2 hover:bg-pink-50 hover:text-pink-700 ${item.href === '/acompanhar' ? 'text-pink-700 underline underline-offset-4' : ''}`}>{item.label}</Link>)}
     </nav>
     <div className="flex items-center gap-2 xl:hidden">
-      <Link href="/reservar" className="rounded-full bg-pink-600 px-3 py-2.5 text-sm font-bold text-white">Solicitar</Link>
+      <Link href="/reservar" className="mobile-budget-link rounded-full bg-pink-600 px-3 py-2.5 text-sm font-bold text-white">Solicitar Orçamento</Link>
       <button type="button" aria-label="Abrir menu" aria-haspopup="dialog" aria-expanded={aberto} aria-controls="menu-site" onClick={() => { dialog.current?.showModal(); setAberto(true) }} className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-xl">☰</button>
     </div>
     <dialog id="menu-site" ref={dialog} onClose={() => setAberto(false)} aria-label="Menu do site" className="fixed inset-y-0 left-auto right-0 m-0 h-dvh max-h-none w-[90%] max-w-sm border-0 bg-white p-5 text-slate-900 shadow-2xl backdrop:bg-slate-950/50">

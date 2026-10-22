@@ -277,7 +277,7 @@ export function ReservaPublicaPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
+    <main className="reserva-mobile min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b border-pink-100 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-5 md:px-8">
           <a href="/site" className="brand-logo"><img src="/brand/cintia-paula.jpg" alt="Cintia Paula Festas e Decorações — início" width={1536} height={1024} /></a>
@@ -285,7 +285,7 @@ export function ReservaPublicaPage() {
         </div>
       </header>
 
-      <section className="bg-gradient-to-br from-pink-50 via-white to-rose-50 px-4 py-12 md:px-8 md:py-16">
+      <section className="reserva-intro bg-gradient-to-br from-pink-50 via-white to-rose-50 px-4 py-12 md:px-8 md:py-16">
         <div className="mx-auto max-w-5xl text-center">
           <p className="text-sm font-black uppercase tracking-[0.22em] text-pink-600">Sua festa, do seu jeito</p>
           <h1 className="mt-4 text-4xl font-black tracking-tight md:text-6xl">Monte sua festa em um só lugar</h1>
@@ -297,23 +297,25 @@ export function ReservaPublicaPage() {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-8 md:px-8 md:py-12">
-        <div className="rounded-3xl border border-pink-100 bg-white p-6 shadow-sm">
+        <div id="escolher-decoracao" className="reserva-instructions rounded-3xl border border-pink-100 bg-white p-6 shadow-sm">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-pink-600">1. Escolha sua decoração</p>
           <h2 className="mt-2 text-2xl font-black">Kits e peças no mesmo catálogo</h2>
           <p className="mt-2 text-slate-600">Você não precisa decidir entre dois caminhos. Adicione qualquer combinação e acompanhe tudo em uma única seleção.</p>
         </div>
 
-        <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_380px]">
+        <div className="reserva-columns mt-10 grid gap-8 lg:grid-cols-[1fr_380px]">
             <div className="space-y-5">
               <div className="rounded-3xl border bg-white p-5 shadow-sm">
                 <div className="grid gap-3 sm:grid-cols-[1fr_220px]">
                   <input
+                    aria-label="Buscar kits e peças"
                     value={busca}
                     onChange={evento => setBusca(evento.target.value)}
                     placeholder="Buscar kit, peça, tema, cor ou categoria..."
                     className="rounded-2xl border border-slate-200 px-4 py-3 outline-none transition focus:border-pink-400 focus:ring-2 focus:ring-pink-100"
                   />
                   <select
+                    aria-label="Categoria"
                     value={categoria}
                     onChange={evento => setCategoria(evento.target.value)}
                     className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-pink-400"
@@ -324,12 +326,14 @@ export function ReservaPublicaPage() {
                 </div>
               </div>
 
+              <p className="text-sm text-slate-600 lg:hidden">Role as fotos abaixo e toque em “Adicionar à festa”. Seus dados ficam logo depois.</p>
+              <div className="reserva-vitrine space-y-5" role="region" aria-label="Fotos de kits e peças para escolher" tabIndex={0}>
               {carregando && <div className="rounded-3xl border bg-white p-10 text-center text-slate-500">Carregando catálogo...</div>}
 
               {!carregando && (
                 <div>
                   <h3 className="mb-3 text-lg font-black text-slate-900">Kits prontos</h3>
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="reserva-products grid grid-cols-2 gap-3 xl:grid-cols-4">
                   {kitsVisiveis.map(kit => {
                     const selecionado = itens.some(item => item.tipo === 'KIT' && item.id === kit.id)
                     return (
@@ -368,7 +372,7 @@ export function ReservaPublicaPage() {
               {!carregando && (
                 <div>
                   <h3 className="mb-3 text-lg font-black text-slate-900">Peças avulsas</h3>
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="reserva-products grid grid-cols-2 gap-3 xl:grid-cols-4">
                   {estoqueVisivel.map(item => {
                     const selecionado = itens.find(selecionado => selecionado.tipo === 'ITEM_ESTOQUE' && selecionado.id === item.id)
                     return (
@@ -407,6 +411,7 @@ export function ReservaPublicaPage() {
               {!carregando && kitsFiltrados.length === 0 && estoqueFiltrado.length === 0 && (
                 <div className="rounded-3xl border border-dashed bg-white p-10 text-center text-slate-500">Nenhum item encontrado com esses filtros.</div>
               )}
+              </div>
             </div>
 
             <aside className="h-fit space-y-5 lg:sticky lg:top-5">
@@ -414,7 +419,7 @@ export function ReservaPublicaPage() {
                 <p className="text-xs font-black uppercase tracking-[0.15em] text-pink-600">Sua seleção</p>
                 <h3 className="mt-1 text-xl font-black">Sua festa</h3>
 
-                <div className="mt-4 space-y-3">
+                <div className="reserva-selection mt-4 space-y-3">
                   {itens.map(item => (
                     <div key={`${item.tipo}:${item.id}`} className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
                       <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-white">
@@ -425,9 +430,9 @@ export function ReservaPublicaPage() {
                         <p className="text-xs text-slate-500">{item.preco == null ? 'Valor sob consulta' : moeda(Number(item.preco || 0))}</p>
                       </div>
                       <div className="flex items-center gap-1">
-                          <button type="button" aria-label={`Diminuir ${item.nome}`} onClick={() => alterarQuantidade(item.tipo, item.id, item.quantidade - 1)} className="h-8 w-8 rounded-lg border bg-white font-bold">−</button>
+                          <button type="button" aria-label={`Diminuir ${item.nome}`} onClick={() => alterarQuantidade(item.tipo, item.id, item.quantidade - 1)} className="h-11 w-11 shrink-0 rounded-lg border bg-white font-bold">−</button>
                           <span className="w-7 text-center text-sm font-bold">{item.quantidade}</span>
-                          <button type="button" aria-label={`Aumentar ${item.nome}`} onClick={() => alterarQuantidade(item.tipo, item.id, item.quantidade + 1)} className="h-8 w-8 rounded-lg border bg-white font-bold">+</button>
+                          <button type="button" aria-label={`Aumentar ${item.nome}`} onClick={() => alterarQuantidade(item.tipo, item.id, item.quantidade + 1)} className="h-11 w-11 shrink-0 rounded-lg border bg-white font-bold">+</button>
                       </div>
                     </div>
                   ))}
@@ -443,24 +448,24 @@ export function ReservaPublicaPage() {
                 </div>
               </div>
 
-              <form onSubmit={enviar} className="rounded-3xl border bg-white p-5 shadow-sm">
-                <h3 className="text-xl font-black">2. Seus dados</h3>
+              <form id="dados-orcamento" tabIndex={-1} onSubmit={enviar} className="rounded-3xl border bg-white p-5 shadow-sm">
+                <div className="flex items-center justify-between gap-3"><h3 className="text-xl font-black">2. Seus dados</h3><a href="#escolher-decoracao" className="py-3 text-sm font-bold text-pink-700 lg:hidden">Editar seleção ↑</a></div>
                 <p className="mt-1 text-sm text-slate-500">Preencha somente os dados necessários nesta primeira etapa.</p>
 
                 <div className="mt-5 space-y-3">
-                  <input className="w-full rounded-2xl border px-4 py-3 outline-none focus:border-pink-400" placeholder="Seu nome *" value={contato.nome} onChange={evento => setContato({ ...contato, nome: evento.target.value })} />
-                  <input className="w-full rounded-2xl border px-4 py-3 outline-none focus:border-pink-400" inputMode="tel" placeholder="WhatsApp *" value={contato.celular} onChange={evento => setContato({ ...contato, celular: evento.target.value })} />
-                  <input className="w-full rounded-2xl border px-4 py-3 outline-none focus:border-pink-400" type="email" placeholder="E-mail *" value={contato.email} onChange={evento => setContato({ ...contato, email: evento.target.value })} />
+                  <label className="block text-sm font-bold text-slate-700">Seu nome *<input autoComplete="name" required className="w-full rounded-2xl border px-4 py-3 outline-none focus:border-pink-400" placeholder="Seu nome *" value={contato.nome} onChange={evento => setContato({ ...contato, nome: evento.target.value })} /></label>
+                  <label className="block text-sm font-bold text-slate-700">WhatsApp *<input autoComplete="tel" type="tel" required className="w-full rounded-2xl border px-4 py-3 outline-none focus:border-pink-400" inputMode="tel" placeholder="WhatsApp *" value={contato.celular} onChange={evento => setContato({ ...contato, celular: evento.target.value })} /></label>
+                  <label className="block text-sm font-bold text-slate-700">E-mail *<input autoComplete="email" required className="w-full rounded-2xl border px-4 py-3 outline-none focus:border-pink-400" type="email" placeholder="E-mail *" value={contato.email} onChange={evento => setContato({ ...contato, email: evento.target.value })} /></label>
                   <label className="block text-sm font-bold text-slate-700">Data do evento *
-                    <input className="mt-1 w-full rounded-2xl border px-4 py-3 font-normal outline-none focus:border-pink-400" type="date" value={contato.data_evento} onChange={evento => setContato({ ...contato, data_evento: evento.target.value })} />
+                    <input className="mt-1 w-full rounded-2xl border px-4 py-3 font-normal outline-none focus:border-pink-400" type="date" required value={contato.data_evento} onChange={evento => setContato({ ...contato, data_evento: evento.target.value })} />
                   </label>
-                  <input className="w-full rounded-2xl border px-4 py-3 outline-none focus:border-pink-400" placeholder="Tipo de evento (ex.: aniversário)" value={contato.tipo_evento} onChange={evento => setContato({ ...contato, tipo_evento: evento.target.value })} />
+                  <input className="w-full rounded-2xl border px-4 py-3 outline-none focus:border-pink-400" aria-label="Tipo de evento" placeholder="Tipo de evento (ex.: aniversário)" value={contato.tipo_evento} onChange={evento => setContato({ ...contato, tipo_evento: evento.target.value })} />
                   <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-50 p-1">
                     {(['Retirada', 'Entrega'] as const).map(opcao => (
-                      <button key={opcao} type="button" onClick={() => setContato({ ...contato, modalidade: opcao })} className={`rounded-xl px-3 py-2.5 text-sm font-bold ${contato.modalidade === opcao ? 'bg-white text-pink-700 shadow-sm' : 'text-slate-500'}`}>{opcao}</button>
+                      <button key={opcao} aria-pressed={contato.modalidade === opcao} type="button" onClick={() => setContato({ ...contato, modalidade: opcao })} className={`rounded-xl px-3 py-2.5 text-sm font-bold ${contato.modalidade === opcao ? 'bg-white text-pink-700 shadow-sm' : 'text-slate-500'}`}>{opcao}</button>
                     ))}
                   </div>
-                  <textarea className="min-h-24 w-full rounded-2xl border px-4 py-3 outline-none focus:border-pink-400" placeholder="Observações (opcional)" value={contato.observacoes} onChange={evento => setContato({ ...contato, observacoes: evento.target.value })} />
+                  <textarea className="min-h-24 w-full rounded-2xl border px-4 py-3 outline-none focus:border-pink-400" aria-label="Observações" placeholder="Observações (opcional)" value={contato.observacoes} onChange={evento => setContato({ ...contato, observacoes: evento.target.value })} />
                   <label className="flex items-start gap-3 text-sm text-slate-600"><input type="checkbox" checked={contato.whatsapp_consentimento} onChange={e => setContato({ ...contato, whatsapp_consentimento: e.target.checked })} className="mt-1" />Quero receber o link e atualizações deste pedido pelo WhatsApp da Cintia Paula.</label>
           <input tabIndex={-1} autoComplete="off" aria-hidden="true" className="hidden" value={contato.website} onChange={evento => setContato({ ...contato, website: evento.target.value })} />
                 </div>
@@ -475,6 +480,10 @@ export function ReservaPublicaPage() {
             </aside>
         </div>
       </section>
+      <div className="reserva-bottom-bar lg:hidden">
+        <p aria-live="polite" aria-atomic="true"><strong>{itens.reduce((n, item) => n + item.quantidade, 0)} item(ns)</strong><span>{itens.length ? `Subtotal ${moeda(totalConhecido)}` : 'Escolha suas fotos favoritas'}</span></p>
+        <a href="#dados-orcamento" className="rounded-full bg-pink-600 px-4 py-3 text-sm font-bold text-white">Preencher meus dados ↓</a>
+      </div>
     </main>
   )
 }

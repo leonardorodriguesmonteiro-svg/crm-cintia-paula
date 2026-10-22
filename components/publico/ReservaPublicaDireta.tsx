@@ -228,7 +228,7 @@ export function ReservaPublicaDireta() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
+    <main className="reserva-direta-mobile min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b border-pink-100 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-5 md:px-8">
           <Link href="/site" className="brand-logo"><img src="/brand/cintia-paula.jpg" alt="Cintia Paula Festas e Decorações — início" width={1536} height={1024} /></Link>
