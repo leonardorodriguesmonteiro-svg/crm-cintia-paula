@@ -231,10 +231,7 @@ export function ReservaPublicaDireta() {
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b border-pink-100 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-5 md:px-8">
-          <Link href="/" className="min-w-fit">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-600">Cintia Paula</p>
-            <p className="text-lg font-black">Festas &amp; Decorações</p>
-          </Link>
+          <Link href="/site" className="brand-logo"><img src="/brand/cintia-paula.jpg" alt="Cintia Paula Festas e Decorações — início" width={1536} height={1024} /></Link>
           <Link href={catalogoHref} className="rounded-full border border-pink-200 bg-pink-50 px-4 py-2 text-xs font-black text-pink-700 hover:bg-pink-100">← Trocar kit</Link>
         </div>
       </header>

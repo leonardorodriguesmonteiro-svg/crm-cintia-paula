@@ -14,3 +14,93 @@ body { background: #fff7fb; color: #1f2937; }
   .contrato-impressao > section { padding: 0 !important; max-width: none !important; }
   .contrato-impressao h3 { break-after: avoid; }
 }
+
+/* Identidade pública: rosé, cobre e marfim da marca. Escopo separado do CRM. */
+.site-publico { --brand-copper:#985338; --brand-ink:#3f302c; --brand-muted:#756963; --brand-line:#eadbd3; --brand-cream:#fcf9f5; color:var(--brand-ink); background:var(--brand-cream); }
+.site-publico a, .site-publico button { -webkit-tap-highlight-color:transparent; }
+.site-publico :focus-visible { outline:2px solid var(--brand-copper); outline-offset:4px; }
+.brand-skip { position:fixed; left:1rem; top:-5rem; z-index:100; padding:1rem; background:white; }
+.brand-skip:focus { top:1rem; }
+.brand-header { position:sticky; top:0; z-index:50; border-bottom:1px solid var(--brand-line); background:rgba(252,249,245,.96); backdrop-filter:blur(12px); }
+.brand-logo { display:block; width:190px; height:64px; overflow:hidden; flex-shrink:0; border-radius:4px; }
+.brand-logo img { width:100%; height:100%; object-fit:cover; object-position:center 51%; mix-blend-mode:multiply; }
+.brand-button { display:inline-flex; min-height:48px; align-items:center; justify-content:center; gap:12px; border-radius:999px; background:var(--brand-copper); color:white; border:1px solid var(--brand-copper); padding:12px 23px; font-size:14px; font-weight:600; transition:background .2s,transform .2s; }
+.brand-button:hover { background:#7b402c; transform:translateY(-1px); }
+.brand-button-outline { background:transparent; color:var(--brand-copper); border-color:#cfaa96; }
+.brand-button-outline:hover { background:#f4e7de; }
+.brand-header .brand-button { min-height:44px; padding:10px 18px; font-size:13px; }
+.brand-title { font-family:Georgia,'Times New Roman',serif; font-weight:400; letter-spacing:-.045em; line-height:1.08; font-size:clamp(36px,4.1vw,56px); }
+.brand-title em { font-weight:400; color:var(--brand-copper); }
+.brand-eyebrow { font-size:11px; font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:var(--brand-copper); }
+.brand-hero { overflow:hidden; background:radial-gradient(ellipse at 90% 20%,#f4e1d5 0,transparent 55%),var(--brand-cream); padding:48px 24px 56px; }
+.brand-hero-grid { max-width:1160px; margin:auto; display:grid; grid-template-columns:1.15fr .85fr; align-items:center; gap:72px; }
+.brand-hero h1 { margin-top:24px; max-width:630px; font-size:clamp(46px,5.8vw,78px); }
+.brand-hero h1 em { display:block; }
+.brand-intro { max-width:470px; margin-top:26px; font-size:16px; line-height:1.8; color:var(--brand-muted); }
+.brand-actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:30px; }
+.brand-tracking { margin-top:28px; font-size:12px; line-height:1.8; color:var(--brand-muted); }
+.brand-tracking a { display:inline-block; margin-left:4px; color:var(--brand-copper); text-decoration:underline; text-underline-offset:4px; }
+.brand-hero-photo { position:relative; margin:0; padding:12px; border:1px solid #d7b59d; border-radius:220px 220px 12px 12px; }
+.brand-hero-photo img { display:block; width:100%; height:450px; object-fit:cover; border-radius:210px 210px 4px 4px; }
+.brand-hero-photo figcaption { padding:17px 8px 5px; display:flex; flex-direction:column; gap:4px; text-align:center; }
+.brand-hero-photo figcaption span:first-child { font-family:Georgia,serif; font-size:21px; font-style:italic; }
+.brand-hero-photo figcaption span:last-child { font-size:10px; text-transform:uppercase; letter-spacing:.12em; color:var(--brand-muted); }
+.brand-promises { max-width:1160px; margin:auto; padding:27px 24px; display:grid; grid-template-columns:repeat(3,1fr); gap:25px; border-bottom:1px solid var(--brand-line); }
+.brand-promises > div { display:flex; align-items:center; gap:15px; }
+.brand-promises svg { color:var(--brand-copper); flex-shrink:0; }
+.brand-promises strong { display:block; font-size:13px; font-weight:600; }
+.brand-promises span { display:block; margin-top:5px; font-size:12px; color:var(--brand-muted); }
+.brand-story { max-width:1240px; margin:0 auto; padding:60px 32px 90px; display:grid; grid-template-columns:1fr 1fr; gap:72px; align-items:center; }
+.brand-story-logo { background:#fff; border:1px solid var(--brand-line); border-radius:24px; overflow:hidden; padding:16px; }
+.brand-story h2 { margin:18px 0 24px; font-size:clamp(34px,3.5vw,47px); }
+.brand-story p:not(.brand-eyebrow) { font-size:15px; line-height:1.9; color:var(--brand-muted); }
+.brand-text-link { display:inline-flex; align-items:center; gap:12px; font-size:13px; font-weight:600; color:var(--brand-copper); margin-top:24px; padding:8px 0; }
+.brand-text-link:hover { text-decoration:underline; text-underline-offset:5px; }
+.brand-steps { padding:70px max(24px,calc((100% - 1160px)/2)); background:#f3e9e1; }
+.brand-section-heading .brand-title { margin-top:16px; }
+.brand-step-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:32px; margin-top:44px; }
+.brand-step-grid > div { border-top:1px solid #d8bca9; padding-top:20px; }
+.brand-step-grid span { font-family:Georgia,serif; font-size:30px; color:var(--brand-copper); }
+.brand-step-grid h3 { font-size:15px; margin-top:18px; font-weight:600; }
+.brand-step-grid p { font-size:13px; line-height:1.85; margin-top:10px; color:var(--brand-muted); }
+.brand-invitation { text-align:center; padding:80px 24px; }
+.brand-invitation .brand-title { margin-top:20px; }
+.brand-invitation > p:not(.brand-eyebrow) { font-size:15px; color:var(--brand-muted); margin:24px 0; }
+.brand-footer { background:#eee2d9; border-top:1px solid var(--brand-line); color:#514139; }
+.brand-footer a:hover { color:#8c472e; }
+.brand-footer-bottom { border-top:1px solid #ddc9bb; text-align:center; padding:20px; font-size:11px; letter-spacing:.08em; }
+.site-publico .text-pink-600,.site-publico .text-pink-700,.site-publico .text-pink-800 { color:var(--brand-copper); }
+.site-publico .text-pink-400 { color:#edbda3; }
+.site-publico .bg-pink-600,.site-publico .bg-pink-500 { background-color:var(--brand-copper); }
+.site-publico .hover\:bg-pink-700:hover { background-color:#7b402c; }
+.site-publico .bg-pink-50,.site-publico .hover\:bg-pink-50:hover { background-color:#f6ebe3; }
+.site-publico .bg-pink-100 { background-color:#f0ddd0; }
+.site-publico .border-pink-100,.site-publico .border-pink-200 { border-color:#e3cbbb; }
+.site-publico .text-slate-900,.site-publico .text-slate-950 { color:var(--brand-ink); }
+.site-publico .text-slate-600,.site-publico .text-slate-500 { color:var(--brand-muted); }
+.site-publico .bg-slate-950 { background-color:#47342d; }
+.site-publico .bg-slate-50 { background-color:#f7f1eb; }
+.site-publico .font-black { font-weight:600; }
+.site-publico main h1:not(.brand-title) { font-family:Georgia,serif; font-weight:400; }
+.site-publico .bg-gradient-to-br.from-pink-50 { background-image:linear-gradient(120deg,#f6e9dd,#fcf9f5); }
+.site-publico article { border-color:var(--brand-line); }
+.site-publico article h2,.site-publico article h3 { font-family:inherit; }
+@media(max-width:767px) {
+ .brand-logo { width:146px; height:56px; }
+ .brand-hero { padding:32px 22px 35px; }
+ .brand-hero-grid { grid-template-columns:1fr; gap:32px; }
+ .brand-hero h1 { font-size:49px; margin-top:18px; }
+ .brand-intro { font-size:15px; margin-top:20px; }
+ .brand-hero-photo { width:100%; max-width:360px; margin:auto; }
+ .brand-hero-photo img { height:345px; }
+ .brand-promises { grid-template-columns:1fr; gap:22px; padding:28px 24px; }
+ .brand-story { grid-template-columns:1fr; gap:30px; padding:32px 22px 55px; }
+ .brand-story-logo { max-width:440px; }
+ .brand-step-grid { grid-template-columns:1fr 1fr; gap:24px; }
+ .brand-steps { padding:48px 22px; }
+ .brand-invitation { padding:55px 22px; }
+ .brand-button { font-size:13px; padding:12px 18px; }
+}
+@media(prefers-reduced-motion:reduce) { .site-publico *, .site-publico *::before, .site-publico *::after { transition:none !important; animation:none !important; scroll-behavior:auto !important; } }
+
+.site-publico nav a[aria-current="page"] { color:var(--brand-copper); background:#f3e6dc; }

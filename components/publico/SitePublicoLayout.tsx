@@ -3,61 +3,22 @@ import type { ReactNode } from 'react'
 import { SitePublicoMenu } from '@/components/publico/SitePublicoMenu'
 
 export function SitePublicoLayout({ children }: { children: ReactNode }) {
-  return (
-    <div className="min-h-screen bg-white text-slate-900">
-      <header className="sticky top-0 z-50 border-b border-pink-100 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 md:px-8">
-          <Link href="/site" className="min-w-fit">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-600">Cintia Paula</p>
-            <p className="text-base font-black md:text-lg">Festas &amp; Decorações</p>
-          </Link>
-
-          <div className="flex items-center gap-3">
-            <SitePublicoMenu />
-            <Link
-              href="/reservar"
-              className="hidden rounded-full bg-pink-600 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-pink-700 xl:inline-flex"
-            >
-              Solicitar orçamento
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      {children}
-
-      <footer className="mt-16 border-t border-slate-200 bg-slate-950 text-white">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 md:grid-cols-3 md:px-8">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-400">Cintia Paula</p>
-            <p className="mt-2 text-xl font-black">Festas &amp; Decorações</p>
-            <p className="mt-3 max-w-sm text-sm leading-6 text-slate-300">
-              Decorações para você escolher, retirar e montar. Nossa equipe acompanha cada etapa da sua festa.
-            </p>
-          </div>
-
-          <div>
-            <p className="font-black">Navegação</p>
-            <div className="mt-3 flex flex-col gap-2 text-sm text-slate-300">
-              <Link href="/site/kits">Conhecer os kits</Link>
-              <Link href="/site/como-funciona">Como funciona</Link>
-              <Link href="/site/duvidas">Dúvidas frequentes</Link>
-              <Link href="/reservar">Solicitar orçamento</Link>
-              <Link href="/acompanhar">Acompanhar meu orçamento</Link>
-            </div>
-          </div>
-
-          <div>
-            <p className="font-black">Sua festa começa aqui</p>
-            <p className="mt-3 text-sm leading-6 text-slate-300">
-              Escolha um kit pronto ou monte uma composição personalizada com itens do nosso catálogo.
-            </p>
-            <Link href="/reservar" className="mt-4 inline-block font-black text-pink-400">
-              Começar agora →
-            </Link>
-          </div>
-        </div>
-      </footer>
-    </div>
-  )
+  return <div className="site-publico min-h-screen">
+    <a href="#conteudo-site" className="brand-skip">Ir para o conteúdo</a>
+    <header className="brand-header">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-8">
+        <Link href="/site" className="brand-logo" aria-label="Cintia Paula Festas e Decorações — início"><img src="/brand/cintia-paula.jpg" alt="Cintia Paula Festas e Decorações" width={1536} height={1024} /></Link>
+        <div className="flex items-center gap-3"><SitePublicoMenu /><div className="hidden xl:block"><Link href="/reservar" className="brand-button">Solicitar orçamento</Link></div></div>
+      </div>
+    </header>
+    <div id="conteudo-site" tabIndex={-1}>{children}</div>
+    <footer className="brand-footer">
+      <div className="mx-auto grid max-w-7xl gap-10 px-5 py-12 md:grid-cols-[1.3fr_1fr_1fr] md:px-8">
+        <div><Link href="/site"><img src="/brand/cintia-paula.jpg" alt="Cintia Paula Festas e Decorações" width={1536} height={1024} loading="lazy" className="w-64 rounded-xl" /></Link><p className="mt-4 max-w-xs text-sm leading-6">Transformando momentos em grandes memórias, com carinho em cada detalhe.</p></div>
+        <div><h2 className="mb-5 text-sm font-semibold">Explore</h2><nav aria-label="Links do rodapé" className="flex flex-col gap-3 text-sm"><Link href="/site/kits">Nossas decorações</Link><Link href="/site/como-funciona">Como funciona</Link><Link href="/site/sobre">Sobre a Cintia Paula</Link><Link href="/site/duvidas">Dúvidas frequentes</Link></nav></div>
+        <div><h2 className="mb-5 text-sm font-semibold">Vamos conversar sobre sua festa?</h2><nav aria-label="Atendimento" className="flex flex-col gap-3 text-sm"><Link href="/reservar">Solicitar orçamento →</Link><Link href="/acompanhar">Acompanhar meu pedido</Link><Link href="/site/contato">Contato e localização</Link></nav><p className="mt-7 text-xs leading-6">Rio de Janeiro · RJ<br />Festas que ficam na memória.</p></div>
+      </div>
+      <div className="brand-footer-bottom">Cintia Paula · Festas &amp; Decorações</div>
+    </footer>
+  </div>
 }

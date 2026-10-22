@@ -280,10 +280,7 @@ export function ReservaPublicaPage() {
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b border-pink-100 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-5 md:px-8">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-600">Cintia Paula</p>
-            <p className="text-lg font-black">Festas & Decorações</p>
-          </div>
+          <a href="/site" className="brand-logo"><img src="/brand/cintia-paula.jpg" alt="Cintia Paula Festas e Decorações — início" width={1536} height={1024} /></a>
           <div className="rounded-full bg-pink-50 px-4 py-2 text-xs font-bold text-pink-700">Pegue e Monte</div>
         </div>
       </header>

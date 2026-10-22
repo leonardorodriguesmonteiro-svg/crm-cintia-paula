@@ -8,9 +8,9 @@ export const metadata: Metadata = {
 
 export default function Page() {
   return (
-    <>
+    <div className="site-publico">
       <style>{`button[aria-label="Abrir Central de Feedback"]{display:none!important}`}</style>
       <ReservaPublicaDireta />
-    </>
+    </div>
   )
 }

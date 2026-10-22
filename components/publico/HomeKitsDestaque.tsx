@@ -50,16 +50,16 @@ export function HomeKitsDestaque() {
   if (!carregando && destaques.length === 0) return null
 
   return (
-    <section className="bg-white px-4 py-16 md:px-8 md:py-20">
+    <section className="brand-catalogo px-4 py-14 md:px-8 md:py-20">
       <div className="mx-auto max-w-7xl">
         <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>
-            <p className="text-sm font-black uppercase tracking-[0.2em] text-pink-600">Inspirações reais</p>
-            <h2 className="mt-3 max-w-3xl text-3xl font-black tracking-tight md:text-5xl">
-              Kits que já podem começar a sua festa.
+            <p className="text-sm font-black uppercase tracking-[0.2em] text-pink-600">Escolha a sua inspiração</p>
+            <h2 className="brand-title mt-3 max-w-3xl">
+              Pequenos detalhes. Grandes celebrações.
             </h2>
             <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 md:text-lg">
-              As fotos, temas e valores abaixo vêm diretamente do nosso catálogo. Escolha uma inspiração e solicite seu orçamento.
+              Explore nossas decorações e encontre a combinação que tem a sua cara.
             </p>
           </div>
           <Link
@@ -105,21 +105,7 @@ export function HomeKitsDestaque() {
           </div>
         )}
 
-        <div className="mt-10 rounded-[2rem] bg-slate-950 px-6 py-8 text-white md:flex md:items-center md:justify-between md:gap-8 md:px-9">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-400">Quer algo diferente?</p>
-            <h3 className="mt-2 text-2xl font-black md:text-3xl">Monte seu próprio kit com peças do nosso acervo.</h3>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 md:text-base">
-              Você escolhe as peças e nossa equipe prepara a proposta personalizada para a sua composição.
-            </p>
-          </div>
-          <Link
-            href="/reservar"
-            className="mt-6 inline-flex shrink-0 rounded-full bg-white px-6 py-3 font-black text-slate-950 transition hover:bg-pink-50 md:mt-0"
-          >
-            Montar meu kit →
-          </Link>
-        </div>
+
       </div>
     </section>
   )
