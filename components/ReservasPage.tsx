@@ -2,6 +2,8 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { DadosEventoContrato } from '@/components/publico/DadosEventoContrato'
+import { logisticaVazia, type LogisticaContrato } from '@/lib/logisticaContrato'
 import { revisarReserva } from '@/lib/revisarReserva'
 import { supabase } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
@@ -38,6 +40,7 @@ type LinhaForm = ReservaItem & {
 }
 
 type Reserva = {
+  logistica_contrato: LogisticaContrato
   revisao: number
   orcamento_id: string | null
   orcamentos: { contato_nome: string | null; oportunidades: { numero: number } | null } | null
@@ -91,6 +94,7 @@ export function ReservasPage() {
   const [descricaoAdicional, setDescricaoAdicional] = useState('')
   const [valorAdicional, setValorAdicional] = useState(0)
   const [editando, setEditando] = useState<string | null>(null)
+  const [logistica, setLogistica] = useState(logisticaVazia)
   const [revisaoEditada, setRevisaoEditada] = useState(1)
   const vinculada = Boolean(reservas.find(item => item.id === editando)?.orcamento_id)
   const [mensagem, setMensagem] = useState('')
@@ -122,7 +126,7 @@ export function ReservasPage() {
   async function carregarReservas() {
     const { data, error } = await supabase
       .from('reservas')
-      .select('revisao,orcamento_id,orcamentos!reservas_orcamento_id_fkey(contato_nome,oportunidades(numero)),id,data_evento,horario_evento,endereco_evento,valor_total,valor_sinal,status,observacoes,clientes(id,nome,whatsapp),kits(id,nome,codigo,valor),reserva_itens(id,estoque_item_id,kit_id,kit_composicao_id,descricao,quantidade,valor_unitario,subtotal,kits(id,nome,codigo,valor),kit_composicao(kit_id))')
+      .select('logistica_contrato,revisao,orcamento_id,orcamentos!reservas_orcamento_id_fkey(contato_nome,oportunidades(numero)),id,data_evento,horario_evento,endereco_evento,valor_total,valor_sinal,status,observacoes,clientes(id,nome,whatsapp),kits(id,nome,codigo,valor),reserva_itens(id,estoque_item_id,kit_id,kit_composicao_id,descricao,quantidade,valor_unitario,subtotal,kits(id,nome,codigo,valor),kit_composicao(kit_id))')
       .order('data_evento', { ascending: true })
 
     if (error) return setErro(error.message)
@@ -175,7 +179,7 @@ export function ReservasPage() {
 
     if (editando && vinculada) {
       try {
-        const resultado = await revisarReserva(editando, { ...form, revisao: revisaoEditada, itens: linhas.map(linha => ({
+        const resultado = await revisarReserva(editando, { ...form, endereco_evento: logistica.endereco_evento, logistica_contrato: logistica, revisao: revisaoEditada, itens: linhas.map(linha => ({
           kit_id: linha.kit_id, estoque_item_id: linha.estoque_item_id || null, kit_composicao_id: linha.kit_composicao_id || null,
           descricao: linha.descricao, quantidade: Number(linha.quantidade), valor_unitario: Number(linha.valor_unitario)
         })) })
@@ -220,6 +224,7 @@ export function ReservasPage() {
   function editar(reserva: Reserva) {
     setEditando(reserva.id)
     setRevisaoEditada(reserva.revisao)
+    setLogistica({ ...logisticaVazia, ...reserva.logistica_contrato, endereco_evento: reserva.endereco_evento || '' })
     setMensagem('')
     setForm({
       cliente_id: reserva.clientes?.id || '',
@@ -484,7 +489,7 @@ export function ReservasPage() {
             </Select>
           </div>
 
-          <Input label="Endereço do evento" placeholder="Rua, número, bairro, cidade" value={form.endereco_evento} onChange={e => setForm({ ...form, endereco_evento: e.target.value })} />
+          {vinculada ? <DadosEventoContrato dataEvento={form.data_evento} valor={logistica} onChange={setLogistica} permitirDatasPassadas /> : <Input label="Endereço do evento" placeholder="Rua, número, bairro, cidade" value={form.endereco_evento} onChange={e => setForm({ ...form, endereco_evento: e.target.value })} />}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input label="Valor do sinal" type="number" value={form.valor_sinal} onChange={e => setForm({ ...form, valor_sinal: Number(e.target.value) })} />

@@ -1,5 +1,7 @@
 'use client'
 
+import { DadosEventoContrato } from '@/components/publico/DadosEventoContrato'
+import { logisticaVazia } from '@/lib/logisticaContrato'
 import { useEffect, useState } from 'react'
 import { CalendarDays, CheckCircle2, Clock3, MapPin, PartyPopper, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -13,6 +15,7 @@ type Proposta = {
   numero: number
   status: string
   validade: string | null
+  modalidade?: string
   data_evento: string | null
   horario_evento: string | null
   data_retirada: string | null
@@ -70,6 +73,7 @@ export function PropostaPublicaPage({ token }: { token: string }) {
   const [nome, setNome] = useState('')
   const [observacao, setObservacao] = useState('')
   const [salvandoDados, setSalvandoDados] = useState(false)
+  const [logistica, setLogistica] = useState(logisticaVazia)
   const [dados, setDados] = useState({
     cpf: '',
     email: '',
@@ -139,7 +143,7 @@ export function PropostaPublicaPage({ token }: { token: string }) {
       const resposta = await fetch(`/api/propostas/${token}/dados-cliente`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dados)
+        body: JSON.stringify({ ...dados, logistica_contrato: logistica })
       })
       const corpo = await resposta.json()
       if (!resposta.ok) throw new Error(corpo.error || 'Não foi possível salvar seus dados.')
@@ -247,6 +251,7 @@ export function PropostaPublicaPage({ token }: { token: string }) {
                     <Input label="Bairro *" required maxLength={120} value={dados.bairro} onChange={evento => setDados({ ...dados, bairro: evento.target.value })} />
                     <Input label="Cidade *" required maxLength={120} value={dados.cidade} onChange={evento => setDados({ ...dados, cidade: evento.target.value })} />
                   </div>
+                  <DadosEventoContrato dataEvento={proposta.data_evento || ''} modalidadeFixa={proposta.modalidade || ''} valor={logistica} onChange={setLogistica} />
                   <Button type="submit" disabled={salvandoDados} className="w-full sm:w-auto">
                     {salvandoDados ? 'Salvando dados...' : 'Salvar e continuar para o contrato'}
                   </Button>

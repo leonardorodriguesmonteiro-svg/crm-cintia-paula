@@ -43,6 +43,7 @@ export function documentoFiscalValido(documento: string) {
 }
 
 export type CompletarDadosClientePropostaV2Input = {
+  logistica_contrato?: unknown
   token: string
   cpf: string
   cep: string
@@ -61,22 +62,12 @@ export async function completarDadosClientePropostaV2(
   const { cpf, cep, endereco, numero, complemento, bairro, cidade, estado, email } = validarCadastroCliente(input)
 
   const { data, error } = await supabaseServer.rpc(
-    'completar_dados_cliente_proposta_v2_servidor',
-    {
-      p_token: input.token,
-      p_cpf: cpf,
-      p_cep: cep,
-      p_endereco: endereco,
-      p_numero: numero,
-      p_complemento: complemento,
-      p_bairro: bairro,
-      p_cidade: cidade,
-      p_estado: estado,
-      p_email: email
-    }
+    'completar_cadastro_proposta_agendado',
+    { p_token: input.token, p_dados: { cpf, cep, endereco, numero, complemento, bairro, cidade, estado, email, logistica_contrato: input.logistica_contrato } }
   )
 
   if (error?.code === '23505') throw new JornadaComercialError('Não foi possível vincular o documento. Peça à equipe para conferir seu cadastro neste orçamento.', 'CADASTRO_REQUER_REVISAO', 409)
+  if (error?.code === '22023') throw new JornadaComercialError(error.message, 'LOGISTICA_INVALIDA')
   if (error) throw error
 
   const resultado = data as {

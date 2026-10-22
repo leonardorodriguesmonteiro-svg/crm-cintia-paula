@@ -1,0 +1,23 @@
+const {test}=require('node:test')
+const assert=require('node:assert/strict')
+const ts=require('typescript')
+const fs=require('node:fs')
+const api={};new Function('exports',ts.transpileModule(fs.readFileSync('lib/logisticaContrato.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(api)
+test('agenda bloqueia fins de semana, feriados e pontos facultativos do Rio',()=>{
+ for(const d of ['2026-10-24','2026-10-25','2026-01-20','2026-04-23','2026-02-16','2026-02-17','2026-02-18','2026-04-03','2026-06-04','2026-06-05','2026-10-30','2026-11-20','2026-12-24','2026-12-31','2026-02-30'])assert.equal(api.diaAtendimento(d),false,d)
+ assert.equal(api.diaAtendimento('2026-10-28'),true)
+ assert.equal(api.diaAtendimento('2026-10-23'),true)
+})
+test('devolução é sempre depois do evento e atravessa feriados, fins de semana e ano',()=>{
+ assert.equal(api.proximoDiaAtendimento('2026-10-23'),'2026-10-26')
+ assert.equal(api.proximoDiaAtendimento('2026-10-29'),'2026-11-03')
+ assert.equal(api.proximoDiaAtendimento('2026-12-30'),'2027-01-04')
+ assert.equal(api.proximoDiaAtendimento('2026-04-02'),'2026-04-06')
+ assert.equal(api.proximoDiaAtendimento('2026-06-03'),'2026-06-08')
+})
+test('horários incluem apenas as janelas comerciais e data usa fuso de Brasília',()=>{
+ assert.ok(api.horariosAtendimento.includes('12:00'));assert.ok(api.horariosAtendimento.includes('18:00'))
+ assert.ok(!api.horariosAtendimento.includes('13:00'))
+ assert.equal(api.dataBrasil(new Date('2026-10-23T01:00:00Z')),'2026-10-22')
+ assert.equal(api.modalidadeDoPedido('Tipo de evento: Festa | Modalidade: Retirada | Escolha: kit'),'Retirada')
+})

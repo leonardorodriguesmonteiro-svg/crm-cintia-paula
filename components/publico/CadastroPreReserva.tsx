@@ -1,4 +1,6 @@
 'use client'
+import { DadosEventoContrato } from './DadosEventoContrato'
+import { logisticaVazia } from '@/lib/logisticaContrato'
 import { useState } from 'react'
 const campos = [
   ['cpf', 'CPF ou CNPJ', 'text', 18, 'off'], ['email', 'E-mail para receber o orçamento', 'email', 254, 'email'],
@@ -7,7 +9,8 @@ const campos = [
   ['bairro', 'Bairro', 'text', 120, 'off'], ['cidade', 'Cidade', 'text', 120, 'address-level2'],
   ['estado', 'UF', 'text', 2, 'address-level1']
 ] as const
-export function CadastroPreReserva({ onConcluido }: { onConcluido: () => void }) {
+export function CadastroPreReserva({ onConcluido, dataEvento, modalidade }: { onConcluido: () => void; dataEvento: string; modalidade: string }) {
+  const [logistica, setLogistica] = useState({ ...logisticaVazia, modalidade })
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState('')
   const [concluido, setConcluido] = useState(false)
@@ -17,7 +20,7 @@ export function CadastroPreReserva({ onConcluido }: { onConcluido: () => void })
     const dados = Object.fromEntries(new FormData(event.currentTarget))
     setEnviando(true); setErro('')
     try {
-      const resposta = await fetch('/api/publico/acompanhamento/cadastro', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...dados, token: window.location.hash.slice(1) }) })
+      const resposta = await fetch('/api/publico/acompanhamento/cadastro', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...dados, logistica_contrato: logistica, token: window.location.hash.slice(1) }) })
       const corpo = await resposta.json()
       if (!resposta.ok) throw new Error(corpo.erro || 'Não foi possível salvar.')
       setConcluido(true); onConcluido()
@@ -30,6 +33,7 @@ export function CadastroPreReserva({ onConcluido }: { onConcluido: () => void })
     <p className="mt-2 text-slate-600">Precisamos destes dados somente agora para gerar o contrato da sua reserva. As informações já enviadas serão reaproveitadas.</p>
     <form onSubmit={salvar} className="mt-5 grid gap-4 sm:grid-cols-2">
       {campos.map(([name, label, type, maxLength, autoComplete]) => <label key={name} className="block text-sm font-semibold">{label}<input name={name} type={type} maxLength={maxLength} autoComplete={autoComplete} inputMode={name === 'cpf' || name === 'cep' ? 'numeric' : undefined} required={name !== 'complemento'} className="mt-1 w-full rounded-xl border border-slate-300 p-3 text-base font-normal" /></label>)}
+      <DadosEventoContrato dataEvento={dataEvento} modalidadeFixa={modalidade} valor={logistica} onChange={setLogistica} />
       {erro && <p role="alert" className="text-red-700 sm:col-span-2">{erro}</p>}
       <button type="submit" disabled={enviando} className="rounded-xl bg-pink-600 px-5 py-3 font-bold text-white disabled:opacity-60 sm:col-span-2">{enviando ? 'Enviando cadastro…' : 'Concluir dados para gerar o contrato'}</button>
     </form>

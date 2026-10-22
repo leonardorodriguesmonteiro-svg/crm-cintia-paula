@@ -33,6 +33,7 @@ function fixture(options = {}) {
     }; return q
   } }
   const route = moduleWithMocks('app/api/publico/acompanhamento/route.ts', {
+    '@/lib/logisticaContrato': moduleWithMocks('lib/logisticaContrato.ts', {}),
     '@/lib/server/acompanhamento': { hashToken: digest, tokenValido: t => typeof t === 'string' && /^[A-Za-z0-9_-]{43}$/.test(t) },
     '@/lib/server/publicPreReservation': { empresaDoSite: () => 'company-1', hashDoSolicitante: () => 'ip-hash', origemEhPermitida: () => options.origin !== false },
     '@/lib/repositories/comercialJourneyRepository': { comercialJourneyRepository: { consumirLimitePublico: async () => options.rate !== false } },
@@ -84,12 +85,12 @@ test('issued token is random, hashed and not embedded in HTTP path', async () =>
 })
 test('approved pre-reservation offers intake; completed and legacy sent proposals do not', async () => {
  const pending=await(await fixture({order:{etapa:'APROVADA'}}).run(token)).json();assert.equal(pending.cadastro.disponivel,true)
- const complete=await(await fixture({order:{etapa:'APROVADA',cadastro_completo_em:'2026-09-22'}}).run(token)).json();assert.deepEqual(complete.cadastro,{completo:true,disponivel:false})
+ const complete=await(await fixture({order:{etapa:'APROVADA',cadastro_completo_em:'2026-09-22',logistica_contrato:{endereco_evento:'Rua de teste, 10'}}}).run(token)).json();assert.deepEqual(complete.cadastro,{completo:true,disponivel:false})
  const legacy=await(await fixture({order:{etapa:'CONVERTIDA_EM_PROPOSTA'},proposals:[{oportunidade_id:'order-1',empresa_id:'company-1',status:'ENVIADA'}]}).run(token)).json();assert.equal(legacy.cadastro.disponivel,false)
 })
 
 test('cadastro concluído mostra reserva provisória e só libera link depois do contrato', async () => {
- const options={order:{etapa:'CONVERTIDA_EM_PROPOSTA',cadastro_completo_em:'2026-10-21'},proposals:[{oportunidade_id:'order-1',empresa_id:'company-1',status:'Aprovado',formalizacao_status:'DADOS_COMPLETOS',reserva_id:'r1'}],reservas:[{id:'r1',status:'Pendente'}]}
+ const options={order:{etapa:'CONVERTIDA_EM_PROPOSTA',cadastro_completo_em:'2026-10-21',logistica_contrato:{endereco_evento:'Rua de teste, 10'}},proposals:[{oportunidade_id:'order-1',empresa_id:'company-1',status:'Aprovado',formalizacao_status:'DADOS_COMPLETOS',reserva_id:'r1'}],reservas:[{id:'r1',status:'Pendente'}]}
  let body=await(await fixture(options).run(token)).json()
  assert.equal(body.reserva.status,'Pendente');assert.equal(body.reserva.id,undefined);assert.equal(body.contrato,null);assert.equal(body.cadastro.disponivel,false)
  options.proposals[0]={...options.proposals[0],formalizacao_status:'CONTRATO_GERADO',contrato_id:'c1'}
@@ -98,4 +99,10 @@ test('cadastro concluído mostra reserva provisória e só libera link depois do
  assert.equal(body.contrato.url,'/contrato/contrato-token')
  options.contratos[0].reserva_id='outra-reserva'
  body=await(await fixture(options).run(token)).json();assert.equal(body.contrato,null)
+})
+
+test('cadastro legado sem local e sem contrato oferece complementação; contrato emitido não reabre cadastro',async()=>{
+ const options={order:{etapa:'CONVERTIDA_EM_PROPOSTA',cadastro_completo_em:'2026-10-21'},proposals:[{oportunidade_id:'order-1',empresa_id:'company-1',status:'Aprovado',formalizacao_status:'DADOS_COMPLETOS',reserva_id:'r1'}]}
+ let body=await(await fixture(options).run(token)).json();assert.equal(body.cadastro.disponivel,true)
+ options.proposals[0].contrato_id='issued';body=await(await fixture(options).run(token)).json();assert.equal(body.cadastro.disponivel,false)
 })

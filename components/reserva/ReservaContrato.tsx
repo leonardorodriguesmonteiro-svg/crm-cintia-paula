@@ -1,5 +1,6 @@
 'use client'
 
+import { LogisticaContratoResumo } from '@/components/LogisticaContratoResumo'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
@@ -169,7 +170,7 @@ export function ReservaContrato({ reservaId, somenteLeitura = false }: { reserva
       {!reserva ? <p className="mt-4 text-slate-500">Carregando dados da reserva…</p> : !contrato ? (
         <div className="mt-6 rounded-2xl border border-dashed p-6 text-center">
           <p className="text-sm text-slate-500 mb-4">
-            O contrato ainda não foi liberado.
+            O contrato ainda não foi liberado. Confira também o local do evento e o agendamento em Editar reserva.
           </p>
           {somenteLeitura ? <p className="text-sm text-blue-800">A geração do contrato é realizada pelo Comercial.</p> : reserva.orcamento_id ? (
             <form className="space-y-4 text-left" onSubmit={event => { event.preventDefault(); void gerarContrato() }}>
@@ -234,6 +235,7 @@ export function ReservaContrato({ reservaId, somenteLeitura = false }: { reserva
                 às <strong>{reserva?.horario_evento || 'horário não informado'}</strong>, no endereço <strong>{reserva?.endereco_evento || 'não informado'}</strong>.
               </p>
 
+              <LogisticaContratoResumo logistica={reserva?.logistica_contrato} />
               <div className="rounded-xl border bg-white p-3">
                 <strong>ITENS CONTRATADOS:</strong>
                 {itensReserva.map(item => <p key={item.id}>{item.quantidade} × {item.descricao} — R$ {Number(item.subtotal || 0).toFixed(2)}</p>)}

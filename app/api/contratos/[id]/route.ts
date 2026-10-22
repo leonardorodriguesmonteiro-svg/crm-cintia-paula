@@ -138,6 +138,7 @@ async function buscarContrato(token: string) {
         cliente?.estado
       ], cliente?.cep) || null
     },
+    logistica: reserva.logistica_contrato || null,
     evento: {
       data: reserva.data_evento,
       horario: reserva.horario_evento,

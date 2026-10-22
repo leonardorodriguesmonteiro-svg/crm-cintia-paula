@@ -20,6 +20,7 @@ export async function POST(
     const corpo = await request.json().catch(() => ({})) as Record<string, unknown>
     const resultado = await completarDadosClientePropostaV2({
       token,
+      logistica_contrato: corpo.logistica_contrato,
       cpf: String(corpo.cpf || ''),
       cep: String(corpo.cep || ''),
       endereco: String(corpo.endereco || ''),

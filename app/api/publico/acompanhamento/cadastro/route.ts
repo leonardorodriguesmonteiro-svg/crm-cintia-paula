@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     const entrada = { token: corpo.token } as CompletarDadosClientePropostaV2Input
     for (const campo of campos) entrada[campo] = typeof corpo[campo] === 'string' ? corpo[campo] : ''
     const dados = validarCadastroCliente(entrada)
-    const { data, error } = await supabaseServer.rpc('completar_cadastro_pre_reserva', { p_empresa_id: empresaId, p_token_hash: hashToken(corpo.token), p_dados: dados })
+    const { data, error } = await supabaseServer.rpc('completar_cadastro_pre_reserva', { p_empresa_id: empresaId, p_token_hash: hashToken(corpo.token), p_dados: { ...dados, logistica_contrato: corpo.logistica_contrato } })
     if (error) return NextResponse.json({ erro: error.code === '22023' ? error.message : 'Não foi possível salvar o cadastro. Tente novamente.' }, { status: error.code === '22023' ? 409 : 503, headers })
     return NextResponse.json(data, { headers })
   } catch (error) {

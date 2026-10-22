@@ -1,3 +1,4 @@
+import { modalidadeDoPedido } from '@/lib/logisticaContrato'
 import { NextRequest, NextResponse } from 'next/server'
 import { linkContratoDaProposta, propostaVisivelAoCliente, valoresItemPublico } from '@/lib/domain/comercial/propostaPublica'
 import { supabaseServer } from '@/lib/supabaseServer'
@@ -34,11 +35,11 @@ async function buscarProposta(token: string) {
   const { data, error } = await supabaseServer
     .from('orcamentos')
     .select(`
-      numero,status,validade,data_evento,horario_evento,data_retirada,data_devolucao,
+      logistica_contrato,numero,status,validade,data_evento,horario_evento,data_retirada,data_devolucao,
       endereco_evento,subtotal,desconto,acrescimos,frete,total,total_taxas,observacoes,contato_nome,
       resposta_cliente,respondido_por,respondido_em,resposta_observacao,
       formalizacao_status,dados_cliente_completos_em,contrato_id,reserva_id,
-      oportunidades(nome_contato),clientes(nome),
+      oportunidades(nome_contato,interesse),clientes(nome),
       orcamento_itens(descricao,quantidade,valor_unitario,preco_unitario_orcamento,subtotal,subtotal_negociado,desconto,tipo_origem,ordem,created_at),
       orcamento_taxas(descricao,valor,tipo,ordem)
     `)
@@ -60,6 +61,7 @@ async function buscarProposta(token: string) {
   )
 
   return {
+    modalidade: modalidadeDoPedido(oportunidade?.interesse),
     contrato_url: linkContratoDaProposta(data, contratoRes.data),
     numero: data.numero,
     status: expirada && ['RASCUNHO', 'ENVIADA'].includes(data.status)
@@ -92,9 +94,9 @@ async function buscarProposta(token: string) {
     respondido_em: data.respondido_em,
     resposta_observacao: data.resposta_observacao,
     formalizacao_status: data.formalizacao_status,
-    dados_cliente_completos: Boolean(data.dados_cliente_completos_em),
+    dados_cliente_completos: Boolean(data.dados_cliente_completos_em && (data.logistica_contrato?.endereco_evento || data.contrato_id)),
     precisa_completar_dados:
-      data.status === 'ACEITA' && !data.dados_cliente_completos_em,
+      data.status === 'ACEITA' && !data.contrato_id && (!data.dados_cliente_completos_em || !data.logistica_contrato?.endereco_evento),
     pode_responder: !expirada && data.status === 'ENVIADA'
   }
 }

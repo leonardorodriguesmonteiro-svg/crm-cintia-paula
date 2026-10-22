@@ -15,8 +15,19 @@ begin
  values(e,o,'ITEM_ESTOQUE',k,'Item com preço negociado',2,100.10);
  insert into public.acompanhamento_links(oportunidade_id,token_hash,expires_at) values(o,token,now()+interval '1 hour');
  dados:='{"cpf":"98765430001","email":"teste@example.com","cep":"01001000","endereco":"Rua de teste","numero":"10","bairro":"Centro","cidade":"São Paulo","estado":"SP"}';
+ dados:=dados||jsonb_build_object('logistica_contrato','{"modalidade": "Retirada", "tipo_local_evento": "Salão de festas", "endereco_evento": "Rua do Evento, 100, Centro, Rio de Janeiro - RJ", "data_retirada": "2099-02-09", "horario_retirada": "10:00", "horario_devolucao": "14:00"}'::jsonb);
+ begin
+  perform public.completar_cadastro_pre_reserva(e,token,dados-'logistica_contrato');
+  raise exception 'Cadastro sem local permitido';
+ exception when invalid_parameter_value then null; end;
+ begin
+  perform public.completar_cadastro_pre_reserva(e,token,jsonb_set(dados,'{logistica_contrato,horario_retirada}','"13:00"'));
+  raise exception 'Retirada durante intervalo permitida';
+ exception when invalid_parameter_value then null; end;
+ if exists(select 1 from public.orcamentos where oportunidade_id=o) then raise exception 'Cadastro inválido persistiu parcialmente'; end if;
  resultado:=public.completar_cadastro_pre_reserva(e,token,dados);
  select id,reserva_id,cliente_id into q,r,c from public.orcamentos where oportunidade_id=o;
+ if not exists(select 1 from public.reservas rr join public.orcamentos qq on qq.id=rr.orcamento_id where rr.id=r and rr.logistica_contrato=qq.logistica_contrato and rr.logistica_contrato->>'endereco_evento'='Rua do Evento, 100, Centro, Rio de Janeiro - RJ' and rr.data_devolucao=public.proximo_dia_atendimento_empresa(rr.data_evento)) then raise exception 'Logística não sincronizada'; end if;
  if q is null or r is null or c is null then raise exception 'Cadastro não criou os vínculos'; end if;
  if not exists(select 1 from public.orcamentos where id=q and status='Aprovado' and resposta_cliente is null and respondido_em is null and total=180.18 and contrato_id is null and lancamento_sinal_id is null and formalizacao_status='DADOS_COMPLETOS') then raise exception 'Aprovação, total ou etapa incorretos'; end if;
  if not exists(select 1 from public.reservas where id=r and status='Pendente' and valor_total=180.18 and valor_sinal=0) then raise exception 'Reserva não provisória'; end if;
@@ -47,6 +58,7 @@ begin
  exception when raise_exception then if sqlerrm='Sinal zero permitido' then raise; end if; end;
  resultado:=public.executar_formalizacao_servidor(u,q,'formalizar',50,'2099-02-09',null);
  if resultado->>'reserva_id'<>r::text or resultado->>'status'<>'CONTRATO_GERADO' then raise exception 'Formalização não reutilizou reserva %',resultado; end if;
+ if (select snapshot_contratual->'reserva'->'logistica_contrato' from public.contratos where id=(resultado->>'contrato_id')::uuid) is distinct from (select logistica_contrato from public.reservas where id=r) then raise exception 'Logística ausente no snapshot do contrato'; end if;
  repetido:=public.executar_formalizacao_servidor(u,q,'formalizar',90,'2099-02-08',null);
  if repetido->>'contrato_id'<>resultado->>'contrato_id' or not (repetido->>'ja_formalizada')::boolean then raise exception 'Contrato duplicado'; end if;
  if not exists(select 1 from public.lancamentos_financeiros where id=(resultado->>'lancamento_sinal_id')::uuid and valor=50 and data_vencimento='2099-02-09') then raise exception 'Condições do sinal alteradas'; end if;

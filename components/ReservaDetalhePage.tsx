@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { DadosEventoContrato } from '@/components/publico/DadosEventoContrato'
+import { LogisticaContratoResumo } from '@/components/LogisticaContratoResumo'
+import { logisticaVazia } from '@/lib/logisticaContrato'
 import { revisarReserva } from '@/lib/revisarReserva'
 import { supabase } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
@@ -47,6 +50,7 @@ export function ReservaDetalhePage({ id }: { id: string }) {
   const [valorRecebido, setValorRecebido] = useState(0)
   const [formaPagamento, setFormaPagamento] = useState('Pix')
 
+  const [logistica, setLogistica] = useState(logisticaVazia)
   const [form, setForm] = useState({
     data_evento: '',
     horario_evento: '',
@@ -77,6 +81,7 @@ export function ReservaDetalhePage({ id }: { id: string }) {
     if (reservaRes.error) return setErro(reservaRes.error.message)
 
     setReserva(reservaRes.data)
+    setLogistica({ ...logisticaVazia, ...reservaRes.data.logistica_contrato, endereco_evento: reservaRes.data.endereco_evento || '' })
     setForm({
       data_evento: reservaRes.data.data_evento || '',
       horario_evento: reservaRes.data.horario_evento || '',
@@ -137,7 +142,7 @@ export function ReservaDetalhePage({ id }: { id: string }) {
 
     if (reserva.orcamento_id) {
       try {
-        const resultado = await revisarReserva(id, { ...form, revisao: reserva.revisao })
+        const resultado = await revisarReserva(id, { ...form, endereco_evento: logistica.endereco_evento, logistica_contrato: logistica, revisao: reserva.revisao })
         setEditando(false)
         await carregar()
         alert(resultado.mensagem)
@@ -145,7 +150,9 @@ export function ReservaDetalhePage({ id }: { id: string }) {
       finally { setSalvando(false) }
       return
     }
-    const { error } = await supabase.from('reservas').update(form).eq('id', id)
+    const { data: validada, error: erroLogistica } = await supabase.rpc('validar_logistica_contrato', { p_data_evento: form.data_evento, p_dados: logistica })
+    if (erroLogistica) { setErro(erroLogistica.message); setSalvando(false); return }
+    const { error } = await supabase.from('reservas').update({ ...form, endereco_evento: validada.endereco_evento, logistica_contrato: validada, data_retirada: validada.data_retirada || form.data_evento, data_devolucao: validada.data_devolucao || form.data_evento, horario_retirada: validada.horario_retirada }).eq('id', id)
 
     if (error) {
       setErro(error.message)
@@ -310,7 +317,7 @@ export function ReservaDetalhePage({ id }: { id: string }) {
                 <option>Pendente</option><option>Confirmada</option><option>Em andamento</option><option>Concluída</option><option>Cancelada</option>
               </Select>
             </div>
-            <Input label="Endereço do evento" value={form.endereco_evento} onChange={e => setForm({ ...form, endereco_evento: e.target.value })} />
+            <DadosEventoContrato dataEvento={form.data_evento} valor={logistica} onChange={setLogistica} permitirDatasPassadas />
             <Textarea label="Observações" value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} />
             <Button type="submit" disabled={salvando}>{salvando ? 'Salvando...' : 'Salvar alterações'}</Button>
           </form>
@@ -320,7 +327,7 @@ export function ReservaDetalhePage({ id }: { id: string }) {
       {aba === 'Resumo' && (
         <div className="grid gap-4 xl:grid-cols-2">
           <Card><h2 className="text-lg font-semibold">Cliente</h2><div className="mt-4 space-y-2 text-sm text-slate-600"><p><strong>Nome:</strong> {reserva.clientes?.nome || '-'}</p><p><strong>WhatsApp:</strong> {reserva.clientes?.whatsapp || '-'}</p><p><strong>Instagram:</strong> {reserva.clientes?.instagram || '-'}</p><p><strong>Email:</strong> {reserva.clientes?.email || '-'}</p><p><strong>CPF:</strong> {reserva.clientes?.cpf || '-'} • <strong>RG:</strong> {reserva.clientes?.rg || '-'}</p><p><strong>Endereço:</strong> {formatarEnderecoCompleto([reserva.clientes?.endereco, reserva.clientes?.numero, reserva.clientes?.complemento, reserva.clientes?.bairro, reserva.clientes?.cidade, reserva.clientes?.estado], reserva.clientes?.cep) || '-'}</p>{reserva.clientes?.observacoes && <p><strong>Observações:</strong> {reserva.clientes.observacoes}</p>}</div></Card>
-          <Card><h2 className="text-lg font-semibold">Evento</h2><div className="mt-4 space-y-2 text-sm text-slate-600"><p><strong>Data:</strong> {dataCurta(reserva.data_evento)}</p><p><strong>Horário:</strong> {reserva.horario_evento || '-'}</p><p><strong>Status:</strong> {reserva.status || '-'}</p><p><strong>Endereço:</strong> {reserva.endereco_evento || '-'}</p><p><strong>Observações:</strong> {reserva.observacoes || '-'}</p></div></Card>
+          <Card><h2 className="text-lg font-semibold">Evento</h2><div className="mt-4 space-y-2 text-sm text-slate-600"><p><strong>Data:</strong> {dataCurta(reserva.data_evento)}</p><p><strong>Horário:</strong> {reserva.horario_evento || '-'}</p><p><strong>Status:</strong> {reserva.status || '-'}</p><p><strong>Endereço:</strong> {reserva.endereco_evento || '-'}</p><LogisticaContratoResumo logistica={reserva.logistica_contrato} /><p><strong>Observações:</strong> {reserva.observacoes || '-'}</p></div></Card>
         </div>
       )}
 

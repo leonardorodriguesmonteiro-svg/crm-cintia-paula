@@ -1,3 +1,4 @@
+import { LogisticaContratoResumo } from '@/components/LogisticaContratoResumo'
 import { supabaseServer } from '@/lib/supabaseServer'
 import { PrintContractButton } from '@/components/PrintContractButton'
 import { clausulasLocacaoContrato, declaracaoAceiteContrato, termosGeraisContrato } from '@/lib/contratoTermos'
@@ -52,18 +53,18 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     border: '1px solid #e5e7eb',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 16
+    marginBottom: 16,
+    breakInside: 'avoid' as const
   }
 
   return (
-    <main style={{ background: '#f8fafc', padding: 32, fontFamily: 'Arial, sans-serif', color: '#111827' }}>
+    <main className="contrato-impressao" style={{ background: '#f8fafc', padding: 32, fontFamily: 'Arial, sans-serif', color: '#111827' }}>
       <PrintContractButton />
       {contrato.status === 'Cancelado' && <p role="alert" style={{ color: '#991b1b', fontWeight: 'bold', textAlign: 'center' }}>VERSÃO CANCELADA — documento histórico. Não utilizar para assinatura ou pagamento.</p>}
       <section style={{ maxWidth: 820, margin: '0 auto', background: '#fff', padding: 40, borderRadius: 18 }}>
         <header style={{ borderBottom: '3px solid #db2777', paddingBottom: 18, marginBottom: 24 }}>
           {empresa?.logo_url && <img src={empresa.logo_url} alt={`Logo ${nomeEmpresa}`} style={{ maxWidth: 110, maxHeight: 72, objectFit: 'contain', marginBottom: 12 }} />}
           <h1 style={{ margin: 0, color: '#be185d', fontSize: 28 }}>{nomeEmpresa}</h1>
-          <p style={{ margin: '4px 0 0', color: '#64748b' }}>Festas e Decorações</p>
           <h2 style={{ textAlign: 'center', marginTop: 24 }}>CONTRATO DE LOCAÇÃO</h2>
           <p style={{ textAlign: 'center' }}><strong>Nº {contrato.numero_contrato}</strong></p>
         </header>
@@ -82,7 +83,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           <h3>2. Evento</h3>
           <p><strong>Data:</strong> {dataCurta(reserva?.data_evento)}</p>
           <p><strong>Horário:</strong> {reserva?.horario_evento || '-'}</p>
-          <p><strong>Endereço:</strong> {reserva?.endereco_evento || '-'}</p>
+          <p><strong>Endereço do local do evento:</strong> {reserva?.endereco_evento || 'Não informado neste contrato'}</p>
+          <LogisticaContratoResumo logistica={reserva?.logistica_contrato} />
         </div>
 
         <div style={box}>

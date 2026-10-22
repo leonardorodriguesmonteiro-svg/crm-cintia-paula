@@ -1,5 +1,7 @@
 'use client'
 
+import { LogisticaContratoResumo } from '@/components/LogisticaContratoResumo'
+import type { LogisticaContrato } from '@/lib/logisticaContrato'
 import { useEffect, useState } from 'react'
 import { CalendarDays, Check, CheckCircle2, Clock3, Copy, CreditCard, FileSignature, MapPin, PartyPopper, Printer, ShieldCheck, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -7,6 +9,7 @@ import { Input } from '@/components/ui/Input'
 import { clausulasLocacaoContrato, declaracaoAceiteContrato, termosGeraisContrato } from '@/lib/contratoTermos'
 
 type ContratoPublico = {
+  logistica?: LogisticaContrato | null
   empresa: {
     nome: string
     razao_social: string | null
@@ -218,7 +221,7 @@ export function ContratoPublicoPage({ token }: { token: string }) {
         <div className="mx-auto flex max-w-4xl items-start justify-between gap-5">
           <div className="flex items-center gap-4">
             {contrato.empresa.logo_url ? <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white"><img src={contrato.empresa.logo_url} alt={`Logo ${contrato.empresa.nome}`} className="h-full w-full object-contain p-1" /></span> : <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white text-lg font-black text-pink-700">CP</span>}
-            <div><p className="text-xl font-bold">{contrato.empresa.nome}</p><p className="text-sm text-pink-100">Festas e Decorações</p></div>
+            <div><p className="text-xl font-bold">{contrato.empresa.nome}</p></div>
           </div>
           <div className="text-right"><p className="text-xs font-bold uppercase tracking-wider text-pink-100">Contrato digital</p><p className="mt-1 text-base font-bold sm:text-lg">{contrato.numero}</p></div>
         </div>
@@ -245,7 +248,7 @@ export function ContratoPublicoPage({ token }: { token: string }) {
             <div className="flex gap-3 rounded-2xl bg-slate-50 p-4"><CalendarDays className="shrink-0 text-pink-600" size={20} /><div><p className="text-xs font-bold uppercase text-slate-400">Data do evento</p><p className="font-semibold text-slate-800">{dataCurta(contrato.evento.data)}</p></div></div>
             <div className="flex gap-3 rounded-2xl bg-slate-50 p-4"><Clock3 className="shrink-0 text-pink-600" size={20} /><div><p className="text-xs font-bold uppercase text-slate-400">Horário</p><p className="font-semibold text-slate-800">{contrato.evento.horario || 'A combinar'}</p></div></div>
             <div className="flex gap-3 rounded-2xl bg-slate-50 p-4"><PartyPopper className="shrink-0 text-pink-600" size={20} /><div><p className="text-xs font-bold uppercase text-slate-400">Kit contratado</p><p className="font-semibold text-slate-800">{contrato.kit.nome}</p>{contrato.kit.codigo && <p className="text-xs text-slate-500">Código {contrato.kit.codigo}</p>}</div></div>
-            <div className="flex gap-3 rounded-2xl bg-slate-50 p-4"><MapPin className="shrink-0 text-pink-600" size={20} /><div><p className="text-xs font-bold uppercase text-slate-400">Local</p><p className="font-semibold text-slate-800">{contrato.evento.endereco || 'A definir'}</p></div></div>
+            <div className="flex gap-3 rounded-2xl bg-slate-50 p-4"><MapPin className="shrink-0 text-pink-600" size={20} /><div><p className="text-xs font-bold uppercase text-slate-400">Local</p><p className="font-semibold text-slate-800">{contrato.evento.endereco || 'Não informado neste contrato'}</p><LogisticaContratoResumo logistica={contrato.logistica} /></div></div>
           </div>
           <Button type="button" variant="secondary" className="mt-5 flex items-center gap-2 print:hidden" onClick={() => window.print()}><Printer size={17} /> Baixar ou imprimir contrato</Button>
         </section>

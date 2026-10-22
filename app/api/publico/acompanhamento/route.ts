@@ -1,3 +1,4 @@
+import { modalidadeDoPedido } from '@/lib/logisticaContrato'
 import { NextRequest, NextResponse } from 'next/server'
 import { hashToken, tokenValido } from '@/lib/server/acompanhamento'
 import { empresaDoSite, hashDoSolicitante, origemEhPermitida } from '@/lib/server/publicPreReservation'
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
     if (erroLink) throw erroLink
     if (!link) return ausente()
     const { data: pedido, error: erroPedido } = await supabaseServer.from('oportunidades')
-      .select('id,numero,etapa,data_evento,updated_at,cadastro_completo_em').eq('id', link.oportunidade_id).eq('empresa_id', empresaId).maybeSingle()
+      .select('id,numero,etapa,data_evento,updated_at,cadastro_completo_em,interesse,logistica_contrato').eq('id', link.oportunidade_id).eq('empresa_id', empresaId).maybeSingle()
     if (erroPedido) throw erroPedido
     if (!pedido) return ausente()
     const { data: proposta, error: erroProposta } = await supabaseServer.from('orcamentos')
@@ -48,9 +49,9 @@ export async function POST(request: NextRequest) {
       if (resultado.data) contrato = { status: resultado.data.status, url: resultado.data.public_token ? `/contrato/${resultado.data.public_token}` : null }
     }
     return NextResponse.json({
-      numero: pedido.numero, etapa: pedido.etapa, data_evento: pedido.data_evento,
+      modalidade: modalidadeDoPedido(pedido.interesse), numero: pedido.numero, etapa: pedido.etapa, data_evento: pedido.data_evento,
       proposta: proposta ? { status: proposta.status, formalizacao: proposta.formalizacao_status, url: proposta.public_token && ['ENVIADA','ACEITA'].includes(proposta.status) ? `/proposta/${proposta.public_token}` : null } : null,
-      cadastro: { completo: Boolean(pedido.cadastro_completo_em), disponivel: !proposta && ['APROVADA', 'CONVERTIDA_EM_PROPOSTA'].includes(pedido.etapa) && !pedido.cadastro_completo_em },
+      cadastro: { completo: Boolean(pedido.cadastro_completo_em) && Boolean(pedido.logistica_contrato?.endereco_evento || proposta?.contrato_id), disponivel: ['APROVADA', 'CONVERTIDA_EM_PROPOSTA'].includes(pedido.etapa) && !proposta?.contrato_id && (!proposta || proposta.formalizacao_status === 'DADOS_COMPLETOS') && (!pedido.cadastro_completo_em || !pedido.logistica_contrato?.endereco_evento) },
       contrato, reserva
     }, { headers })
   } catch {

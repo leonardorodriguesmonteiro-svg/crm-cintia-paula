@@ -15,6 +15,7 @@ begin
  values(e,o,'ITEM_ESTOQUE',k,'Item com preço negociado',2,100.10);
  insert into public.acompanhamento_links(oportunidade_id,token_hash,expires_at) values(o,token,now()+interval '1 hour');
  dados:='{"cpf":"98765430001","email":"teste@example.com","cep":"01001000","endereco":"Rua de teste","numero":"10","bairro":"Centro","cidade":"São Paulo","estado":"SP"}';
+ dados:=dados||jsonb_build_object('logistica_contrato','{"modalidade": "Retirada", "tipo_local_evento": "Salão de festas", "endereco_evento": "Rua do Evento, 100, Centro, Rio de Janeiro - RJ", "data_retirada": "2099-02-09", "horario_retirada": "10:00", "horario_devolucao": "14:00"}'::jsonb);
  resultado:=public.completar_cadastro_pre_reserva(e,token,dados);
  select id,reserva_id,cliente_id into q,r,c from public.orcamentos where oportunidade_id=o;
  if q is null or r is null or c is null then raise exception 'Cadastro não criou os vínculos'; end if;
@@ -67,17 +68,17 @@ begin
   raise exception 'Usuário indevido permitiu revisão';
  exception when insufficient_privilege then null; end;
  select jsonb_agg(jsonb_build_object('estoque_item_id',i.estoque_item_id,'descricao',i.descricao,'quantidade',i.quantidade,'valor_unitario',case when i.valor_unitario>0 then 90 else i.valor_unitario end) order by ordem) into linhas from public.reserva_itens i where reserva_id=r;
- resultado:=public.revisar_reserva_servidor(e,u,r,jsonb_build_object('revisao',1,'data_evento','2099-02-11','itens',linhas));
+ resultado:=public.revisar_reserva_servidor(e,u,r,jsonb_build_object('revisao',2,'data_evento','2099-02-11','itens',linhas));
  if resultado->>'contrato_cancelado_id'<>antigo::text then raise exception 'Contrato anterior não invalidado'; end if;
  if not exists(select 1 from public.contratos where id=antigo and status='Cancelado' and assinado_em is not null and snapshot_contratual=snap) then raise exception 'Histórico alterado'; end if;
  if not exists(select 1 from public.orcamentos where id=q and data_evento='2099-02-11' and total=159.98 and contrato_id is null and sinal_pago_em is not null and lancamento_sinal_id=ledger) then raise exception 'Orçamento não sincronizado'; end if;
  if not exists(select 1 from public.oportunidades where id=o and data_evento='2099-02-11' and valor_estimado=159.98) then raise exception 'Solicitação não sincronizada'; end if;
- if not exists(select 1 from public.reservas where id=r and status='Pendente' and valor_total=159.98 and revisao=2) then raise exception 'Reserva revisada incorreta'; end if;
+ if not exists(select 1 from public.reservas where id=r and status='Pendente' and valor_total=159.98 and revisao=3) then raise exception 'Reserva revisada incorreta'; end if;
  begin
   perform public.revisar_reserva_servidor(e,u,r,'{"revisao":1}');
   raise exception 'Versão obsoleta permitida';
  exception when serialization_failure then null; end;
- resultado:=public.revisar_reserva_servidor(e,u,r,'{"revisao":2}');
+ resultado:=public.revisar_reserva_servidor(e,u,r,'{"revisao":3}');
  if (resultado->>'alterado')::boolean then raise exception 'Reenvio sem alteração não idempotente'; end if;
  begin
   perform public.registrar_assinatura_publica_contrato((select public_token from public.contratos where id=antigo),'Teste transacional cadastro reserva','98765430001',null,'Teste rollback');

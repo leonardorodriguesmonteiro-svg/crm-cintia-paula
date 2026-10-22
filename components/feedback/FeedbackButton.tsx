@@ -219,7 +219,7 @@ export function FeedbackButton() {
 
   return (
     <>
-      <div className="flex justify-end px-4 pt-4 pb-28 md:p-0">
+      <div className="flex justify-end px-4 pt-4 pb-28 md:p-0 print:hidden">
       <button
         type="button"
         onClick={() => abrir('enviar')}
