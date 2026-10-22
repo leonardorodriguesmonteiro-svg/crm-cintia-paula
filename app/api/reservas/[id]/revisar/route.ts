@@ -16,7 +16,11 @@ export async function POST(request: NextRequest, contexto: { params: Promise<{ i
       p_empresa_id: acesso.vinculo.empresa_id, p_usuario_id: acesso.usuario.id, p_reserva_id: id, p_dados: dados
     })
     if (error) return NextResponse.json({ error: error.message }, { status: error.code === '40001' ? 409 : error.code === '42501' ? 403 : 400 })
-    const aviso = data.contrato_cancelado_id ? await avisarCancelamentoContrato(data.contrato_cancelado_id) : null
+    let aviso: { enviado: boolean } | null = null
+    if (data.contrato_cancelado_id) {
+      try { aviso = await avisarCancelamentoContrato(data.contrato_cancelado_id) }
+      catch { aviso = { enviado: false } }
+    }
     return NextResponse.json({ ...data, aviso, mensagem: !data.alterado ? 'Dados salvos.' : aviso ? aviso.enviado
       ? 'Reserva, orçamento e solicitação atualizados. Contrato anterior cancelado e aviso enviado por e-mail. Libere a nova versão em Contrato e sinal.'
       : 'Alterações salvas e contrato anterior cancelado. O aviso por e-mail está pendente; tente novamente em Contratos.'

@@ -10,7 +10,7 @@ function routeFixture({error=null,notice=true,deny=false}={}) {
  'next/server':{NextResponse},
  '@/lib/server/adminAuth':{exigirPerfis:async()=>{if(deny)throw new Error('Sem sessão');return{usuario:{id:'user'},vinculo:{empresa_id:'tenant'}}},respostaErroAdministrativo:()=>({status:401,mensagem:'Sem sessão'})},
  '@/lib/supabaseServer':{supabaseServer:{rpc:async(name,args)=>{calls.push(args);return {data:{alterado:true,contrato_cancelado_id:'old'},error}}}},
- '@/lib/contratoCancelamentoEmail':{avisarCancelamentoContrato:async id=>{calls.push(id);return {enviado:notice}}}
+ '@/lib/contratoCancelamentoEmail':{avisarCancelamentoContrato:async id=>{calls.push(id);if(notice==='throw')throw new Error('lookup failed');return {enviado:notice}}}
  })
  return {calls,run:body=>route.POST(new NextRequest('https://erp.example/api/reservas/id/revisar',{method:'POST',body:JSON.stringify(body)}),{params:Promise.resolve({id:'reservation'})})}
 }
@@ -25,7 +25,7 @@ test('conflito, sessão ausente e versão ausente não enviam avisos',async()=>{
  }
 })
 test('falha do aviso mantém edição salva e informa pendência',async()=>{
- const r=await routeFixture({notice:false}).run({revisao:1});assert.equal(r.status,200);assert.match((await r.json()).mensagem,/pendente/)
+ for(const notice of [false,'throw']) {const r=await routeFixture({notice}).run({revisao:1});assert.equal(r.status,200);assert.match((await r.json()).mensagem,/pendente/)}
 })
 function emailFixture({sent=false,claim=true,status='Cancelado',provider=true}={}) {
  const updates=[];let sends=0;const contract={id:'old',numero_contrato:'CTR-1',status,cancelado_em:'today',notificacao_cancelamento_em:sent?'today':null,snapshot_contratual:{cliente:{email:'test@example.com'}}}
