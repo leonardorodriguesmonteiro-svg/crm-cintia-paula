@@ -43,7 +43,7 @@ export function HomeKitsDestaque() {
         .filter((kit) => Number(kit.preco || 0) > 0)
         .filter((kit) => Boolean(kit.foto_url))
         .filter((kit) => !/^(excluir|teste\b)/i.test((kit.nome || '').trim()))
-        .slice(0, 6),
+        .slice(0, 8),
     [kits]
   )
 
@@ -71,7 +71,7 @@ export function HomeKitsDestaque() {
         </div>
 
         {carregando ? (
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-10 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
             {[1, 2, 3, 4, 5, 6].map((item) => (
               <div key={item} className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white">
                 <div className="aspect-[4/3] animate-pulse bg-slate-100" />
@@ -84,42 +84,21 @@ export function HomeKitsDestaque() {
             ))}
           </div>
         ) : (
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {destaques.map((kit, index) => (
+          <div className="mt-10 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+            {destaques.map((kit) => (
               <article
                 key={kit.id}
-                className={`group overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl ${index === 0 ? 'sm:col-span-2 lg:col-span-2' : ''}`}
+                className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:border-pink-200 hover:shadow-md"
               >
-                <div className={`relative overflow-hidden bg-slate-100 ${index === 0 ? 'aspect-[16/8]' : 'aspect-[4/3]'}`}>
-                  <img
-                    src={kit.foto_url || ''}
-                    alt={kit.nome}
-                    loading="lazy"
-                    className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
-                  <div className="absolute inset-x-0 bottom-0 p-5 text-white md:p-6">
-                    <div className="flex flex-wrap gap-2">
-                      {kit.tema ? <span className="rounded-full bg-white/95 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-slate-900">{kit.tema}</span> : null}
-                      {kit.categoria ? <span className="rounded-full bg-pink-600/95 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white">{kit.categoria}</span> : null}
-                    </div>
-                    <h3 className={`mt-3 max-w-2xl font-black ${index === 0 ? 'text-2xl md:text-3xl' : 'text-xl'}`}>{kit.nome}</h3>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Valor do kit</p>
-                    <p className="text-2xl font-black text-pink-700">{moeda(Number(kit.preco || 0))}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Link
-                      href={`/reservar?kit=${encodeURIComponent(kit.id)}`}
-                      className="rounded-full bg-pink-600 px-5 py-2.5 text-center text-sm font-black text-white transition hover:bg-pink-700"
-                    >
-                      Quero este kit
-                    </Link>
-                  </div>
+                <Link href={`/reservar?kit=${encodeURIComponent(kit.id)}`} className="block aspect-[4/3] overflow-hidden bg-slate-100" aria-label={`Ver kit ${kit.nome}`}>
+                  <img src={kit.foto_url || ''} alt={kit.nome} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" />
+                </Link>
+                <div className="flex flex-1 flex-col p-3">
+                  <h3 className="line-clamp-2 min-h-10 text-sm font-medium leading-5 text-slate-700" title={kit.nome}>{kit.nome}</h3>
+                  <p className="mt-2 text-sm font-semibold text-slate-700">{moeda(Number(kit.preco || 0))}</p>
+                  <Link href={`/reservar?kit=${encodeURIComponent(kit.id)}`} className="mt-3 flex min-h-11 items-center justify-center rounded-xl border border-pink-200 px-2 py-2 text-center text-xs font-semibold text-pink-700 transition hover:bg-pink-50">
+                    Quero este kit
+                  </Link>
                 </div>
               </article>
             ))}

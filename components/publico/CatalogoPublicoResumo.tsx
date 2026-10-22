@@ -39,9 +39,9 @@ function hrefReserva(kit: Kit) {
   return `/reservar?kit=${encodeURIComponent(kit.id)}`
 }
 
-function KitImagem({ kit, destaque = false }: { kit: Kit; destaque?: boolean }) {
+function KitImagem({ kit }: { kit: Kit }) {
   return (
-    <div className={`relative overflow-hidden bg-gradient-to-br from-pink-50 to-slate-100 ${destaque ? 'aspect-[16/10]' : 'aspect-[4/3]'}`}>
+    <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-pink-50 to-slate-100">
       {kit.foto_url ? (
         <img
           src={kit.foto_url}
@@ -55,11 +55,7 @@ function KitImagem({ kit, destaque = false }: { kit: Kit; destaque?: boolean }) 
           <span className="text-xs font-bold uppercase tracking-wider">Foto em atualização</span>
         </div>
       )}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/50 to-transparent" />
-      <div className="absolute bottom-3 left-3 flex flex-wrap gap-2">
-        {kit.tema ? <span className="rounded-full bg-white/95 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-slate-800 shadow-sm">{kit.tema}</span> : null}
-        {kit.categoria ? <span className="rounded-full bg-pink-600/95 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white shadow-sm">{kit.categoria}</span> : null}
-      </div>
+
     </div>
   )
 }
@@ -113,7 +109,7 @@ export function CatalogoPublicoResumo() {
   )
 
   const destaques = useMemo(
-    () => publicados.filter((kit) => Boolean(kit.foto_url)).slice(0, 3),
+    () => publicados.filter((kit) => Boolean(kit.foto_url)).slice(0, 4),
     [publicados]
   )
 
@@ -152,7 +148,7 @@ export function CatalogoPublicoResumo() {
 
   if (carregando) {
     return (
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
         {[1, 2, 3, 4, 5, 6].map((item) => (
           <div key={item} className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
             <div className="aspect-[4/3] animate-pulse bg-slate-100" />
@@ -197,25 +193,18 @@ export function CatalogoPublicoResumo() {
             <Link href="/reservar" className="text-sm font-black text-pink-700 hover:text-pink-800">Prefere montar o seu? →</Link>
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
             {destaques.map((kit) => (
-              <article key={kit.id} className="group overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
+              <article key={kit.id} className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:border-pink-200 hover:shadow-md">
                 <button type="button" onClick={() => setDetalhe(kit)} className="block w-full text-left">
-                  <KitImagem kit={kit} destaque />
+                  <KitImagem kit={kit} />
                 </button>
-                <div className="p-5">
+                <div className="flex flex-1 flex-col p-3">
                   <button type="button" onClick={() => setDetalhe(kit)} className="block text-left">
-                    <h3 className="line-clamp-2 text-xl font-black leading-6">{kit.nome}</h3>
+                    <h3 className="line-clamp-2 min-h-10 text-sm font-medium leading-5 text-slate-700" title={kit.nome}>{kit.nome}</h3>
                   </button>
-                  <div className="mt-4 flex items-end justify-between gap-4">
-                    <div>
-                      <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Valor do kit</p>
-                      <p className="text-2xl font-black text-pink-700">{moeda(Number(kit.preco || 0))}</p>
-                    </div>
-                    <Link href={hrefReserva(kit)} className="rounded-full bg-pink-600 px-4 py-2 text-xs font-black text-white hover:bg-pink-700">
-                      Quero este kit
-                    </Link>
-                  </div>
+                  <p className="mt-2 text-sm font-semibold text-slate-700">{moeda(Number(kit.preco || 0))}</p>
+                  <Link href={hrefReserva(kit)} className="mt-3 flex min-h-11 items-center justify-center rounded-xl border border-pink-200 px-2 py-2 text-center text-xs font-semibold text-pink-700 hover:bg-pink-50">Quero este kit</Link>
                 </div>
               </article>
             ))}
@@ -287,28 +276,18 @@ export function CatalogoPublicoResumo() {
         </div>
 
         {filtrados.length > 0 ? (
-          <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
             {filtrados.map((kit) => (
-              <article key={kit.id} className="group overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
+              <article key={kit.id} className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:border-pink-200 hover:shadow-md">
                 <button type="button" onClick={() => setDetalhe(kit)} className="block w-full text-left"><KitImagem kit={kit} /></button>
-                <div className="p-5">
-                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-pink-600">{kit.tema || kit.categoria || 'Pegue e Monte'}</p>
-                  <button type="button" onClick={() => setDetalhe(kit)} className="mt-1 block text-left">
-                    <h2 className="line-clamp-2 min-h-12 text-lg font-black leading-6 transition group-hover:text-pink-700">{kit.nome}</h2>
+                <div className="flex flex-1 flex-col p-3">
+                  <button type="button" onClick={() => setDetalhe(kit)} className="block text-left">
+                    <h2 className="line-clamp-2 min-h-10 text-sm font-medium leading-5 text-slate-700" title={kit.nome}>{kit.nome}</h2>
                   </button>
-                  {kit.descricao ? <p className="mt-3 line-clamp-2 min-h-10 text-sm leading-5 text-slate-500">{kit.descricao}</p> : <div className="mt-3 min-h-10" />}
-                  <div className="mt-5 border-t border-slate-100 pt-4">
-                    <div className="flex items-end justify-between gap-3">
-                      <div>
-                        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Valor do kit</p>
-                        <p className="text-2xl font-black text-slate-950">{moeda(Number(kit.preco || 0))}</p>
-                      </div>
-                      <span className="rounded-full bg-green-50 px-3 py-1.5 text-[11px] font-black text-green-700">No catálogo</span>
-                    </div>
-                    <div className="mt-4 grid grid-cols-2 gap-2">
-                      <button type="button" onClick={() => setDetalhe(kit)} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-black text-slate-700 hover:bg-slate-50">Ver detalhes</button>
-                      <Link href={hrefReserva(kit)} className="rounded-2xl bg-pink-600 px-4 py-3 text-center text-sm font-black text-white transition hover:bg-pink-700">Quero este kit</Link>
-                    </div>
+                  <p className="mt-2 text-sm font-semibold text-slate-700">{moeda(Number(kit.preco || 0))}</p>
+                  <div className="mt-3 grid gap-2">
+                    <Link href={hrefReserva(kit)} className="flex min-h-11 items-center justify-center rounded-xl border border-pink-200 px-2 py-2 text-center text-xs font-semibold text-pink-700 hover:bg-pink-50">Quero este kit</Link>
+                    <button type="button" onClick={() => setDetalhe(kit)} className="min-h-11 text-xs font-medium text-slate-500 hover:text-pink-700">Ver detalhes</button>
                   </div>
                 </div>
               </article>
