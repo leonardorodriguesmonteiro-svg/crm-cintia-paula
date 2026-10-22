@@ -28,6 +28,7 @@ export function ReservaContrato({ reservaId, somenteLeitura = false }: { reserva
   const [status, setStatus] = useState('Gerado')
   const [observacoes, setObservacoes] = useState('')
   const [erro, setErro] = useState('')
+  const [sinalPago, setSinalPago] = useState(false)
   const [valorSinal, setValorSinal] = useState('')
   const [vencimento, setVencimento] = useState('')
   const [gerando, setGerando] = useState(false)
@@ -38,6 +39,7 @@ export function ReservaContrato({ reservaId, somenteLeitura = false }: { reserva
       .from('contratos')
       .select('id,numero_contrato,status,observacoes,pdf_url,created_at')
       .eq('reserva_id', reservaId)
+      .neq('status', 'Cancelado').order('created_at', { ascending: false }).limit(1)
       .maybeSingle()
 
     const reservaRes = await supabase
@@ -60,6 +62,12 @@ export function ReservaContrato({ reservaId, somenteLeitura = false }: { reserva
     if (contratoRes.error) return setErro(contratoRes.error.message)
     if (reservaRes.error) return setErro(reservaRes.error.message)
 
+    if (reservaRes.data?.orcamento_id) {
+      const { data: proposta } = await supabase.from('orcamentos').select('valor_sinal_formalizacao,vencimento_sinal,sinal_pago_em').eq('id', reservaRes.data.orcamento_id).maybeSingle()
+      setSinalPago(Boolean(proposta?.sinal_pago_em))
+      if (proposta?.valor_sinal_formalizacao) setValorSinal(String(proposta.valor_sinal_formalizacao))
+      if (proposta?.vencimento_sinal) setVencimento(proposta.vencimento_sinal)
+    }
     setContrato(contratoRes.data)
     setReserva(reservaRes.data)
     setRecebimentos(recebimentosRes.data || [])
@@ -166,9 +174,10 @@ export function ReservaContrato({ reservaId, somenteLeitura = false }: { reserva
           {somenteLeitura ? <p className="text-sm text-blue-800">A geração do contrato é realizada pelo Comercial.</p> : reserva.orcamento_id ? (
             <form className="space-y-4 text-left" onSubmit={event => { event.preventDefault(); void gerarContrato() }}>
               <p className="text-sm text-slate-600">Defina o valor e o vencimento do sinal antes de liberar o contrato ao cliente. A reserva permanece provisória até a assinatura e o pagamento.</p>
+              {sinalPago && <p className="rounded-xl bg-green-50 p-3 text-green-800">Sinal já recebido e preservado. O novo contrato exige apenas uma nova assinatura; não será criada outra cobrança.</p>}
               <div className="grid gap-4 sm:grid-cols-2">
-                <Input label="Valor do sinal (R$)" type="number" required min="0.01" max={valorTotal} step="0.01" value={valorSinal} onChange={event => setValorSinal(event.target.value)} />
-                <Input label="Vencimento do sinal" type="date" required value={vencimento} onChange={event => setVencimento(event.target.value)} />
+                <Input readOnly={sinalPago} label="Valor do sinal (R$)" type="number" required min="0.01" max={valorTotal} step="0.01" value={valorSinal} onChange={event => setValorSinal(event.target.value)} />
+                <Input readOnly={sinalPago} label="Vencimento do sinal" type="date" required value={vencimento} onChange={event => setVencimento(event.target.value)} />
               </div>
               <Button type="submit" disabled={gerando}>{gerando ? 'Liberando…' : 'Liberar contrato e preparar sinal'}</Button>
               <p className="text-xs text-slate-500">O contrato também será enviado ao e-mail cadastrado do cliente.</p>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { revisarReserva } from '@/lib/revisarReserva'
 import { supabase } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -134,6 +135,16 @@ export function ReservaDetalhePage({ id }: { id: string }) {
 
     const statusAnterior = reserva.status
 
+    if (reserva.orcamento_id) {
+      try {
+        const resultado = await revisarReserva(id, { ...form, revisao: reserva.revisao })
+        setEditando(false)
+        await carregar()
+        alert(resultado.mensagem)
+      } catch (error) { setErro(error instanceof Error ? error.message : 'Falha ao salvar.') }
+      finally { setSalvando(false) }
+      return
+    }
     const { error } = await supabase.from('reservas').update(form).eq('id', id)
 
     if (error) {
@@ -290,11 +301,12 @@ export function ReservaDetalhePage({ id }: { id: string }) {
       {editando && (
         <Card>
           <form onSubmit={salvarEdicao} className="space-y-4">
+            {reserva.orcamento_id && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Alterar os dados do evento cancela o contrato anterior e envia aviso por e-mail. Libere a nova versão para assinatura após a revisão. Pagamentos já recebidos serão preservados.</p>}
             <h2 className="text-lg font-semibold">Editar dados da reserva</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Input label="Data do evento" type="date" value={form.data_evento} onChange={e => setForm({ ...form, data_evento: e.target.value })} />
               <Input label="Horário" value={form.horario_evento} onChange={e => setForm({ ...form, horario_evento: e.target.value })} />
-              <Select label="Status" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+              <Select label="Status" disabled={Boolean(reserva.orcamento_id)} value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
                 <option>Pendente</option><option>Confirmada</option><option>Em andamento</option><option>Concluída</option><option>Cancelada</option>
               </Select>
             </div>
@@ -387,7 +399,7 @@ export function ReservaDetalhePage({ id }: { id: string }) {
 
       {aba === 'Logística' && <ReservaLogistica reservaId={id} />}
 
-      {aba === 'Contrato' && <ReservaContrato reservaId={id} somenteLeitura={acesso?.perfil === 'Financeiro'} />}
+      {aba === 'Contrato' && <ReservaContrato key={reserva.revisao} reservaId={id} somenteLeitura={acesso?.perfil === 'Financeiro'} />}
     </div>
   )
 }

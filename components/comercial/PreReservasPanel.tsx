@@ -40,6 +40,7 @@ type ItemPreReserva = {
 }
 
 type PreReserva = {
+  orcamentos?: Array<{ formalizacao_status: string; reservas: { reserva_itens: Array<{ id: string; descricao: string; quantidade: number; valor_unitario: number }> } | null }>
   id: string
   numero: number
   cliente_id: string | null
@@ -145,7 +146,7 @@ export function PreReservasPanel() {
     try {
       const resultados = await Promise.allSettled([
         supabase.from('oportunidades')
-          .select('id,numero,cliente_id,nome_contato,celular,email,origem,interesse,data_evento,etapa,versao,recebida_em,cadastro_completo_em,valor_estimado,desconto_tipo,desconto_valor,desconto_calculado,oportunidade_itens(id,tipo,nome_snapshot,quantidade,valor_referencia,observacoes)')
+          .select('id,numero,cliente_id,nome_contato,celular,email,origem,interesse,data_evento,etapa,versao,recebida_em,cadastro_completo_em,valor_estimado,desconto_tipo,desconto_valor,desconto_calculado,orcamentos!orcamentos_oportunidade_id_fkey(formalizacao_status,reservas!orcamentos_reserva_id_fkey(reserva_itens(id,descricao,quantidade,valor_unitario))),oportunidade_itens(id,tipo,nome_snapshot,quantidade,valor_referencia,observacoes)')
           .in('etapa', [...statusPreReserva]).order('recebida_em', { ascending: false }),
         supabase.from('clientes').select('id,nome,whatsapp,email').order('nome'),
         supabase.from('estoque_itens').select('id,nome,codigo').neq('status', 'Inativo').order('nome')
@@ -153,7 +154,7 @@ export function PreReservasPanel() {
       if (!montado.current) return
       const pedidos = resultados[0]
       if (pedidos.status === 'fulfilled' && !pedidos.value.error) {
-        setPreReservas((pedidos.value.data || []) as PreReserva[])
+        setPreReservas((pedidos.value.data || []) as unknown as PreReserva[])
         setErroCarga('')
         setUltimaAtualizacao(new Date())
       } else {
@@ -403,8 +404,11 @@ export function PreReservasPanel() {
           {exibidas.map(item => {
             const acoes = proximosStatusPreReserva(item.etapa)
               .filter(status => status !== 'CONVERTIDA_EM_PROPOSTA')
-            const { subtotal, semPreco } = valorDoPedido(item.oportunidade_itens || [])
-            const descontoAtual = Number(item.desconto_calculado || 0)
+            const proposta = item.orcamentos?.find(proposta => proposta.reservas)
+            const linhasReserva = proposta?.reservas?.reserva_itens
+            const itensAtuais = linhasReserva?.length ? linhasReserva.map(linha => ({ id: linha.id, tipo: 'ITEM_ESTOQUE' as const, nome_snapshot: linha.descricao, quantidade: linha.quantidade, valor_referencia: linha.valor_unitario, observacoes: null })) : item.oportunidade_itens || []
+            const { subtotal, semPreco } = valorDoPedido(itensAtuais)
+            const descontoAtual = linhasReserva?.length ? 0 : Number(item.desconto_calculado || 0)
             const totalPersistido = Number(item.valor_estimado)
             const totalAtual = item.valor_estimado === null
               || (totalPersistido === 0 && descontoAtual === 0 && subtotal > 0)
@@ -432,14 +436,14 @@ export function PreReservasPanel() {
                         {pedidoAberto === item.id ? 'Fechar pedido' : 'Abrir pedido / ajustar'}
                       </button>
                     </div>
-                    {(item.oportunidade_itens || []).map(produto => (
+                    {itensAtuais.map(produto => (
                       <div key={produto.id} className="flex items-start justify-between gap-3 border-b border-slate-200 py-2 last:border-0">
                         <span className="flex min-w-0 items-start gap-1.5"><PackageCheck size={14} className="mt-0.5 shrink-0" /> {Number(produto.quantidade)}× {produto.nome_snapshot}</span>
                         <span className="shrink-0 text-right font-semibold">{produto.valor_referencia === null ? 'Preço a definir' : moeda(Number(produto.quantidade) * Number(produto.valor_referencia))}</span>
                       </div>
                     ))}
                     <div className="mt-3 flex justify-between border-t border-slate-200 pt-3 text-sm font-bold text-slate-900">
-                      <span>{semPreco ? 'Subtotal parcial' : 'Subtotal de referência'}</span><span>{moeda(subtotal)}</span>
+                      <span>{linhasReserva?.length ? 'Subtotal atualizado' : semPreco ? 'Subtotal parcial' : 'Subtotal de referência'}</span><span>{moeda(subtotal)}</span>
                     </div>
                     {descontoAtual > 0 && <div className="mt-2 flex justify-between text-sm font-semibold text-green-700"><span>Desconto concedido</span><span>- {moeda(descontoAtual)}</span></div>}
                     <div className="mt-2 flex justify-between rounded-lg bg-pink-50 px-3 py-2 text-sm font-bold text-pink-800"><span>Total ajustado</span><span>{moeda(totalAtual)}</span></div>
@@ -451,13 +455,13 @@ export function PreReservasPanel() {
                         <p><strong>Evento:</strong> {dataCurta(item.data_evento)} · {item.interesse || 'Sem descrição adicional'}</p>
                         {podeAjustar ? (
                           <EditorItensPreReserva key={item.id} pedido={item} onSaved={async () => { await carregar(); setPedidoAberto(null); setAvisoSalvo(`Itens e valores de ${item.nome_contato} salvos.`) }} />
-                        ) : <p>O pedido já foi encerrado ou convertido em proposta e não permite novos ajustes.</p>}
+                        ) : <p>Para ajustar este pedido, abra <strong>Reserva e contrato</strong> e edite a reserva. Os valores serão atualizados em todos os quadros.</p>}
                       </div>
                     )}
                   </div>
                 </div>
 
-                {['APROVADA', 'CONVERTIDA_EM_PROPOSTA'].includes(item.etapa) && <p className="mt-3 text-sm font-semibold text-pink-700">{item.cadastro_completo_em ? 'Cadastro completo — pronto para contrato' : 'Orçamento aprovado — envie o link para completar o cadastro'}</p>}
+                {['APROVADA', 'CONVERTIDA_EM_PROPOSTA'].includes(item.etapa) && <p className="mt-3 text-sm font-semibold text-pink-700">{proposta?.formalizacao_status === 'RESERVA_CONFIRMADA' ? 'Reserva confirmada' : proposta?.formalizacao_status === 'DADOS_COMPLETOS' ? 'Reserva provisória — liberar contrato' : proposta ? 'Contrato em formalização — acompanhe a reserva' : item.cadastro_completo_em ? 'Cadastro completo — pronto para contrato' : 'Orçamento aprovado — envie o link para completar o cadastro'}</p>}
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button type="button" onClick={() => window.open(`https://wa.me/55${somenteDigitos(item.celular)}`, '_blank', 'noopener,noreferrer')} className="inline-flex items-center gap-1 rounded-xl border px-3 py-2 text-xs font-bold text-green-700">
                     <MessageCircle size={15} /> WhatsApp

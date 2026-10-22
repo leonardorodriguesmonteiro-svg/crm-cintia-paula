@@ -36,7 +36,7 @@ export async function POST(request: NextRequest, contexto: Contexto) {
     const { data: contrato, error: contratoError } = await supabaseServer
       .from('contratos')
       .select('id')
-      .eq('public_token', token)
+      .eq('public_token', token).neq('status', 'Cancelado')
       .maybeSingle()
 
     if (contratoError) throw contratoError

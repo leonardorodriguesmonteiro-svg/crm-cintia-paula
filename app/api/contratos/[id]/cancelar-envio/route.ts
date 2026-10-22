@@ -24,7 +24,7 @@ export async function POST(
     if (!contrato) {
       return NextResponse.json({ error: 'Contrato não encontrado.' }, { status: 404 })
     }
-    if (contrato.status === 'Assinado') {
+    if (['Assinado', 'Cancelado'].includes(contrato.status || '')) {
       return NextResponse.json(
         { error: 'Um contrato assinado não pode ter o envio cancelado.' },
         { status: 409 }
@@ -47,7 +47,7 @@ export async function POST(
         email_erro: null
       })
       .eq('id', contrato.id)
-      .neq('status', 'Assinado')
+      .not('status', 'in', '(Assinado,Cancelado)')
       .select('id')
       .maybeSingle()
 

@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { revisarReserva } from '@/lib/revisarReserva'
 import { supabase } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -19,6 +20,7 @@ type Composicao = {
   estoque_itens: { nome: string; codigo: string | null } | null
 }
 type ReservaItem = {
+  estoque_item_id?: string | null
   id?: string
   kit_id: string | null
   kit_composicao_id?: string | null
@@ -36,6 +38,7 @@ type LinhaForm = ReservaItem & {
 }
 
 type Reserva = {
+  revisao: number
   orcamento_id: string | null
   orcamentos: { contato_nome: string | null; oportunidades: { numero: number } | null } | null
   id: string
@@ -88,6 +91,9 @@ export function ReservasPage() {
   const [descricaoAdicional, setDescricaoAdicional] = useState('')
   const [valorAdicional, setValorAdicional] = useState(0)
   const [editando, setEditando] = useState<string | null>(null)
+  const [revisaoEditada, setRevisaoEditada] = useState(1)
+  const vinculada = Boolean(reservas.find(item => item.id === editando)?.orcamento_id)
+  const [mensagem, setMensagem] = useState('')
   const [busca, setBusca] = useState('')
   const [erro, setErro] = useState('')
   const [salvando, setSalvando] = useState(false)
@@ -116,7 +122,7 @@ export function ReservasPage() {
   async function carregarReservas() {
     const { data, error } = await supabase
       .from('reservas')
-      .select('orcamento_id,orcamentos!reservas_orcamento_id_fkey(contato_nome,oportunidades(numero)),id,data_evento,horario_evento,endereco_evento,valor_total,valor_sinal,status,observacoes,clientes(id,nome,whatsapp),kits(id,nome,codigo,valor),reserva_itens(id,kit_id,kit_composicao_id,descricao,quantidade,valor_unitario,subtotal,kits(id,nome,codigo,valor),kit_composicao(kit_id))')
+      .select('revisao,orcamento_id,orcamentos!reservas_orcamento_id_fkey(contato_nome,oportunidades(numero)),id,data_evento,horario_evento,endereco_evento,valor_total,valor_sinal,status,observacoes,clientes(id,nome,whatsapp),kits(id,nome,codigo,valor),reserva_itens(id,estoque_item_id,kit_id,kit_composicao_id,descricao,quantidade,valor_unitario,subtotal,kits(id,nome,codigo,valor),kit_composicao(kit_id))')
       .order('data_evento', { ascending: true })
 
     if (error) return setErro(error.message)
@@ -155,7 +161,7 @@ export function ReservasPage() {
       return
     }
 
-    if (!linhas.some(linha => linha.kit_id)) {
+    if (!linhas.length || (!vinculada && !linhas.some(linha => linha.kit_id))) {
       setErro('Adicione pelo menos um kit à reserva.')
       setSalvando(false)
       return
@@ -167,6 +173,19 @@ export function ReservasPage() {
       return
     }
 
+    if (editando && vinculada) {
+      try {
+        const resultado = await revisarReserva(editando, { ...form, revisao: revisaoEditada, itens: linhas.map(linha => ({
+          kit_id: linha.kit_id, estoque_item_id: linha.estoque_item_id || null, kit_composicao_id: linha.kit_composicao_id || null,
+          descricao: linha.descricao, quantidade: Number(linha.quantidade), valor_unitario: Number(linha.valor_unitario)
+        })) })
+        setMensagem(resultado.mensagem)
+        setForm(vazio); setLinhas([]); setEditando(null)
+        await carregarReservas()
+      } catch (error) { setErro(error instanceof Error ? error.message : 'Falha ao salvar.') }
+      finally { setSalvando(false) }
+      return
+    }
     const { error: salvarError } = await supabase.rpc('salvar_reserva_com_itens', {
       p_reserva_id: editando,
       p_cliente_id: form.cliente_id,
@@ -200,6 +219,8 @@ export function ReservasPage() {
 
   function editar(reserva: Reserva) {
     setEditando(reserva.id)
+    setRevisaoEditada(reserva.revisao)
+    setMensagem('')
     setForm({
       cliente_id: reserva.clientes?.id || '',
       kit_id: reserva.kits?.id || '',
@@ -222,6 +243,7 @@ export function ReservasPage() {
         : []
     setLinhas(itens.map(item => ({
       chave: chaveLinha(),
+      estoque_item_id: item.estoque_item_id || null,
       kit_id: item.kit_id,
       kit_composicao_id: item.kit_composicao_id || null,
       composicao_kit_id: item.kit_composicao?.kit_id || null,
@@ -361,7 +383,9 @@ export function ReservasPage() {
       </div>
 
       {podeGerenciar ? <Card>
+        {mensagem && <p role="status" className="rounded-xl bg-green-50 p-4 text-green-800">{mensagem}</p>}
         <form onSubmit={salvar} className="space-y-6">
+          {vinculada && <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Alterações de data, endereço, itens ou valores cancelam a versão anterior do contrato e enviam um aviso por e-mail. O sinal já pago será preservado. Depois, libere o novo contrato para assinatura.</p>}
           <div>
             <h2 className="text-lg font-semibold text-slate-900">
               {editando ? 'Editar reserva' : 'Nova reserva'}
@@ -451,7 +475,7 @@ export function ReservasPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Input label="Data do evento *" type="date" value={form.data_evento} onChange={e => setForm({ ...form, data_evento: e.target.value })} />
             <Input label="Horário" placeholder="Ex.: 14:00" value={form.horario_evento} onChange={e => setForm({ ...form, horario_evento: e.target.value })} />
-            <Select label="Status" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+            <Select label="Status" disabled={vinculada} value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
               <option>Pendente</option>
               <option>Confirmada</option>
               <option>Em andamento</option>

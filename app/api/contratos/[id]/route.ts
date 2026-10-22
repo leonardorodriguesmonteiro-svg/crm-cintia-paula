@@ -33,20 +33,22 @@ function documentoMascarado(valor: string | null) {
 async function buscarContrato(token: string) {
   const { data: contrato, error: contratoError } = await supabaseServer
     .from('contratos')
-    .select('id,numero_contrato,status,reserva_id,created_at,assinado_em,assinado_por,assinatura_documento,assinatura_aceite')
+    .select('id,numero_contrato,status,reserva_id,snapshot_contratual,created_at,assinado_em,assinado_por,assinatura_documento,assinatura_aceite')
     .eq('public_token', token)
     .maybeSingle()
 
   if (contratoError) throw contratoError
   if (!contrato) return null
+  if (contrato.status === 'Cancelado') return { status: 'Cancelado' }
 
-  const { data: reserva, error: reservaError } = await supabaseServer
+  const { data: reservaAtual, error: reservaError } = await supabaseServer
     .from('reservas')
     .select('id,cliente_id,kit_id,data_evento,horario_evento,endereco_evento,valor_total,valor_sinal,status_pagamento')
     .eq('id', contrato.reserva_id)
     .maybeSingle()
 
   if (reservaError) throw reservaError
+  const reserva = contrato.snapshot_contratual?.reserva || reservaAtual
   if (!reserva) return null
 
   const [clienteRes, kitRes, itensRes, orcamentoRes, configuracaoRes, empresaRes] = await Promise.all([
@@ -77,6 +79,8 @@ async function buscarContrato(token: string) {
   const primeiroErro = clienteRes.error || kitRes.error || itensRes.error || orcamentoRes.error || configuracaoRes.error || empresaRes.error
   if (primeiroErro) throw primeiroErro
 
+  const cliente = contrato.snapshot_contratual?.cliente || clienteRes.data
+  const itens = (contrato.snapshot_contratual?.itens || itensRes.data || []) as Array<{ descricao: string; quantidade: number; valor_unitario: number; subtotal: number; kit_id: string | null }>
   const orcamento = orcamentoRes.data
   const configuracao = configuracaoRes.data
   const lancamentoRes = orcamento?.lancamento_sinal_id
@@ -118,21 +122,21 @@ async function buscarContrato(token: string) {
     numero: contrato.numero_contrato,
     status: contrato.status || 'Gerado',
     criado_em: contrato.created_at,
-    cliente: clienteRes.data?.nome || 'Cliente',
+    cliente: cliente?.nome || 'Cliente',
     contratante: {
-      nome: clienteRes.data?.nome || 'Cliente',
-      cpf: clienteRes.data?.cpf || null,
-      rg: clienteRes.data?.rg || null,
-      whatsapp: clienteRes.data?.whatsapp || null,
-      email: clienteRes.data?.email || null,
+      nome: cliente?.nome || 'Cliente',
+      cpf: cliente?.cpf || null,
+      rg: cliente?.rg || null,
+      whatsapp: cliente?.whatsapp || null,
+      email: cliente?.email || null,
       endereco: formatarEnderecoCompleto([
-        clienteRes.data?.endereco,
-        clienteRes.data?.numero,
-        clienteRes.data?.complemento,
-        clienteRes.data?.bairro,
-        clienteRes.data?.cidade,
-        clienteRes.data?.estado
-      ], clienteRes.data?.cep) || null
+        cliente?.endereco,
+        cliente?.numero,
+        cliente?.complemento,
+        cliente?.bairro,
+        cliente?.cidade,
+        cliente?.estado
+      ], cliente?.cep) || null
     },
     evento: {
       data: reserva.data_evento,
@@ -143,7 +147,7 @@ async function buscarContrato(token: string) {
       nome: kitRes.data?.nome || 'Kit não informado',
       codigo: kitRes.data?.codigo || null
     },
-    itens: (itensRes.data || []).map(item => ({
+    itens: itens.map(item => ({
       descricao: item.descricao,
       quantidade: Number(item.quantidade || 0),
       valor_unitario: Number(item.valor_unitario || 0),
@@ -183,6 +187,7 @@ export async function GET(_request: NextRequest, contexto: Contexto) {
     const contrato = await buscarContrato(token)
     if (!contrato) return NextResponse.json({ error: 'Contrato não encontrado.' }, { status: 404 })
 
+    if (contrato.status === 'Cancelado') return NextResponse.json({ error: 'Esta versão do contrato foi cancelada após uma revisão da reserva. Aguarde o novo link enviado pela equipe Cintia Paula.' }, { status: 410 })
     return NextResponse.json(
       { contrato },
       { headers: { 'Cache-Control': 'no-store, max-age=0' } }

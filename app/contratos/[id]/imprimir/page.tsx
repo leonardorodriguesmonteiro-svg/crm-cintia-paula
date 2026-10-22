@@ -20,16 +20,18 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
   const { data: contrato } = await supabaseServer
     .from('contratos')
-    .select('id,numero_contrato,status,reserva_id,created_at,assinado_em,assinado_por,assinatura_documento,assinatura_aceite')
+    .select('id,numero_contrato,status,reserva_id,snapshot_contratual,created_at,assinado_em,assinado_por,assinatura_documento,assinatura_aceite')
     .eq('id', id)
     .maybeSingle()
 
   if (!contrato) return <main style={{ padding: 40 }}>Contrato não encontrado.</main>
 
-  const { data: reserva } = await supabaseServer.from('reservas').select('*').eq('id', contrato.reserva_id).maybeSingle()
-  const { data: cliente } = await supabaseServer.from('clientes').select('*').eq('id', reserva?.cliente_id).maybeSingle()
+  const { data: reservaAtual } = await supabaseServer.from('reservas').select('*').eq('id', contrato.reserva_id).maybeSingle()
+  const reserva = contrato.snapshot_contratual?.reserva || reservaAtual
+  const { data: clienteAtual } = await supabaseServer.from('clientes').select('*').eq('id', reserva?.cliente_id).maybeSingle()
+  const cliente = contrato.snapshot_contratual?.cliente || clienteAtual
   const { data: kit } = await supabaseServer.from('kits').select('*').eq('id', reserva?.kit_id).maybeSingle()
-  const { data: itens } = await supabaseServer
+  const { data: itensAtuais } = await supabaseServer
     .from('reserva_itens')
     .select('id,descricao,quantidade,valor_unitario,subtotal,kit_id')
     .eq('reserva_id', contrato.reserva_id)
@@ -39,6 +41,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     .select('nome,nome_fantasia,razao_social,cnpj,email,telefone,whatsapp,site,logradouro,numero,complemento,bairro,cidade,estado,logo_url,contrato_padrao')
     .limit(1)
     .maybeSingle()
+  const itens = (contrato.snapshot_contratual?.itens || itensAtuais || []) as Array<{ id: string; quantidade: number; descricao: string; subtotal: number }>
   const nomeEmpresa = empresa?.nome_fantasia || empresa?.nome || 'Cintia Paula'
   const termosEmpresa = empresa?.contrato_padrao
     ?.split(/\n\s*\n/)
@@ -55,6 +58,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   return (
     <main style={{ background: '#f8fafc', padding: 32, fontFamily: 'Arial, sans-serif', color: '#111827' }}>
       <PrintContractButton />
+      {contrato.status === 'Cancelado' && <p role="alert" style={{ color: '#991b1b', fontWeight: 'bold', textAlign: 'center' }}>VERSÃO CANCELADA — documento histórico. Não utilizar para assinatura ou pagamento.</p>}
       <section style={{ maxWidth: 820, margin: '0 auto', background: '#fff', padding: 40, borderRadius: 18 }}>
         <header style={{ borderBottom: '3px solid #db2777', paddingBottom: 18, marginBottom: 24 }}>
           {empresa?.logo_url && <img src={empresa.logo_url} alt={`Logo ${nomeEmpresa}`} style={{ maxWidth: 110, maxHeight: 72, objectFit: 'contain', marginBottom: 12 }} />}
@@ -115,9 +119,9 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           </div>
         </div>
 
-        {contrato.status === 'Assinado' && contrato.assinado_em && (
+        {contrato.assinado_em && (
           <div style={{ ...box, marginTop: 32, borderColor: '#bbf7d0', background: '#f0fdf4' }}>
-            <h3 style={{ color: '#166534' }}>Certificado de aceite eletrônico</h3>
+            <h3 style={{ color: '#166534' }}>{contrato.status === 'Cancelado' ? 'Registro histórico da assinatura da versão cancelada' : 'Certificado de aceite eletrônico'}</h3>
             <p><strong>Assinado por:</strong> {contrato.assinado_por || cliente?.nome || '-'}</p>
             <p><strong>Documento final:</strong> {mascararDocumento(contrato.assinatura_documento)}</p>
             <p><strong>Data e hora:</strong> {new Date(contrato.assinado_em).toLocaleString('pt-BR')}</p>

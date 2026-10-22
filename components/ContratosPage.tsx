@@ -7,6 +7,9 @@ import { supabase } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
 
 type Contrato = {
+  snapshot_contratual: { reserva?: { data_evento: string; valor_total: number }; cliente?: { nome: string }; itens?: Array<{ descricao: string }> } | null
+  cancelado_em: string | null
+  notificacao_cancelamento_em: string | null
   id: string
   reserva_id: string | null
   numero_contrato: string
@@ -51,7 +54,7 @@ export function ContratosPage() {
 
     const [contratosRes, pendentesRes] = await Promise.all([supabase
       .from('contratos')
-      .select('id,reserva_id,numero_contrato,status,public_token,assinado_em,assinado_por,email_enviado_em,email_destino,created_at,reservas(data_evento,valor_total,clientes(nome,email),kits(nome))')
+      .select('id,reserva_id,numero_contrato,status,public_token,snapshot_contratual,cancelado_em,notificacao_cancelamento_em,assinado_em,assinado_por,email_enviado_em,email_destino,created_at,reservas(data_evento,valor_total,clientes(nome,email),kits(nome))')
       .order('created_at', { ascending: false }),
       supabase.from('orcamentos').select('id,numero,reserva_id,contato_nome,total').in('status', ['ACEITA', 'Aprovado']).eq('formalizacao_status', 'DADOS_COMPLETOS').is('contrato_id', null).not('reserva_id', 'is', null).order('created_at', { ascending: false })
     ])
@@ -128,6 +131,18 @@ export function ContratosPage() {
     }
   }
 
+  async function avisarCancelamento(contrato: Contrato) {
+    setEnviandoId(contrato.id)
+    try {
+      const { data } = await supabase.auth.getSession()
+      const resposta = await fetch(`/api/contratos/${contrato.id}/avisar-cancelamento`, { method: 'POST', headers: { Authorization: `Bearer ${data.session?.access_token || ''}` } })
+      const corpo = await resposta.json()
+      if (!resposta.ok) throw new Error(corpo.mensagem || corpo.error)
+      await carregar()
+    } catch (error) { setErro(error instanceof Error ? error.message : 'Falha ao enviar aviso.') }
+    finally { setEnviandoId(null) }
+  }
+
   async function cancelarEnvio(contrato: Contrato) {
     if (!confirm('Cancelar este envio? O e-mail continuará na caixa do cliente, mas o link de assinatura será invalidado.')) return
 
@@ -186,21 +201,26 @@ export function ContratosPage() {
         {contratos.map(contrato => (
           <Card key={contrato.id}>
             <div className="flex items-start justify-between gap-3">
-              <div><p className="text-xs font-bold text-pink-700">{contrato.numero_contrato}</p><h2 className="font-bold text-slate-900">{contrato.reservas?.clientes?.nome || 'Cliente'}</h2></div>
+              <div><p className="text-xs font-bold text-pink-700">{contrato.numero_contrato}</p><h2 className="font-bold text-slate-900">{contrato.snapshot_contratual?.cliente?.nome || contrato.reservas?.clientes?.nome || 'Cliente'}</h2></div>
               <span className={`rounded-full px-3 py-1 text-xs font-bold ${corStatus(contrato.status)}`}>{contrato.status || 'Gerado'}</span>
             </div>
             <div className="mt-4 space-y-1 text-sm text-slate-500">
               <p>Kit: {contrato.reservas?.kits?.nome || '-'}</p>
-              <p>Evento: {contrato.reservas?.data_evento ? new Date(`${contrato.reservas.data_evento}T12:00:00`).toLocaleDateString('pt-BR') : '-'}</p>
+              <p>Evento: {(contrato.snapshot_contratual?.reserva?.data_evento || contrato.reservas?.data_evento) ? new Date(`${contrato.snapshot_contratual?.reserva?.data_evento || contrato.reservas?.data_evento}T12:00:00`).toLocaleDateString('pt-BR') : '-'}</p>
               {contrato.assinado_em && <p>Assinado em {new Date(contrato.assinado_em).toLocaleString('pt-BR')}{contrato.assinado_por ? ` por ${contrato.assinado_por}` : ''}</p>}
               {contrato.email_enviado_em && <p>E-mail enviado em {new Date(contrato.email_enviado_em).toLocaleString('pt-BR')} para {contrato.email_destino}</p>}
-              <p className="pt-2 text-lg font-bold text-slate-900">{moeda(contrato.reservas?.valor_total || 0)}</p>
+              <p className="pt-2 text-lg font-bold text-slate-900">{moeda(contrato.snapshot_contratual?.reserva?.valor_total ?? contrato.reservas?.valor_total ?? 0)}</p>
             </div>
+            {contrato.status === 'Cancelado' && <div className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+              <p>Versão cancelada. O link anterior foi desativado. A assinatura acima pertence somente a esta versão histórica.</p>
+              {contrato.cancelado_em && <p className="mt-2">{contrato.notificacao_cancelamento_em ? `Aviso enviado por e-mail em ${new Date(contrato.notificacao_cancelamento_em).toLocaleString('pt-BR')}.` : 'Aviso por e-mail pendente.'}</p>}
+              {contrato.cancelado_em && !contrato.notificacao_cancelamento_em && <button type="button" disabled={enviandoId === contrato.id} onClick={() => avisarCancelamento(contrato)} className="mt-2 rounded-lg border border-amber-300 bg-white p-2 font-semibold">{enviandoId === contrato.id ? 'Enviando…' : 'Tentar enviar aviso de cancelamento'}</button>}
+            </div>}
             <div className="mt-4 grid gap-2">
-              {contrato.public_token && contrato.status !== 'Assinado' && <button type="button" onClick={() => copiarLink(contrato)} className="flex items-center justify-center gap-2 rounded-xl bg-pink-600 px-4 py-2 text-sm font-semibold text-white hover:bg-pink-700">{copiadoId === contrato.id ? <Check size={16} /> : <Copy size={16} />} {copiadoId === contrato.id ? 'Link copiado' : 'Copiar link de assinatura'}</button>}
-              {contrato.public_token && <button type="button" disabled={enviandoId === contrato.id || !contrato.reservas?.clientes?.email} onClick={() => enviarEmail(contrato)} className="flex items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"><Mail size={16} /> {enviandoId === contrato.id ? 'Enviando...' : contrato.reservas?.clientes?.email ? contrato.email_enviado_em ? 'Reenviar boas-vindas e contrato' : 'Enviar boas-vindas e contrato' : 'Cliente sem e-mail'}</button>}
-              {contrato.email_enviado_em && contrato.status !== 'Assinado' && <button type="button" disabled={cancelandoId === contrato.id} onClick={() => cancelarEnvio(contrato)} className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"><Ban size={16} /> {cancelandoId === contrato.id ? 'Cancelando...' : 'Cancelar envio e invalidar link'}</button>}
-              {contrato.public_token && <a href={`/contrato/${contrato.public_token}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-xl border border-pink-200 bg-pink-50 px-4 py-2 text-sm font-semibold text-pink-700 hover:bg-pink-100"><FileSignature size={16} /> Abrir página do cliente</a>}
+              {contrato.public_token && contrato.status !== 'Cancelado' && !['Assinado', 'Cancelado'].includes(contrato.status || '') && <button type="button" onClick={() => copiarLink(contrato)} className="flex items-center justify-center gap-2 rounded-xl bg-pink-600 px-4 py-2 text-sm font-semibold text-white hover:bg-pink-700">{copiadoId === contrato.id ? <Check size={16} /> : <Copy size={16} />} {copiadoId === contrato.id ? 'Link copiado' : 'Copiar link de assinatura'}</button>}
+              {contrato.public_token && contrato.status !== 'Cancelado' && <button type="button" disabled={enviandoId === contrato.id || !contrato.reservas?.clientes?.email} onClick={() => enviarEmail(contrato)} className="flex items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"><Mail size={16} /> {enviandoId === contrato.id ? 'Enviando...' : contrato.reservas?.clientes?.email ? contrato.email_enviado_em ? 'Reenviar boas-vindas e contrato' : 'Enviar boas-vindas e contrato' : 'Cliente sem e-mail'}</button>}
+              {contrato.email_enviado_em && !['Assinado', 'Cancelado'].includes(contrato.status || '') && <button type="button" disabled={cancelandoId === contrato.id} onClick={() => cancelarEnvio(contrato)} className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"><Ban size={16} /> {cancelandoId === contrato.id ? 'Cancelando...' : 'Cancelar envio e invalidar link'}</button>}
+              {contrato.public_token && contrato.status !== 'Cancelado' && <a href={`/contrato/${contrato.public_token}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-xl border border-pink-200 bg-pink-50 px-4 py-2 text-sm font-semibold text-pink-700 hover:bg-pink-100"><FileSignature size={16} /> Abrir página do cliente</a>}
               <a href={`/contratos/${contrato.id}/imprimir`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-xl border bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"><FileSignature size={16} /> Abrir versão para impressão</a>
               {contrato.reserva_id && <Link href={`/reservas/${contrato.reserva_id}`} className="flex items-center justify-center gap-2 rounded-xl border bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"><ExternalLink size={16} /> Abrir reserva</Link>}
             </div>

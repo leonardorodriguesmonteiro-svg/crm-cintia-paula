@@ -45,6 +45,8 @@ export async function enviarContratoPorEmail(
   if (contratoError) throw contratoError
   if (!contrato?.public_token || !contrato.reserva_id) throw new Error('Contrato não encontrado ou sem link público.')
 
+  if (contrato.status === 'Cancelado') throw new Error('Contrato cancelado. Libere uma nova versão pela reserva.')
+
   if (contrato.email_enviado_em && !opcoes.reenviar) {
     return {
       sucesso: true,
@@ -129,7 +131,7 @@ export async function enviarContratoPorEmail(
       email_destino: emailDestino,
       email_erro: null
     })
-    .eq('id', contrato.id)
+    .eq('id', contrato.id).neq('status', 'Cancelado')
 
   return {
     sucesso: true,
