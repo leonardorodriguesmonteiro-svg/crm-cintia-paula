@@ -27,6 +27,7 @@ function hostnameDaRequisicao(request: NextRequest) {
 }
 
 function rotaPublicaPermitida(pathname: string) {
+  if (pathname === '/brand/cintia-paula.jpg' || pathname === '/brand/decoracao-borboletas.webp') return true
   if (pathname === '/reservar' || pathname === '/acompanhar') return true
   if (pathname === '/api/publico/acompanhamento' || pathname === '/api/publico/acompanhamento/cadastro') return true
   if (pathname.startsWith('/proposta/')) return true
