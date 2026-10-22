@@ -96,14 +96,14 @@ export async function enviarContratoPorEmail(
       from: remetente,
       to: [emailDestino],
       ...(respostaPara ? { reply_to: respostaPara } : {}),
-      subject: `Bem-vinda à Cintia Paula — contrato ${contrato.numero_contrato}`,
+      subject: `Boas-vindas à Cintia Paula — contrato ${contrato.numero_contrato}`,
       html: `
         <div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#1f2937;line-height:1.6">
           <div style="background:#db2777;color:white;padding:28px;border-radius:18px 18px 0 0">
             <h1 style="margin:0">Cintia Paula Festas e Decorações</h1>
           </div>
           <div style="border:1px solid #e5e7eb;border-top:0;padding:28px;border-radius:0 0 18px 18px">
-            <h2 style="color:#be185d">Olá, ${nome}! Seja muito bem-vinda.</h2>
+            <h2 style="color:#be185d">Olá, ${nome}! É uma alegria receber você.</h2>
             <p>É uma alegria fazer parte deste momento especial. Preparamos o contrato <strong>${numero}</strong> para o evento de <strong>${dataEvento}</strong>.</p>
             <p>Use o botão abaixo para revisar os dados, consultar todos os termos e condições, assinar eletronicamente e baixar sua via.</p>
             <p style="margin:28px 0"><a href="${link}" style="background:#db2777;color:white;text-decoration:none;padding:13px 22px;border-radius:10px;font-weight:bold">Abrir contrato</a></p>
