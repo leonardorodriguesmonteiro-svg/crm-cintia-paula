@@ -333,12 +333,12 @@ export function ReservaPublicaPage() {
               {!carregando && (
                 <div>
                   <h3 className="mb-3 text-lg font-black text-slate-900">Kits prontos</h3>
-                <div className="reserva-products grid grid-cols-2 gap-3 xl:grid-cols-4">
+                <div className="reserva-products grid grid-cols-2 gap-3 xl:grid-cols-3">
                   {kitsVisiveis.map(kit => {
                     const selecionado = itens.some(item => item.tipo === 'KIT' && item.id === kit.id)
                     return (
                       <article key={kit.id} className={`overflow-hidden rounded-3xl border bg-white shadow-sm transition ${selecionado ? 'border-pink-500 ring-2 ring-pink-100' : 'border-slate-200'}`}>
-                        <div className="aspect-[16/10] bg-slate-100">
+                        <div className="aspect-[3/4] bg-slate-100">
                           {kit.foto_url
                             ? <img src={kit.foto_url} alt={kit.nome} className="h-full w-full object-cover" loading="lazy" decoding="async" />
                             : <div className="flex h-full items-center justify-center text-5xl">🎈</div>}
@@ -372,12 +372,12 @@ export function ReservaPublicaPage() {
               {!carregando && (
                 <div>
                   <h3 className="mb-3 text-lg font-black text-slate-900">Peças avulsas</h3>
-                <div className="reserva-products grid grid-cols-2 gap-3 xl:grid-cols-4">
+                <div className="reserva-products grid grid-cols-2 gap-3 xl:grid-cols-3">
                   {estoqueVisivel.map(item => {
                     const selecionado = itens.find(selecionado => selecionado.tipo === 'ITEM_ESTOQUE' && selecionado.id === item.id)
                     return (
                       <article key={item.id} className={`overflow-hidden rounded-3xl border bg-white shadow-sm ${selecionado ? 'border-pink-400' : 'border-slate-200'}`}>
-                        <div className="aspect-[16/10] bg-slate-100">
+                        <div className="aspect-[3/4] bg-slate-100">
                           {item.foto_url
                             ? <img src={item.foto_url} alt={item.nome} className="h-full w-full object-cover" loading="lazy" decoding="async" />
                             : <div className="flex h-full items-center justify-center text-4xl">✨</div>}
